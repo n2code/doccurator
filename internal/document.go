@@ -2,8 +2,11 @@ package internal
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func (doc *Document) UpdateFromFile() {
@@ -35,4 +38,14 @@ func (stored *storedFile) updateFileStats() {
 func (meta *contentMetadata) setFromContent(content []byte) {
 	meta.size = int64(len(content))
 	meta.sha256Hash = sha256.Sum256(content)
+}
+
+func (doc *Document) String() string {
+	return fmt.Sprintf("Document %d\n  Path:     %s\n  Size:     %d bytes\n  SHA256:   %s\n  Recorded: %s\n  Modified: %s",
+		doc.id,
+		doc.localStorage.pathRelativeToLibrary(),
+		doc.contentMetadata.size,
+		hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
+		time.Unix(int64(doc.recorded), 0).Local().Format(time.RFC1123),
+		time.Unix(int64(doc.localStorage.lastModified), 0).Local().Format(time.RFC1123))
 }

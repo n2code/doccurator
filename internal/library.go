@@ -36,20 +36,21 @@ type Library interface {
 	GetDocumentByPath(string) (doc *Document, exists bool)
 	RemoveDocument(*Document) error
 	Scan() (LibraryFiles, error)
-	SaveToFile(path string)
-	LoadFromFile(path string)
+	SaveToLocalFile(absolutePath string)
+	LoadFromLocalFile(absolutePath string)
+	SetRoot(absolutePath string)
 	ChdirToRoot()
+	AllRecordsAsText() string
 }
 
-func MakeLibrary(absoluteRoot string) Library {
+func MakeRuntimeLibrary() Library {
 	return &library{
-		rootPath:     absoluteRoot,
 		documents:    make(map[DocumentId]*Document),
 		relPathIndex: make(map[string]*Document)}
 }
 
-func (lib *library) SaveToFile(path string) {
-	jsonBlob, err := json.Marshal(lib.documents)
+func (lib *library) SaveToLocalFile(path string) {
+	jsonBlob, err := json.Marshal(lib)
 	if err != nil {
 		panic(err)
 	}
@@ -59,19 +60,16 @@ func (lib *library) SaveToFile(path string) {
 	}
 }
 
-func (lib *library) LoadFromFile(path string) {
+func (lib *library) LoadFromLocalFile(path string) {
 	jsonBlob, err := os.ReadFile(path)
 	if err != nil {
 		panic(err)
 	}
 	lib.documents = make(map[DocumentId]*Document)
-	err = json.Unmarshal(jsonBlob, &lib.documents)
+	lib.relPathIndex = make(map[string]*Document)
+	err = json.Unmarshal(jsonBlob, &lib)
 	if err != nil {
 		panic(err)
-	}
-	lib.relPathIndex = make(map[string]*Document)
-	for _, doc := range lib.documents {
-		lib.relPathIndex[doc.localStorage.pathRelativeToLibrary()] = doc
 	}
 }
 
@@ -135,11 +133,22 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 	return
 }
 
+func (lib *library) SetRoot(path string) {
+	lib.rootPath = path
+}
 func (lib *library) ChdirToRoot() {
 	err := os.Chdir(lib.rootPath)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (lib *library) AllRecordsAsText() string {
+	var builder strings.Builder
+	for _, doc := range lib.documents {
+		fmt.Fprintln(&builder, doc)
+	}
+	return builder.String()
 }
 
 func (files LibraryFiles) DisplayDelta(absoluteWorkingDirectory string) {

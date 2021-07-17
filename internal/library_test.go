@@ -45,7 +45,8 @@ func TestLibraryApi(t *testing.T) {
 	filePathA := filepath.Join(libRootDir, "file_a")
 	filePathB := filepath.Join(libRootDir, "file_b")
 
-	Lib := MakeLibrary(libRootDir)
+	Lib := MakeRuntimeLibrary()
+	Lib.SetRoot(libRootDir)
 
 	docB, err := Lib.CreateDocument(2)
 	if err != nil || docB == nil {

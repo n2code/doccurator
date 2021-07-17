@@ -3,12 +3,18 @@ package doccinator
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"net/url"
 	"os"
+	"path"
+	"path/filepath"
 
 	. "github.com/n2code/doccinator/internal"
 )
 
-var appLib = MakeLibrary("/tmp")
+const libraryPointerFileName = ".doccinator"
+
+var appLib Library
 
 // add records a new document in the library
 func CommandAdd(id DocumentId, fileAbsolutePath string) {
@@ -39,6 +45,10 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 	return appLib.RemoveDocument(doc)
 }
 
+func CommandList() {
+	fmt.Print(appLib.AllRecordsAsText())
+}
+
 func CommandStatus() error {
 	files, err := appLib.Scan()
 	if err != nil {
@@ -52,6 +62,58 @@ func CommandStatus() error {
 	return nil
 }
 
+func getRealWorkingDirectory() string {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	absoluteWorkingDirectory, err := filepath.Abs(workingDirectory)
+	if err != nil {
+		panic(err)
+	}
+	realWorkingDirectory, err := filepath.EvalSymlinks(absoluteWorkingDirectory)
+	if err != nil {
+		panic(err)
+	}
+	return realWorkingDirectory
+}
+
+func InitAppLibrary() {
+	appLib = MakeRuntimeLibrary()
+	appLib.SetRoot(getRealWorkingDirectory())
+}
+
+func DiscoverAppLibrary() bool {
+	currentDir := getRealWorkingDirectory()
+	for {
+		pointerFile := path.Join(currentDir, libraryPointerFileName)
+		stat, err := os.Stat(pointerFile)
+		if err == nil && stat.Mode().IsRegular() {
+			contents, err := os.ReadFile(pointerFile)
+			if err != nil {
+				panic(err)
+			}
+			url, err := url.Parse(string(contents))
+			if err != nil {
+				panic(err)
+			}
+			if url.Scheme != "file" {
+				panic(errors.New("scheme of URL in library locator file missing or unsupported: " + url.Scheme))
+			}
+			appLib = MakeRuntimeLibrary()
+			appLib.LoadFromLocalFile(url.Path)
+			return true
+		} else if errors.Is(err, fs.ErrNotExist) {
+			if currentDir == "/" {
+				return false
+			}
+			currentDir = path.Dir(currentDir)
+		} else {
+			panic(err)
+		}
+	}
+}
+
 func PersistDatabase() {
-	appLib.SaveToFile("/tmp/doccinator.db")
+	appLib.SaveToLocalFile("/tmp/doccinator.db")
 }
