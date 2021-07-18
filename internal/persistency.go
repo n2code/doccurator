@@ -1,10 +1,12 @@
 package internal
 
 import (
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 )
 
 type jsonDoc struct {
@@ -81,4 +83,65 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 		lib.relPathIndex[doc.localStorage.pathRelativeToLibrary()] = doc
 	}
 	return nil
+}
+
+func (lib *library) SaveToLocalFile(path string) {
+	tempPath := path + ".wip"
+
+	file, err := os.OpenFile(tempPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600|os.ModeExclusive)
+	if err != nil {
+		panic(err)
+	}
+	fileClosed := false
+	closeFile := func() {
+		if !fileClosed {
+			err := file.Close()
+			if err != nil {
+				panic(err)
+			}
+			fileClosed = true
+		}
+	}
+	defer closeFile()
+
+	compressor, _ := gzip.NewWriterLevel(file, gzip.BestSpeed)
+	closeCompressor := func() {
+		err := compressor.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
+	defer closeCompressor()
+
+	encoder := json.NewEncoder(compressor)
+	encoder.SetIndent("", "\t")
+
+	err = encoder.Encode(lib)
+	if err != nil {
+		panic(err)
+	}
+
+	closeCompressor()
+	closeFile()
+	err = os.Remove(path)
+	if err != nil {
+		panic(err)
+	}
+	err = os.Rename(tempPath, path)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (lib *library) LoadFromLocalFile(path string) {
+	jsonBlob, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	lib.documents = make(map[DocumentId]*Document)
+	lib.relPathIndex = make(map[string]*Document)
+	err = json.Unmarshal(jsonBlob, &lib)
+	if err != nil {
+		panic(err)
+	}
 }

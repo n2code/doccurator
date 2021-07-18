@@ -1,10 +1,8 @@
 package internal
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,30 +45,6 @@ func MakeRuntimeLibrary() Library {
 	return &library{
 		documents:    make(map[DocumentId]*Document),
 		relPathIndex: make(map[string]*Document)}
-}
-
-func (lib *library) SaveToLocalFile(path string) {
-	jsonBlob, err := json.Marshal(lib)
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(path, jsonBlob, fs.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (lib *library) LoadFromLocalFile(path string) {
-	jsonBlob, err := os.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	lib.documents = make(map[DocumentId]*Document)
-	lib.relPathIndex = make(map[string]*Document)
-	err = json.Unmarshal(jsonBlob, &lib)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (lib *library) CreateDocument(id DocumentId) (doc *Document, err error) {
