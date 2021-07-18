@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 )
 
 type jsonDoc struct {
@@ -23,6 +25,9 @@ type jsonLib struct {
 	LibraryRoot string
 	Documents   map[DocumentId]*Document
 }
+
+const workInProgressFileSuffix = ".wip"
+const databaseTerminator = "<<<DOCCINATOR-LIBRARY\n"
 
 func (doc *Document) MarshalJSON() ([]byte, error) {
 	persistedDoc := jsonDoc{
@@ -86,7 +91,7 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 }
 
 func (lib *library) SaveToLocalFile(path string) {
-	tempPath := path + ".wip"
+	tempPath := path + workInProgressFileSuffix
 
 	file, err := os.OpenFile(tempPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600|os.ModeExclusive)
 	if err != nil {
@@ -121,6 +126,11 @@ func (lib *library) SaveToLocalFile(path string) {
 		panic(err)
 	}
 
+	_, err = compressor.Write([]byte(databaseTerminator))
+	if err != nil {
+		panic(err)
+	}
+
 	closeCompressor()
 	closeFile()
 	err = os.Remove(path)
@@ -134,14 +144,39 @@ func (lib *library) SaveToLocalFile(path string) {
 }
 
 func (lib *library) LoadFromLocalFile(path string) {
-	jsonBlob, err := os.ReadFile(path)
+	leftoverWorkInProgressFile := path + workInProgressFileSuffix
+	_, err := os.Stat(leftoverWorkInProgressFile)
+	if !errors.Is(err, os.ErrNotExist) {
+		panic("old " + workInProgressFileSuffix + "-file exists, manual intervention necessary")
+	}
+
+	file, err := os.Open(path)
 	if err != nil {
 		panic(err)
 	}
-	lib.documents = make(map[DocumentId]*Document)
-	lib.relPathIndex = make(map[string]*Document)
-	err = json.Unmarshal(jsonBlob, &lib)
+	defer file.Close()
+
+	decompressor, err := gzip.NewReader(file)
 	if err != nil {
 		panic(err)
+	}
+	defer decompressor.Close()
+
+	decoder := json.NewDecoder(decompressor)
+	decoder.DisallowUnknownFields()
+
+	lib.documents = make(map[DocumentId]*Document)
+	lib.relPathIndex = make(map[string]*Document)
+
+	err = decoder.Decode(&lib)
+	if err != nil {
+		panic(err)
+	}
+
+	var termination strings.Builder
+	io.Copy(&termination, decoder.Buffered())
+	io.Copy(&termination, decompressor)
+	if !strings.HasPrefix(termination.String(), "\n"+databaseTerminator) { //newline courtesy of JSON beautification
+		panic("unexpected library termination: " + termination.String())
 	}
 }

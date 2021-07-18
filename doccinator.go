@@ -3,7 +3,6 @@ package doccinator
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/url"
 	"os"
 	"path"
@@ -103,7 +102,7 @@ func DiscoverAppLibrary() bool {
 			appLib = MakeRuntimeLibrary()
 			appLib.LoadFromLocalFile(url.Path)
 			return true
-		} else if errors.Is(err, fs.ErrNotExist) {
+		} else if errors.Is(err, os.ErrNotExist) {
 			if currentDir == "/" {
 				return false
 			}
