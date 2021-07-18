@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -21,13 +22,18 @@ type jsonDoc struct {
 }
 
 type jsonLib struct {
-	Version     int
-	LibraryRoot string
-	Documents   map[DocumentId]*Document
+	LocalRoot string
+	Documents map[DocumentId]*Document
 }
 
 const workInProgressFileSuffix = ".wip"
-const databaseTerminator = "<<<DOCCINATOR-LIBRARY\n"
+const databaseContentOpener = "LIBRARY>>>"
+const databaseContentTerminator = "<<<LIBRARY"
+const databaseSemanticVersion = "0.1.0"
+const semVerPattern = `^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
+
+var semanticVersionRegex = regexp.MustCompile(semVerPattern)
+var semanticVersionMajorSubmatchIndex = semanticVersionRegex.SubexpIndex("major")
 
 func (doc *Document) MarshalJSON() ([]byte, error) {
 	persistedDoc := jsonDoc{
@@ -56,7 +62,7 @@ func (doc *Document) UnmarshalJSON(blob []byte) error {
 		panic(err)
 	}
 	if len(shaBytes) != 32 {
-		panic("hash corrupt")
+		panic("persisted hash has bad length")
 	}
 	copy(doc.contentMetadata.sha256Hash[:], shaBytes)
 	doc.recorded = loadedDoc.Recorded
@@ -65,9 +71,8 @@ func (doc *Document) UnmarshalJSON(blob []byte) error {
 
 func (lib *library) MarshalJSON() ([]byte, error) {
 	root := jsonLib{
-		Version:     1,
-		LibraryRoot: lib.rootPath,
-		Documents:   lib.documents,
+		LocalRoot: lib.rootPath,
+		Documents: lib.documents,
 	}
 	return json.Marshal(root)
 }
@@ -78,10 +83,7 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 	if err != nil {
 		return err
 	}
-	if loadedLib.Version != 1 {
-		return errors.New(fmt.Sprint("incompatible persisted library version:", loadedLib.Version))
-	}
-	lib.rootPath = loadedLib.LibraryRoot
+	lib.rootPath = loadedLib.LocalRoot
 	for id, doc := range loadedLib.Documents {
 		doc.id = id
 		lib.documents[id] = doc
@@ -118,6 +120,16 @@ func (lib *library) SaveToLocalFile(path string) {
 	}
 	defer closeCompressor()
 
+	writeLine := func(text string) {
+		_, err := compressor.Write([]byte(text + "\n"))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	writeLine(databaseSemanticVersion)
+	writeLine(databaseContentOpener)
+
 	encoder := json.NewEncoder(compressor)
 	encoder.SetIndent("", "\t")
 
@@ -126,10 +138,7 @@ func (lib *library) SaveToLocalFile(path string) {
 		panic(err)
 	}
 
-	_, err = compressor.Write([]byte(databaseTerminator))
-	if err != nil {
-		panic(err)
-	}
+	writeLine(databaseContentTerminator)
 
 	closeCompressor()
 	closeFile()
@@ -162,6 +171,35 @@ func (lib *library) LoadFromLocalFile(path string) {
 	}
 	defer decompressor.Close()
 
+	textUntilNewline := func() string {
+		var line strings.Builder
+		for {
+			var char [1]byte
+			_, err := decompressor.Read(char[:])
+			if err != nil {
+				panic(err)
+			}
+			if char[0] == '\n' {
+				break
+			}
+			line.WriteByte(char[0])
+		}
+		return line.String()
+	}
+
+	fileVersion := textUntilNewline()
+	fileVersionMatch := semanticVersionRegex.FindStringSubmatch(fileVersion)
+	if fileVersionMatch == nil {
+		panic("library corrupted, version not found")
+	}
+	appVersionMatch := semanticVersionRegex.FindStringSubmatch(databaseSemanticVersion)
+	if fileVersionMatch[semanticVersionMajorSubmatchIndex] != appVersionMatch[semanticVersionMajorSubmatchIndex] {
+		panic(errors.New(fmt.Sprint("incompatible persisted library version:", fileVersion)))
+	}
+
+	for textUntilNewline() != databaseContentOpener {
+	}
+
 	decoder := json.NewDecoder(decompressor)
 	decoder.DisallowUnknownFields()
 
@@ -176,7 +214,7 @@ func (lib *library) LoadFromLocalFile(path string) {
 	var termination strings.Builder
 	io.Copy(&termination, decoder.Buffered())
 	io.Copy(&termination, decompressor)
-	if !strings.HasPrefix(termination.String(), "\n"+databaseTerminator) { //newline courtesy of JSON beautification
+	if !strings.HasPrefix(termination.String(), "\n"+databaseContentTerminator) { //newline courtesy of JSON beautification
 		panic("unexpected library termination: " + termination.String())
 	}
 }
