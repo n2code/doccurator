@@ -1,0 +1,4 @@
+#!/bin/sh
+# call with working directory set to repository root
+go test -coverprofile=build/coverage.out ./...
+go tool cover -html=build/coverage.out

@@ -1,0 +1,3 @@
+#!/bin/sh
+# call with working directory set to repository root
+go build -o build/doccinator ./cmd/doccinator
