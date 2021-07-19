@@ -2,7 +2,7 @@ package internal
 
 import (
 	"compress/gzip"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,7 +29,7 @@ type jsonLib struct {
 const workInProgressFileSuffix = ".wip"
 const databaseContentOpener = "LIBRARY>>>"
 const databaseContentTerminator = "<<<LIBRARY"
-const databaseSemanticVersion = "0.1.0"
+const databaseSemanticVersion = "0.2.0"
 const semVerPattern = `^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
 
 var semanticVersionRegex = regexp.MustCompile(semVerPattern)
@@ -40,7 +40,7 @@ func (doc *Document) MarshalJSON() ([]byte, error) {
 		Dir:      doc.localStorage.directory,
 		File:     doc.localStorage.name,
 		Size:     doc.contentMetadata.size,
-		Sha256:   base64.StdEncoding.EncodeToString(doc.contentMetadata.sha256Hash[:]),
+		Sha256:   hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
 		Recorded: doc.recorded,
 		Modified: doc.localStorage.lastModified,
 	}
@@ -57,7 +57,7 @@ func (doc *Document) UnmarshalJSON(blob []byte) error {
 	doc.localStorage.name = loadedDoc.File
 	doc.localStorage.lastModified = loadedDoc.Modified
 	doc.contentMetadata.size = loadedDoc.Size
-	shaBytes, err := base64.StdEncoding.DecodeString(loadedDoc.Sha256)
+	shaBytes, err := hex.DecodeString(loadedDoc.Sha256)
 	if err != nil {
 		panic(err)
 	}
