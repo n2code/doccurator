@@ -37,8 +37,14 @@ func TestGetPathRelativeToLibraryRoot(t *testing.T) {
 }
 
 func TestLibraryApi(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "doccinator-test-*")
-	libRootDir, _ := filepath.Abs(tmpDir)
+	tmpDir, err := os.MkdirTemp("", "doccinator-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	libRootDir, err := filepath.Abs(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
 		os.RemoveAll(libRootDir)
 	}()
