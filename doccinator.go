@@ -19,7 +19,7 @@ var appLib Library
 func CommandAdd(id DocumentId, fileAbsolutePath string) {
 	doc, err := appLib.CreateDocument(id)
 	if err != nil {
-		panic("creation failed")
+		panic(fmt.Errorf("document creation failed: %w", err))
 	}
 	appLib.SetDocumentPath(doc, fileAbsolutePath)
 	doc.UpdateFromFile()
@@ -29,7 +29,7 @@ func CommandAdd(id DocumentId, fileAbsolutePath string) {
 func CommandUpdateByPath(fileAbsolutePath string) error {
 	doc, exists := appLib.GetDocumentByPath(fileAbsolutePath)
 	if !exists {
-		return errors.New(fmt.Sprint("path unknown: ", fileAbsolutePath))
+		return fmt.Errorf("path unknown: %s", fileAbsolutePath)
 	}
 	doc.UpdateFromFile()
 	return nil
@@ -39,7 +39,7 @@ func CommandUpdateByPath(fileAbsolutePath string) error {
 func CommandRemoveByPath(fileAbsolutePath string) error {
 	doc, exists := appLib.GetDocumentByPath(fileAbsolutePath)
 	if !exists {
-		return errors.New(fmt.Sprint("path not on record: ", fileAbsolutePath))
+		return fmt.Errorf("path not on record: %s", fileAbsolutePath)
 	}
 	return appLib.RemoveDocument(doc)
 }
@@ -51,7 +51,7 @@ func CommandList() {
 func CommandStatus() error {
 	files, err := appLib.Scan()
 	if err != nil {
-		return errors.New(fmt.Sprint("scanning failed: ", err))
+		return fmt.Errorf("scanning failed: %w", err)
 	}
 	workingDirectory, err := os.Getwd()
 	if err != nil {
@@ -82,33 +82,38 @@ func InitAppLibrary() {
 	appLib.SetRoot(getRealWorkingDirectory())
 }
 
-func DiscoverAppLibrary() bool {
+func DiscoverAppLibrary() (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("library not found: %w", err)
+		}
+	}()
 	currentDir := getRealWorkingDirectory()
 	for {
 		pointerFile := path.Join(currentDir, libraryPointerFileName)
-		stat, err := os.Stat(pointerFile)
-		if err == nil && stat.Mode().IsRegular() {
-			contents, err := os.ReadFile(pointerFile)
-			if err != nil {
-				panic(err)
+		stat, statErr := os.Stat(pointerFile)
+		if statErr == nil && stat.Mode().IsRegular() {
+			contents, readErr := os.ReadFile(pointerFile)
+			if readErr != nil {
+				return readErr
 			}
-			url, err := url.Parse(string(contents))
-			if err != nil {
-				panic(err)
+			url, parseErr := url.Parse(string(contents))
+			if parseErr != nil {
+				return parseErr
 			}
 			if url.Scheme != "file" {
-				panic(errors.New("scheme of URL in library locator file missing or unsupported: " + url.Scheme))
+				return errors.New("scheme of URL in library locator file missing or unsupported: " + url.Scheme)
 			}
 			appLib = MakeRuntimeLibrary()
 			appLib.LoadFromLocalFile(url.Path)
-			return true
-		} else if errors.Is(err, os.ErrNotExist) {
+			return nil
+		} else if errors.Is(statErr, os.ErrNotExist) {
 			if currentDir == "/" {
-				return false
+				return errors.New("stopping at filesystem root")
 			}
 			currentDir = path.Dir(currentDir)
 		} else {
-			panic(err)
+			return statErr
 		}
 	}
 }

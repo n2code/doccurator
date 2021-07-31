@@ -61,13 +61,7 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 	return
 }
 
-func main() {
-	rq, output, err, rc := parseFlags(os.Args[1:])
-	if err != nil {
-		fmt.Println(output)
-		os.Exit(rc)
-	}
-
+func (rq *CliRequest) execute() (err error) {
 	switch rq.action {
 	case "demo-setup":
 		os.Chdir("/tmp")
@@ -79,21 +73,36 @@ func main() {
 		PersistDatabase()
 	case "demo-list":
 		os.Chdir("/tmp")
-		found := DiscoverAppLibrary()
-		if !found {
-			fmt.Println("library not found")
-			os.Exit(1)
+		err = DiscoverAppLibrary()
+		if err != nil {
+			return
 		}
 		CommandList()
 	case "demo-scenario":
 		os.Chdir("/tmp")
-		found := DiscoverAppLibrary()
-		if !found {
-			fmt.Println("library not found")
-			os.Exit(1)
+		err = DiscoverAppLibrary()
+		if err != nil {
+			return
 		}
 		CommandAdd(23, "/tmp/demofileA")
 		CommandAdd(42, "/tmp/demofileB")
 		PersistDatabase()
+	default:
+		err = fmt.Errorf(`unknown action "%s"`, rq.action)
 	}
+	return
+}
+
+func main() {
+	rq, output, err, rc := parseFlags(os.Args[1:])
+	if err != nil {
+		fmt.Println(output)
+		os.Exit(rc)
+	}
+	err = rq.execute()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }
