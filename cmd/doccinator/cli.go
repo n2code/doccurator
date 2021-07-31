@@ -84,8 +84,14 @@ func (rq *CliRequest) execute() (err error) {
 		if err != nil {
 			return
 		}
-		CommandAdd(23, "/tmp/demofileA")
-		CommandAdd(42, "/tmp/demofileB")
+		err = CommandAdd(23, "/tmp/demofileA")
+		if err != nil {
+			return
+		}
+		err = CommandAdd(42, "/tmp/demofileB")
+		if err != nil {
+			return
+		}
 		PersistDatabase()
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, rq.action)

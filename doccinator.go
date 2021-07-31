@@ -15,21 +15,39 @@ const libraryPointerFileName = ".doccinator"
 
 var appLib Library
 
+type CommandError struct {
+	message string
+	cause   error
+}
+
+func (e *CommandError) Error() string {
+	return fmt.Sprintf("%s: %s", e.message, e.cause)
+}
+
+func (e *CommandError) Unwrap() error {
+	return e.cause
+}
+
+func newCommandError(message string, cause error) *CommandError {
+	return &CommandError{message: message, cause: cause}
+}
+
 // add records a new document in the library
-func CommandAdd(id DocumentId, fileAbsolutePath string) {
+func CommandAdd(id DocumentId, fileAbsolutePath string) error {
 	doc, err := appLib.CreateDocument(id)
 	if err != nil {
-		panic(fmt.Errorf("document creation failed: %w", err))
+		return newCommandError("document creation failed", err)
 	}
 	appLib.SetDocumentPath(doc, fileAbsolutePath)
 	doc.UpdateFromFile()
+	return nil
 }
 
 // update an existing document in the library
 func CommandUpdateByPath(fileAbsolutePath string) error {
 	doc, exists := appLib.GetDocumentByPath(fileAbsolutePath)
 	if !exists {
-		return fmt.Errorf("path unknown: %s", fileAbsolutePath)
+		return newCommandError(fmt.Sprintf("path unknown: %s", fileAbsolutePath), nil)
 	}
 	doc.UpdateFromFile()
 	return nil
@@ -39,7 +57,7 @@ func CommandUpdateByPath(fileAbsolutePath string) error {
 func CommandRemoveByPath(fileAbsolutePath string) error {
 	doc, exists := appLib.GetDocumentByPath(fileAbsolutePath)
 	if !exists {
-		return fmt.Errorf("path not on record: %s", fileAbsolutePath)
+		return newCommandError(fmt.Sprintf("path not on record: %s", fileAbsolutePath), nil)
 	}
 	return appLib.RemoveDocument(doc)
 }
@@ -51,11 +69,11 @@ func CommandList() {
 func CommandStatus() error {
 	files, err := appLib.Scan()
 	if err != nil {
-		return fmt.Errorf("scanning failed: %w", err)
+		return newCommandError("scanning failed", err)
 	}
 	workingDirectory, err := os.Getwd()
 	if err != nil {
-		return err
+		return newCommandError("working directory indeterminable", err)
 	}
 	files.DisplayDelta(workingDirectory)
 	return nil

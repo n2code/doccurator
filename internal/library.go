@@ -49,7 +49,7 @@ func MakeRuntimeLibrary() Library {
 
 func (lib *library) CreateDocument(id DocumentId) (doc *Document, err error) {
 	if _, exists := lib.documents[id]; exists {
-		err = errors.New("document ID already exists")
+		err = fmt.Errorf("document ID %s already exists", id)
 		return
 	}
 	doc = &Document{

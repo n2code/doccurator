@@ -1,5 +1,7 @@
 package internal
 
+import "fmt"
+
 type DocumentId uint64
 type unixTimestamp int64
 
@@ -8,6 +10,10 @@ type Document struct {
 	recorded        unixTimestamp
 	localStorage    storedFile
 	contentMetadata contentMetadata
+}
+
+func (id DocumentId) String() string {
+	return fmt.Sprintf("%d", id)
 }
 
 // storedFile is location relative to the storage root
