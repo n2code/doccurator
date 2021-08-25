@@ -63,7 +63,11 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 }
 
 func CommandList() {
-	fmt.Print(appLib.AllRecordsAsText())
+	allRecords := appLib.AllRecordsAsText()
+	fmt.Print(allRecords)
+	if len(allRecords) == 0 {
+		fmt.Println("<no records>")
+	}
 }
 
 func CommandStatus() error {
@@ -136,6 +140,10 @@ func DiscoverAppLibrary() (err error) {
 	}
 }
 
+func CreateDatabase() {
+	appLib.SaveToLocalFile("/tmp/doccinator.db", false)
+}
+
 func PersistDatabase() {
-	appLib.SaveToLocalFile("/tmp/doccinator.db")
+	appLib.SaveToLocalFile("/tmp/doccinator.db", true)
 }

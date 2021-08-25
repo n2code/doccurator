@@ -70,7 +70,7 @@ func (rq *CliRequest) execute() (err error) {
 		os.WriteFile("/tmp/demofileA", []byte("hello world"), fs.ModePerm)
 		os.WriteFile("/tmp/demofileB", []byte("goodbye!"), fs.ModePerm)
 		os.WriteFile("/tmp/doccinator.db", []byte{}, fs.ModePerm)
-		PersistDatabase()
+		CreateDatabase()
 	case "demo-list":
 		os.Chdir("/tmp")
 		err = DiscoverAppLibrary()

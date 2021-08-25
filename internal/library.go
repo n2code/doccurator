@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -34,7 +35,7 @@ type Library interface {
 	GetDocumentByPath(string) (doc *Document, exists bool)
 	RemoveDocument(*Document) error
 	Scan() (LibraryFiles, error)
-	SaveToLocalFile(absolutePath string)
+	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)
 	SetRoot(absolutePath string)
 	ChdirToRoot()
@@ -117,9 +118,27 @@ func (lib *library) ChdirToRoot() {
 	}
 }
 
+type docsByRecordedAndId []*Document
+
+func (l docsByRecordedAndId) Len() int {
+	return len(l)
+}
+func (l docsByRecordedAndId) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+func (l docsByRecordedAndId) Less(i, j int) bool {
+	return l[i].recorded < l[j].recorded || (l[i].recorded == l[j].recorded && l[i].id < l[j].id)
+}
+
 func (lib *library) AllRecordsAsText() string {
-	var builder strings.Builder
+	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
+		docList = append(docList, doc)
+	}
+	sort.Sort(docList)
+
+	var builder strings.Builder
+	for _, doc := range docList {
 		fmt.Fprintln(&builder, doc)
 	}
 	return builder.String()

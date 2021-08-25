@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -48,8 +49,10 @@ func TestLibraryApi(t *testing.T) {
 	defer func() {
 		os.RemoveAll(libRootDir)
 	}()
-	filePathA := filepath.Join(libRootDir, "file_a")
-	filePathB := filepath.Join(libRootDir, "file_b")
+	fileNameA := "file_a"
+	fileNameB := "file_b"
+	filePathA := filepath.Join(libRootDir, fileNameA)
+	filePathB := filepath.Join(libRootDir, fileNameB)
 
 	Lib := MakeRuntimeLibrary()
 	Lib.SetRoot(libRootDir)
@@ -97,5 +100,10 @@ func TestLibraryApi(t *testing.T) {
 	err = Lib.RemoveDocument(docA)
 	if err == nil {
 		t.Fatal("second attempt to delete A did not fail")
+	}
+
+	allRecords := Lib.AllRecordsAsText()
+	if !strings.Contains(allRecords, fileNameB) || strings.Contains(allRecords, fileNameA) {
+		t.Fatal("record printout unexpected:\n" + allRecords)
 	}
 }
