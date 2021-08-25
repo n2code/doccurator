@@ -93,6 +93,12 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 }
 
 func (lib *library) SaveToLocalFile(path string, overwrite bool) {
+	if !overwrite {
+		if _, err := os.Lstat(path); err == nil {
+			panic("library file exists, overwrite not requested")
+		}
+	}
+
 	tempPath := path + workInProgressFileSuffix
 
 	file, err := os.OpenFile(tempPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600|os.ModeExclusive)
@@ -142,12 +148,7 @@ func (lib *library) SaveToLocalFile(path string, overwrite bool) {
 
 	closeCompressor()
 	closeFile()
-	if overwrite {
-		err = os.Remove(path)
-		if err != nil {
-			panic(err)
-		}
-	}
+
 	err = os.Rename(tempPath, path)
 	if err != nil {
 		panic(err)
