@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
-	. "github.com/n2code/doccinator"
+	"github.com/n2code/doccinator"
 )
 
 type CliRequest struct {
@@ -61,37 +62,50 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 	return
 }
 
+func getRealWorkingDirectory() string {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	absoluteWorkingDirectory, err := filepath.Abs(workingDirectory)
+	if err != nil {
+		panic(err)
+	}
+	realWorkingDirectory, err := filepath.EvalSymlinks(absoluteWorkingDirectory)
+	if err != nil {
+		panic(err)
+	}
+	return realWorkingDirectory
+}
+
 func (rq *CliRequest) execute() (err error) {
 	switch rq.action {
 	case "demo-setup":
-		os.Chdir("/tmp")
-		InitAppLibrary()
+		doccinator.InitAppLibrary("/tmp")
 		os.WriteFile("/tmp/.doccinator", []byte("file:///tmp/doccinator.db"), fs.ModePerm)
 		os.WriteFile("/tmp/demofileA", []byte("hello world"), fs.ModePerm)
 		os.WriteFile("/tmp/demofileB", []byte("goodbye!"), fs.ModePerm)
-		CreateDatabase()
+		doccinator.CreateDatabase("/tmp/doccinator.db")
 	case "demo-list":
-		os.Chdir("/tmp")
-		err = DiscoverAppLibrary()
+		err = doccinator.DiscoverAppLibrary("/tmp")
 		if err != nil {
 			return
 		}
-		CommandList()
+		doccinator.CommandList()
 	case "demo-scenario":
-		os.Chdir("/tmp")
-		err = DiscoverAppLibrary()
+		err = doccinator.DiscoverAppLibrary("/tmp")
 		if err != nil {
 			return
 		}
-		err = CommandAdd(23, "/tmp/demofileA")
+		err = doccinator.CommandAdd(23, "/tmp/demofileA")
 		if err != nil {
 			return
 		}
-		err = CommandAdd(42, "/tmp/demofileB")
+		err = doccinator.CommandAdd(42, "/tmp/demofileB")
 		if err != nil {
 			return
 		}
-		PersistDatabase()
+		doccinator.PersistDatabase("/tmp/doccinator.db")
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, rq.action)
 	}

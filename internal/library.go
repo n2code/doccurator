@@ -33,6 +33,7 @@ type Library interface {
 	CreateDocument(DocumentId) (*Document, error)
 	SetDocumentPath(doc *Document, absolutePath string)
 	GetDocumentByPath(string) (doc *Document, exists bool)
+	UpdateDocumentFromFile(*Document) error
 	RemoveDocument(*Document) error
 	Scan() (LibraryFiles, error)
 	SaveToLocalFile(absolutePath string, overwrite bool)
@@ -79,6 +80,17 @@ func (lib *library) GetDocumentByPath(absolutePath string) (doc *Document, exist
 	}
 	doc, exists = lib.relPathIndex[relativePath]
 	return
+}
+
+func (lib *library) UpdateDocumentFromFile(doc *Document) error {
+	docRelativePath := doc.localStorage.pathRelativeToLibrary()
+	doc, exists := lib.relPathIndex[docRelativePath]
+	if !exists {
+		return errors.New(fmt.Sprint("document unknown: ", docRelativePath))
+	}
+	absoluteLocation := filepath.Join(lib.rootPath, docRelativePath)
+	doc.updateFromFile(absoluteLocation)
+	return nil
 }
 
 func (lib *library) RemoveDocument(doc *Document) error {

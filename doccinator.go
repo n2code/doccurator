@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 
 	. "github.com/n2code/doccinator/internal"
 )
@@ -39,7 +38,7 @@ func CommandAdd(id DocumentId, fileAbsolutePath string) error {
 		return newCommandError("document creation failed", err)
 	}
 	appLib.SetDocumentPath(doc, fileAbsolutePath)
-	doc.UpdateFromFile()
+	appLib.UpdateDocumentFromFile(doc)
 	return nil
 }
 
@@ -49,7 +48,7 @@ func CommandUpdateByPath(fileAbsolutePath string) error {
 	if !exists {
 		return newCommandError(fmt.Sprintf("path unknown: %s", fileAbsolutePath), nil)
 	}
-	doc.UpdateFromFile()
+	appLib.UpdateDocumentFromFile(doc)
 	return nil
 }
 
@@ -83,34 +82,18 @@ func CommandStatus() error {
 	return nil
 }
 
-func getRealWorkingDirectory() string {
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	absoluteWorkingDirectory, err := filepath.Abs(workingDirectory)
-	if err != nil {
-		panic(err)
-	}
-	realWorkingDirectory, err := filepath.EvalSymlinks(absoluteWorkingDirectory)
-	if err != nil {
-		panic(err)
-	}
-	return realWorkingDirectory
-}
-
-func InitAppLibrary() {
+func InitAppLibrary(absoluteRoot string) {
 	appLib = MakeRuntimeLibrary()
-	appLib.SetRoot(getRealWorkingDirectory())
+	appLib.SetRoot(absoluteRoot)
 }
 
-func DiscoverAppLibrary() (err error) {
+func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("library not found: %w", err)
 		}
 	}()
-	currentDir := getRealWorkingDirectory()
+	currentDir := startingDirectoryAbsolute
 	for {
 		pointerFile := path.Join(currentDir, libraryPointerFileName)
 		stat, statErr := os.Stat(pointerFile)
@@ -140,10 +123,10 @@ func DiscoverAppLibrary() (err error) {
 	}
 }
 
-func CreateDatabase() {
-	appLib.SaveToLocalFile("/tmp/doccinator.db", false)
+func CreateDatabase(absolutePath string) {
+	appLib.SaveToLocalFile(absolutePath, false)
 }
 
-func PersistDatabase() {
-	appLib.SaveToLocalFile("/tmp/doccinator.db", true)
+func PersistDatabase(absolutePath string) {
+	appLib.SaveToLocalFile(absolutePath, true)
 }

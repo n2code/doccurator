@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func (doc *Document) UpdateFromFile() {
-	doc.localStorage.updateFileStats()
-	content, err := os.ReadFile(doc.localStorage.pathRelativeToLibrary())
+func (doc *Document) updateFromFile(location string) {
+	doc.localStorage.updateFileStats(location)
+	content, err := os.ReadFile(location)
 	if err != nil {
 		panic(err)
 	}
@@ -27,8 +27,8 @@ func (stored *storedFile) pathRelativeToLibrary() string {
 	return filepath.Join(filepath.FromSlash(stored.directory), stored.name)
 }
 
-func (stored *storedFile) updateFileStats() {
-	stat, err := os.Stat(stored.pathRelativeToLibrary())
+func (stored *storedFile) updateFileStats(location string) {
+	stat, err := os.Stat(location)
 	if err != nil {
 		panic(err)
 	}

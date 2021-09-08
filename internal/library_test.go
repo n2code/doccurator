@@ -78,7 +78,7 @@ func TestLibraryApi(t *testing.T) {
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
 
 	Lib.ChdirToRoot()
-	docA.UpdateFromFile()
+	Lib.UpdateDocumentFromFile(docA)
 
 	unrecordedDoc, exists := Lib.GetDocumentByPath(filepath.Join(libRootDir, "file_not_on_record"))
 	if unrecordedDoc != nil || exists {

@@ -45,8 +45,8 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
 
 	Lib.ChdirToRoot()
-	docA.UpdateFromFile()
-	docB.UpdateFromFile()
+	Lib.UpdateDocumentFromFile(docA)
+	Lib.UpdateDocumentFromFile(docB)
 
 	Lib.SaveToLocalFile(libraryFilePath, false)
 
