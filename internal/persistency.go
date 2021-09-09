@@ -13,13 +13,13 @@ import (
 )
 
 type jsonDoc struct {
-	Dir      string
-	File     string
-	Size     int64
-	Sha256   string
-	Recorded unixTimestamp
-	Changed  unixTimestamp
-	Modified unixTimestamp
+	Dir          string
+	File         string
+	Size         int64
+	Sha256       string
+	Recorded     unixTimestamp
+	Changed      unixTimestamp
+	FileModified unixTimestamp
 }
 
 type jsonLib struct {
@@ -38,13 +38,13 @@ var semanticVersionMajorSubmatchIndex = semanticVersionRegex.SubexpIndex("major"
 
 func (doc *Document) MarshalJSON() ([]byte, error) {
 	persistedDoc := jsonDoc{
-		Dir:      doc.localStorage.directory,
-		File:     doc.localStorage.name,
-		Size:     doc.contentMetadata.size,
-		Sha256:   hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
-		Recorded: doc.recorded,
-		Changed:  doc.changed,
-		Modified: doc.localStorage.lastModified,
+		Dir:          doc.localStorage.directory,
+		File:         doc.localStorage.name,
+		Size:         doc.contentMetadata.size,
+		Sha256:       hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
+		Recorded:     doc.recorded,
+		Changed:      doc.changed,
+		FileModified: doc.localStorage.lastModified,
 	}
 	return json.Marshal(persistedDoc)
 }
@@ -57,7 +57,7 @@ func (doc *Document) UnmarshalJSON(blob []byte) error {
 	}
 	doc.localStorage.directory = loadedDoc.Dir
 	doc.localStorage.name = loadedDoc.File
-	doc.localStorage.lastModified = loadedDoc.Modified
+	doc.localStorage.lastModified = loadedDoc.FileModified
 	doc.contentMetadata.size = loadedDoc.Size
 	shaBytes, err := hex.DecodeString(loadedDoc.Sha256)
 	if err != nil {
