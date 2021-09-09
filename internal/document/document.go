@@ -22,6 +22,7 @@ func (doc *Document) Id() DocumentId {
 	return doc.id
 }
 
+//SetId allows ID restoration after deserialization and thus does not affect the change timestamp
 func (doc *Document) SetId(id DocumentId) {
 	if doc.id != MissingId {
 		panic("ID change attempt")
@@ -31,6 +32,10 @@ func (doc *Document) SetId(id DocumentId) {
 
 func (doc *Document) Recorded() unixTimestamp {
 	return doc.recorded
+}
+
+func (doc *Document) Changed() unixTimestamp {
+	return doc.changed
 }
 
 //Path returns a filepath relative to the library root directory
