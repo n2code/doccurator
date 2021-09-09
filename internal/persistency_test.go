@@ -30,11 +30,11 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	Lib.SetRoot(libRootDir)
 
 	docB, err := Lib.CreateDocument(2)
-	if err != nil || docB == nil {
+	if err != nil || docB == (LibraryDocument{}) {
 		t.Fatal("creation of B failed")
 	}
 	docA, err := Lib.CreateDocument(1)
-	if err != nil || docA == nil {
+	if err != nil || docA == (LibraryDocument{}) {
 		t.Fatal("creation of A failed")
 	}
 

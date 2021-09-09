@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,6 +19,11 @@ const (
 	missingFile    fileStatus = '?'
 )
 
+type LibraryDocument struct {
+	id      DocumentId
+	library *library
+}
+
 type LibraryFile struct {
 	libraryPath string
 	status      fileStatus
@@ -29,12 +33,12 @@ type LibraryFiles []LibraryFile
 
 // The Library API expects absolute system-native paths (with respect to the directory separator)
 type Library interface {
-	CreateDocument(DocumentId) (*Document, error)
-	SetDocumentPath(doc *Document, absolutePath string)
-	GetDocumentByPath(string) (doc *Document, exists bool)
-	UpdateDocumentFromFile(*Document) error
+	CreateDocument(DocumentId) (LibraryDocument, error)
+	SetDocumentPath(doc LibraryDocument, absolutePath string)
+	GetDocumentByPath(string) (doc LibraryDocument, exists bool)
+	UpdateDocumentFromFile(LibraryDocument) error
 	//MarkDocumentAsRemoved(*Document) error
-	ForgetDocument(*Document) error
+	ForgetDocument(LibraryDocument)
 	Scan() (LibraryFiles, error)
 	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)
@@ -49,43 +53,42 @@ func MakeRuntimeLibrary() Library {
 		relPathIndex: make(map[string]*Document)}
 }
 
-func (lib *library) CreateDocument(id DocumentId) (doc *Document, err error) {
+func (lib *library) CreateDocument(id DocumentId) (document LibraryDocument, err error) {
 	if _, exists := lib.documents[id]; exists {
 		err = fmt.Errorf("document ID %s already exists", id)
 		return
 	}
-	doc = NewDocument(id)
-	lib.documents[id] = doc
-	return
+	lib.documents[id] = NewDocument(id)
+	return LibraryDocument{id: id, library: lib}, nil
 }
 
-func (lib *library) SetDocumentPath(doc *Document, absolutePath string) {
+func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath string) {
 	newRelativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
 		panic("path not inside library")
 	}
+	doc := lib.documents[document.id] //caller error if nil
 	delete(lib.relPathIndex, doc.localStorage.pathRelativeToLibrary())
 	doc.setPath(newRelativePath)
 	lib.relPathIndex[newRelativePath] = doc
 }
 
-func (lib *library) GetDocumentByPath(absolutePath string) (doc *Document, exists bool) {
-	relativePath, inLibrary := lib.getPathRelativeToLibraryRoot((absolutePath))
+func (lib *library) GetDocumentByPath(absolutePath string) (document LibraryDocument, exists bool) {
+	relativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
 		exists = false
 		return
 	}
-	doc, exists = lib.relPathIndex[relativePath]
+	doc, exists := lib.relPathIndex[relativePath]
+	if exists {
+		document = LibraryDocument{id: doc.id, library: lib}
+	}
 	return
 }
 
-func (lib *library) UpdateDocumentFromFile(doc *Document) error {
-	docRelativePath := doc.localStorage.pathRelativeToLibrary()
-	doc, exists := lib.relPathIndex[docRelativePath]
-	if !exists {
-		return errors.New(fmt.Sprint("document unknown: ", docRelativePath))
-	}
-	absoluteLocation := filepath.Join(lib.rootPath, docRelativePath)
+func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error {
+	doc := lib.documents[document.id] //caller error if nil
+	absoluteLocation := filepath.Join(lib.rootPath, doc.localStorage.pathRelativeToLibrary())
 	doc.updateFromFile(absoluteLocation)
 	return nil
 }
@@ -93,15 +96,11 @@ func (lib *library) UpdateDocumentFromFile(doc *Document) error {
 //func (lib *library) MarkDocumentAsRemoved(doc *Document) error {
 //}
 
-func (lib *library) ForgetDocument(doc *Document) error {
+func (lib *library) ForgetDocument(document LibraryDocument) {
+	doc := lib.documents[document.id] //caller error if nil
 	relativePath := doc.localStorage.pathRelativeToLibrary()
-	doc, exists := lib.relPathIndex[relativePath]
-	if !exists {
-		return errors.New(fmt.Sprint("document unknown: ", relativePath))
-	}
 	delete(lib.relPathIndex, relativePath)
 	delete(lib.documents, doc.id)
-	return nil
 }
 
 func (lib *library) Scan() (libraryFiles LibraryFiles, err error) {

@@ -58,16 +58,16 @@ func TestLibraryApi(t *testing.T) {
 	Lib.SetRoot(libRootDir)
 
 	docB, err := Lib.CreateDocument(2)
-	if err != nil || docB == nil {
+	if err != nil || docB == (LibraryDocument{}) {
 		t.Fatal("creation of B failed")
 	}
 	docA, err := Lib.CreateDocument(1)
-	if err != nil || docA == nil {
+	if err != nil || docA == (LibraryDocument{}) {
 		t.Fatal("creation of A failed")
 	}
 
 	docNone, err := Lib.CreateDocument(2)
-	if err == nil || docNone != nil {
+	if err == nil || docNone != (LibraryDocument{}) {
 		t.Fatal("creation not rejected as expected")
 	}
 
@@ -81,11 +81,11 @@ func TestLibraryApi(t *testing.T) {
 	Lib.UpdateDocumentFromFile(docA)
 
 	unrecordedDoc, exists := Lib.GetDocumentByPath(filepath.Join(libRootDir, "file_not_on_record"))
-	if unrecordedDoc != nil || exists {
+	if unrecordedDoc != (LibraryDocument{}) || exists {
 		t.Fatal("unrecorded document not rejected")
 	}
 	outsideDoc, exists := Lib.GetDocumentByPath(filepath.Join(os.TempDir(), "doccinator-test-dummy"))
-	if outsideDoc != nil || exists {
+	if outsideDoc != (LibraryDocument{}) || exists {
 		t.Fatal("document outside library path not rejected")
 	}
 	secondDocA, exists := Lib.GetDocumentByPath(filePathA)
@@ -93,13 +93,9 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("retrieval of A failed")
 	}
 
-	err = Lib.ForgetDocument(docA)
-	if _, exists := Lib.GetDocumentByPath(filePathA); err != nil || exists {
+	Lib.ForgetDocument(docA)
+	if _, exists := Lib.GetDocumentByPath(filePathA); exists {
 		t.Fatal("A not forgotten")
-	}
-	err = Lib.ForgetDocument(docA)
-	if err == nil {
-		t.Fatal("second attempt to forget A did not fail")
 	}
 
 	allRecords := Lib.AllRecordsAsText()
