@@ -58,7 +58,7 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 	if !exists {
 		return newCommandError(fmt.Sprintf("path not on record: %s", fileAbsolutePath), nil)
 	}
-	return appLib.RemoveDocument(doc)
+	return appLib.ForgetDocument(doc)
 }
 
 func CommandList() {

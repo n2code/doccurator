@@ -7,9 +7,11 @@ type unixTimestamp int64
 
 type Document struct {
 	id              DocumentId
-	recorded        unixTimestamp
-	localStorage    storedFile
-	contentMetadata contentMetadata
+	recorded        unixTimestamp   //when the first record of the document entered the system
+	changed         unixTimestamp   //when the library record was last changed (change to any field)
+	localStorage    storedFile      //either actual or last known physical location
+	contentMetadata contentMetadata //last known content information
+	removed         bool            //tombstone marker to record removal from library
 }
 
 func (id DocumentId) String() string {

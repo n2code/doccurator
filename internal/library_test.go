@@ -93,13 +93,13 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("retrieval of A failed")
 	}
 
-	err = Lib.RemoveDocument(docA)
+	err = Lib.ForgetDocument(docA)
 	if _, exists := Lib.GetDocumentByPath(filePathA); err != nil || exists {
-		t.Fatal("A not deleted")
+		t.Fatal("A not forgotten")
 	}
-	err = Lib.RemoveDocument(docA)
+	err = Lib.ForgetDocument(docA)
 	if err == nil {
-		t.Fatal("second attempt to delete A did not fail")
+		t.Fatal("second attempt to forget A did not fail")
 	}
 
 	allRecords := Lib.AllRecordsAsText()

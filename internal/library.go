@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 type fileStatus rune
@@ -34,7 +33,8 @@ type Library interface {
 	SetDocumentPath(doc *Document, absolutePath string)
 	GetDocumentByPath(string) (doc *Document, exists bool)
 	UpdateDocumentFromFile(*Document) error
-	RemoveDocument(*Document) error
+	//MarkDocumentAsRemoved(*Document) error
+	ForgetDocument(*Document) error
 	Scan() (LibraryFiles, error)
 	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)
@@ -54,21 +54,18 @@ func (lib *library) CreateDocument(id DocumentId) (doc *Document, err error) {
 		err = fmt.Errorf("document ID %s already exists", id)
 		return
 	}
-	doc = &Document{
-		id:       id,
-		recorded: unixTimestamp(time.Now().Unix()),
-	}
+	doc = NewDocument(id)
 	lib.documents[id] = doc
 	return
 }
 
 func (lib *library) SetDocumentPath(doc *Document, absolutePath string) {
-	newRelativePath, inLibrary := lib.getPathRelativeToLibraryRoot((absolutePath))
+	newRelativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
 		panic("path not inside library")
 	}
 	delete(lib.relPathIndex, doc.localStorage.pathRelativeToLibrary())
-	doc.localStorage.setFromRelativePath(newRelativePath)
+	doc.setPath(newRelativePath)
 	lib.relPathIndex[newRelativePath] = doc
 }
 
@@ -93,7 +90,10 @@ func (lib *library) UpdateDocumentFromFile(doc *Document) error {
 	return nil
 }
 
-func (lib *library) RemoveDocument(doc *Document) error {
+//func (lib *library) MarkDocumentAsRemoved(doc *Document) error {
+//}
+
+func (lib *library) ForgetDocument(doc *Document) error {
 	relativePath := doc.localStorage.pathRelativeToLibrary()
 	doc, exists := lib.relPathIndex[relativePath]
 	if !exists {
