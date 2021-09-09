@@ -1,9 +1,9 @@
-package internal
-
-import "fmt"
+package document
 
 type DocumentId uint64
 type unixTimestamp int64
+
+const MissingId DocumentId = 0
 
 type Document struct {
 	id              DocumentId
@@ -12,10 +12,6 @@ type Document struct {
 	localStorage    storedFile      //either actual or last known physical location
 	contentMetadata contentMetadata //last known content information
 	removed         bool            //tombstone marker to record removal from library
-}
-
-func (id DocumentId) String() string {
-	return fmt.Sprintf("%d", id)
 }
 
 // storedFile is location relative to the storage root
@@ -30,11 +26,4 @@ type storedFile struct {
 type contentMetadata struct {
 	size       int64
 	sha256Hash [32]byte
-}
-
-type library struct {
-	documents    map[DocumentId]*Document
-	relPathIndex map[string]*Document
-	// path has system-native directory separators
-	rootPath string
 }

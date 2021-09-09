@@ -1,4 +1,4 @@
-package internal
+package document
 
 import (
 	"crypto/sha256"
@@ -18,7 +18,28 @@ func NewDocument(id DocumentId) *Document {
 	}
 }
 
-func (doc *Document) setPath(relativePath string) {
+func (doc *Document) Id() DocumentId {
+	return doc.id
+}
+
+func (doc *Document) SetId(id DocumentId) {
+	if doc.id != MissingId {
+		panic("ID change attempt")
+	}
+	doc.id = id
+}
+
+func (doc *Document) Recorded() unixTimestamp {
+	return doc.recorded
+}
+
+//Path returns a filepath relative to the library root directory
+func (doc *Document) Path() string {
+	return doc.localStorage.pathRelativeToLibrary()
+}
+
+//SetPath expects a filepath relative to the library root directory
+func (doc *Document) SetPath(relativePath string) {
 	doc.localStorage.setFromRelativePath(relativePath)
 	doc.updateChangeDate()
 }
@@ -27,7 +48,9 @@ func (doc *Document) updateChangeDate() {
 	doc.changed = unixTimestamp(time.Now().Unix())
 }
 
-func (doc *Document) updateFromFile(location string) {
+//UpdateFromFile reads and stats the given location so relative/absolute path handling is up
+// to the OS and the current working directory. The recorded document path does not matter.
+func (doc *Document) UpdateFromFile(location string) {
 	statsChanged := doc.localStorage.updateFileStats(location)
 	content, err := os.ReadFile(location)
 	if err != nil {

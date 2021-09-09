@@ -1,8 +1,7 @@
-package internal
+package library
 
 import (
 	"compress/gzip"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,22 +9,9 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	. "github.com/n2code/doccinator/internal/document"
 )
-
-type jsonDoc struct {
-	Dir          string
-	File         string
-	Size         int64
-	Sha256       string
-	Recorded     unixTimestamp
-	Changed      unixTimestamp
-	FileModified unixTimestamp
-}
-
-type jsonLib struct {
-	LocalRoot string
-	Documents map[DocumentId]*Document
-}
 
 const workInProgressFileSuffix = ".wip"
 const databaseContentOpener = "LIBRARY>>>"
@@ -35,65 +21,6 @@ const semVerPattern = `^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>
 
 var semanticVersionRegex = regexp.MustCompile(semVerPattern)
 var semanticVersionMajorSubmatchIndex = semanticVersionRegex.SubexpIndex("major")
-
-func (doc *Document) MarshalJSON() ([]byte, error) {
-	persistedDoc := jsonDoc{
-		Dir:          doc.localStorage.directory,
-		File:         doc.localStorage.name,
-		Size:         doc.contentMetadata.size,
-		Sha256:       hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
-		Recorded:     doc.recorded,
-		Changed:      doc.changed,
-		FileModified: doc.localStorage.lastModified,
-	}
-	return json.Marshal(persistedDoc)
-}
-
-func (doc *Document) UnmarshalJSON(blob []byte) error {
-	var loadedDoc jsonDoc
-	err := json.Unmarshal(blob, &loadedDoc)
-	if err != nil {
-		return err
-	}
-	doc.localStorage.directory = loadedDoc.Dir
-	doc.localStorage.name = loadedDoc.File
-	doc.localStorage.lastModified = loadedDoc.FileModified
-	doc.contentMetadata.size = loadedDoc.Size
-	shaBytes, err := hex.DecodeString(loadedDoc.Sha256)
-	if err != nil {
-		panic(err)
-	}
-	if len(shaBytes) != 32 {
-		panic("persisted hash has bad length")
-	}
-	copy(doc.contentMetadata.sha256Hash[:], shaBytes)
-	doc.recorded = loadedDoc.Recorded
-	doc.changed = loadedDoc.Changed
-	return nil
-}
-
-func (lib *library) MarshalJSON() ([]byte, error) {
-	root := jsonLib{
-		LocalRoot: lib.rootPath,
-		Documents: lib.documents,
-	}
-	return json.Marshal(root)
-}
-
-func (lib *library) UnmarshalJSON(blob []byte) error {
-	var loadedLib jsonLib
-	err := json.Unmarshal(blob, &loadedLib)
-	if err != nil {
-		return err
-	}
-	lib.rootPath = loadedLib.LocalRoot
-	for id, doc := range loadedLib.Documents {
-		doc.id = id
-		lib.documents[id] = doc
-		lib.relPathIndex[doc.localStorage.pathRelativeToLibrary()] = doc
-	}
-	return nil
-}
 
 func (lib *library) SaveToLocalFile(path string, overwrite bool) {
 	if !overwrite {

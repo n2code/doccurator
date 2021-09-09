@@ -1,4 +1,4 @@
-package internal
+package library
 
 import (
 	"io/fs"

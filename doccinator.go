@@ -7,7 +7,8 @@ import (
 	"os"
 	"path"
 
-	. "github.com/n2code/doccinator/internal"
+	document "github.com/n2code/doccinator/internal/document"
+	. "github.com/n2code/doccinator/internal/library"
 )
 
 const libraryPointerFileName = ".doccinator"
@@ -32,7 +33,7 @@ func newCommandError(message string, cause error) *CommandError {
 }
 
 // add records a new document in the library
-func CommandAdd(id DocumentId, fileAbsolutePath string) error {
+func CommandAdd(id document.DocumentId, fileAbsolutePath string) error {
 	doc, err := appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation failed", err)

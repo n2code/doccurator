@@ -1,4 +1,4 @@
-package internal
+package library
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	. "github.com/n2code/doccinator/internal/document"
 )
 
 type fileStatus rune
@@ -18,6 +20,12 @@ const (
 	purgedFile     fileStatus = 'X'
 	missingFile    fileStatus = '?'
 )
+
+type library struct {
+	documents    map[DocumentId]*Document
+	relPathIndex map[string]*Document
+	rootPath     string // path has system-native directory separators
+}
 
 type LibraryDocument struct {
 	id      DocumentId
@@ -68,8 +76,8 @@ func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath strin
 		panic("path not inside library")
 	}
 	doc := lib.documents[document.id] //caller error if nil
-	delete(lib.relPathIndex, doc.localStorage.pathRelativeToLibrary())
-	doc.setPath(newRelativePath)
+	delete(lib.relPathIndex, doc.Path())
+	doc.SetPath(newRelativePath)
 	lib.relPathIndex[newRelativePath] = doc
 }
 
@@ -81,26 +89,27 @@ func (lib *library) GetDocumentByPath(absolutePath string) (document LibraryDocu
 	}
 	doc, exists := lib.relPathIndex[relativePath]
 	if exists {
-		document = LibraryDocument{id: doc.id, library: lib}
+		document = LibraryDocument{id: doc.Id(), library: lib}
 	}
 	return
 }
 
 func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error {
 	doc := lib.documents[document.id] //caller error if nil
-	absoluteLocation := filepath.Join(lib.rootPath, doc.localStorage.pathRelativeToLibrary())
-	doc.updateFromFile(absoluteLocation)
+	absoluteLocation := filepath.Join(lib.rootPath, doc.Path())
+	doc.UpdateFromFile(absoluteLocation)
 	return nil
 }
 
 //func (lib *library) MarkDocumentAsRemoved(doc *Document) error {
+//TODO
 //}
 
 func (lib *library) ForgetDocument(document LibraryDocument) {
 	doc := lib.documents[document.id] //caller error if nil
-	relativePath := doc.localStorage.pathRelativeToLibrary()
+	relativePath := doc.Path()
 	delete(lib.relPathIndex, relativePath)
-	delete(lib.documents, doc.id)
+	delete(lib.documents, doc.Id())
 }
 
 func (lib *library) Scan() (libraryFiles LibraryFiles, err error) {
@@ -122,6 +131,7 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 func (lib *library) SetRoot(path string) {
 	lib.rootPath = path
 }
+
 func (lib *library) ChdirToRoot() {
 	err := os.Chdir(lib.rootPath)
 	if err != nil {
@@ -138,7 +148,7 @@ func (l docsByRecordedAndId) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 func (l docsByRecordedAndId) Less(i, j int) bool {
-	return l[i].recorded < l[j].recorded || (l[i].recorded == l[j].recorded && l[i].id < l[j].id)
+	return l[i].Recorded() < l[j].Recorded() || (l[i].Recorded() == l[j].Recorded() && l[i].Id() < l[j].Id())
 }
 
 func (lib *library) AllRecordsAsText() string {
@@ -156,5 +166,5 @@ func (lib *library) AllRecordsAsText() string {
 }
 
 func (files LibraryFiles) DisplayDelta(absoluteWorkingDirectory string) {
-
+	//TODO
 }
