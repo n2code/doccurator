@@ -64,3 +64,70 @@ func TestChangeTimestampUpdating(t *testing.T) {
 		t.Fatal("change timestamp not updated by change to file")
 	}
 }
+
+func TestFileStatusVerification(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "doccinator-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	libRootDir, err := filepath.Abs(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Chdir(libRootDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		os.RemoveAll(libRootDir)
+	}()
+	const sourceFileName = "verifile"
+	sourceFilePath := filepath.Join(libRootDir, sourceFileName)
+	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm)
+
+	doc := NewDocument(42)
+	doc.SetPath(sourceFileName)
+	doc.UpdateFromFile(sourceFilePath)
+
+	if doc.VerifyRecordedFileStatus() != UnmodifiedFile {
+		t.Fatal("file not considered unmodified")
+	}
+
+	correctTimestamp := doc.localStorage.lastModified
+	doc.localStorage.lastModified--
+
+	if doc.VerifyRecordedFileStatus() != TouchedFile {
+		t.Fatal("file not considered touched")
+	}
+
+	doc.localStorage.lastModified = correctTimestamp
+	os.WriteFile(sourceFilePath, []byte("B"), fs.ModePerm)
+
+	if doc.VerifyRecordedFileStatus() != ModifiedFile {
+		t.Fatal("file not considered modified")
+	}
+
+	os.WriteFile(sourceFilePath, []byte("CCC"), fs.ModePerm)
+
+	if doc.VerifyRecordedFileStatus() != ModifiedFile {
+		t.Fatal("file not considered modified")
+	}
+
+	os.Remove(sourceFilePath)
+
+	if doc.VerifyRecordedFileStatus() != MissingFile {
+		t.Fatal("file not considered missing")
+	}
+
+	doc.removed = true
+
+	if doc.VerifyRecordedFileStatus() != RemovedFile {
+		t.Fatal("file not considered removed")
+	}
+
+	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm)
+
+	if doc.VerifyRecordedFileStatus() != ZombieFile {
+		t.Fatal("file not considered zombie")
+	}
+}

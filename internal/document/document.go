@@ -3,10 +3,34 @@ package document
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
+)
+
+type PathStatus rune
+
+const (
+	UntrackedDocument  PathStatus = '+'
+	ModifiedDocument   PathStatus = '!'
+	MovedDocument      PathStatus = '>'
+	UnmodifiedDocument PathStatus = '='
+	RemovedDocument    PathStatus = 'X'
+	MissingDocument    PathStatus = '?'
+)
+
+type TrackedFileStatus rune
+
+const (
+	UnmodifiedFile TrackedFileStatus = iota //file found at expected location and content matches records
+	TouchedFile                             //file found at expected location and content matches records but timestamp differs
+	ModifiedFile                            //file found at expected location but content differs
+	RemovedFile                             //file marked as removed and consequently not found at last known location
+	MissingFile                             //file not found at the expected location
+	ZombieFile                              //something is present at the file's last known location although file is marked as removed (so it should have been deleted)
 )
 
 func NewDocument(id DocumentId) *Document {
@@ -106,6 +130,42 @@ func (meta *contentMetadata) setFromContent(content []byte) (hasChanged bool) {
 		hasChanged = true
 	}
 	return
+}
+
+//VerifyRecordedFileStatus stats and reads the document's location so the working directory must be
+// set to the library root in order to make the access by relative path work.
+func (doc *Document) VerifyRecordedFileStatus() TrackedFileStatus {
+	location := doc.localStorage.pathRelativeToLibrary()
+
+	stat, err := os.Stat(location)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			panic(err)
+		}
+		if doc.removed {
+			return RemovedFile
+		}
+		return MissingFile
+	}
+
+	if doc.removed {
+		return ZombieFile
+	}
+
+	if stat.Size() != doc.contentMetadata.size {
+		return ModifiedFile
+	}
+	content, err := os.ReadFile(location)
+	if err != nil {
+		panic(err)
+	}
+	if sha256.Sum256(content) != doc.contentMetadata.sha256Hash {
+		return ModifiedFile
+	}
+	if unixTimestamp(stat.ModTime().Unix()) != doc.localStorage.lastModified {
+		return TouchedFile
+	}
+	return UnmodifiedFile
 }
 
 func (doc *Document) String() string {

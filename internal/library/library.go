@@ -10,17 +10,6 @@ import (
 	. "github.com/n2code/doccinator/internal/document"
 )
 
-type fileStatus rune
-
-const (
-	newFile        fileStatus = '+'
-	modifiedFile   fileStatus = '!'
-	movedFile      fileStatus = '>'
-	unmodifiedFile fileStatus = '='
-	purgedFile     fileStatus = 'X'
-	missingFile    fileStatus = '?'
-)
-
 type library struct {
 	documents    map[DocumentId]*Document
 	relPathIndex map[string]*Document
@@ -34,7 +23,7 @@ type LibraryDocument struct {
 
 type LibraryFile struct {
 	libraryPath string
-	status      fileStatus
+	status      PathStatus
 }
 
 type LibraryFiles []LibraryFile
