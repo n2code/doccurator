@@ -93,6 +93,19 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("retrieval of A failed")
 	}
 
+	if docA.IsRemoved() {
+		t.Fatal("A is already removed")
+	}
+
+	Lib.MarkDocumentAsRemoved(docA)
+
+	if _, exists := Lib.GetDocumentByPath(filePathA); !exists {
+		t.Fatal("removal mark on A went too far")
+	}
+	if !docA.IsRemoved() {
+		t.Fatal("A was not marked as removed")
+	}
+
 	Lib.ForgetDocument(docA)
 	if _, exists := Lib.GetDocumentByPath(filePathA); exists {
 		t.Fatal("A not forgotten")

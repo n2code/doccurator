@@ -45,7 +45,7 @@ type Library interface {
 	SetDocumentPath(doc LibraryDocument, absolutePath string)
 	GetDocumentByPath(string) (doc LibraryDocument, exists bool)
 	UpdateDocumentFromFile(LibraryDocument) error
-	//MarkDocumentAsRemoved(*Document) error
+	MarkDocumentAsRemoved(LibraryDocument)
 	ForgetDocument(LibraryDocument)
 	Scan() (LibraryFiles, error)
 	SaveToLocalFile(absolutePath string, overwrite bool)
@@ -101,9 +101,10 @@ func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error {
 	return nil
 }
 
-//func (lib *library) MarkDocumentAsRemoved(doc *Document) error {
-//TODO
-//}
+func (lib *library) MarkDocumentAsRemoved(document LibraryDocument) {
+	doc := lib.documents[document.id] //caller error if nil
+	doc.SetRemoved()
+}
 
 func (lib *library) ForgetDocument(document LibraryDocument) {
 	doc := lib.documents[document.id] //caller error if nil
@@ -154,7 +155,9 @@ func (l docsByRecordedAndId) Less(i, j int) bool {
 func (lib *library) AllRecordsAsText() string {
 	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
-		docList = append(docList, doc)
+		if !doc.Removed() {
+			docList = append(docList, doc)
+		}
 	}
 	sort.Sort(docList)
 
@@ -167,4 +170,9 @@ func (lib *library) AllRecordsAsText() string {
 
 func (files LibraryFiles) DisplayDelta(absoluteWorkingDirectory string) {
 	//TODO
+}
+
+func (libDoc *LibraryDocument) IsRemoved() bool {
+	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
+	return doc.Removed()
 }

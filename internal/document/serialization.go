@@ -18,6 +18,7 @@ type jsonDoc struct {
 	Recorded     unixTimestamp
 	Changed      unixTimestamp
 	FileModified unixTimestamp
+	FileRemoved  bool
 }
 
 func (doc *Document) MarshalJSON() ([]byte, error) {
@@ -29,6 +30,7 @@ func (doc *Document) MarshalJSON() ([]byte, error) {
 		Recorded:     doc.recorded,
 		Changed:      doc.changed,
 		FileModified: doc.localStorage.lastModified,
+		FileRemoved:  doc.removed,
 	}
 	return json.Marshal(persistedDoc)
 }
@@ -43,6 +45,7 @@ func (doc *Document) UnmarshalJSON(blob []byte) error {
 	doc.localStorage.directory = loadedDoc.Dir
 	doc.localStorage.name = loadedDoc.File
 	doc.localStorage.lastModified = loadedDoc.FileModified
+	doc.removed = loadedDoc.FileRemoved
 	doc.contentMetadata.size = loadedDoc.Size
 	shaBytes, err := hex.DecodeString(loadedDoc.Sha256)
 	if err != nil {

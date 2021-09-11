@@ -38,6 +38,14 @@ func (doc *Document) Changed() unixTimestamp {
 	return doc.changed
 }
 
+func (doc *Document) Removed() bool {
+	return doc.removed
+}
+
+func (doc *Document) SetRemoved() {
+	doc.removed = true
+}
+
 //Path returns a filepath relative to the library root directory
 func (doc *Document) Path() string {
 	return doc.localStorage.pathRelativeToLibrary()

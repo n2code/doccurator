@@ -21,9 +21,11 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	}()
 	fileNameA := "file_a"
 	fileNameB := "file_b"
+	fileNameC := "file_c"
 	libraryFileName := "test.lib"
 	filePathA := filepath.Join(libRootDir, fileNameA)
 	filePathB := filepath.Join(libRootDir, fileNameB)
+	filePathC := filepath.Join(libRootDir, fileNameC)
 	libraryFilePath := filepath.Join(libRootDir, libraryFileName)
 
 	Lib := MakeRuntimeLibrary()
@@ -37,16 +39,24 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	if err != nil || docA == (LibraryDocument{}) {
 		t.Fatal("creation of A failed")
 	}
+	docC, err := Lib.CreateDocument(3)
+	if err != nil || docC == (LibraryDocument{}) {
+		t.Fatal("creation of C failed")
+	}
 
 	Lib.SetDocumentPath(docA, filePathA)
 	Lib.SetDocumentPath(docB, filePathB)
+	Lib.SetDocumentPath(docC, filePathC)
 
 	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
+	os.WriteFile(filePathC, []byte("C"), fs.ModePerm)
 
 	Lib.ChdirToRoot()
 	Lib.UpdateDocumentFromFile(docA)
 	Lib.UpdateDocumentFromFile(docB)
+	Lib.UpdateDocumentFromFile(docC)
+	Lib.MarkDocumentAsRemoved(docC)
 
 	Lib.SaveToLocalFile(libraryFilePath, false)
 
