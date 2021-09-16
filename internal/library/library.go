@@ -1,6 +1,7 @@
 package library
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,22 +22,34 @@ type LibraryDocument struct {
 	library *library
 }
 
-type LibraryFile struct {
+type PathStatus rune
+
+const (
+	Unknown   PathStatus = '?'
+	Untracked PathStatus = '+'
+	Tracked   PathStatus = '='
+	Touched   PathStatus = '~'
+	Modified  PathStatus = '!'
+	Moved     PathStatus = '>'
+	Removed   PathStatus = 'X'
+	Missing   PathStatus = '∅'
+)
+
+type CheckedPath struct {
 	libraryPath string
 	status      PathStatus
 }
-
-type LibraryFiles []LibraryFile
 
 // The Library API expects absolute system-native paths (with respect to the directory separator)
 type Library interface {
 	CreateDocument(DocumentId) (LibraryDocument, error)
 	SetDocumentPath(doc LibraryDocument, absolutePath string)
-	GetDocumentByPath(string) (doc LibraryDocument, exists bool)
+	GetDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
 	UpdateDocumentFromFile(LibraryDocument) error
 	MarkDocumentAsRemoved(LibraryDocument)
 	ForgetDocument(LibraryDocument)
-	Scan() (LibraryFiles, error)
+	CheckPath(absolutePath string) (result CheckedPath, err error)
+	Scan() []CheckedPath
 	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)
 	SetRoot(absolutePath string)
@@ -102,9 +115,63 @@ func (lib *library) ForgetDocument(document LibraryDocument) {
 	delete(lib.documents, doc.Id())
 }
 
-func (lib *library) Scan() (libraryFiles LibraryFiles, err error) {
-	libraryFiles = make(LibraryFiles, 0, len(lib.documents))
+//CheckPath requires the current working directory to be the library root.
+// It deals with all combinations of the given path being on record and/or [not] existing in reality.
+func (lib *library) CheckPath(absolutePath string) (result CheckedPath, err error) {
+	var inLibrary bool
+	result.libraryPath, inLibrary = lib.getPathRelativeToLibraryRoot(absolutePath)
+	if !inLibrary {
+		//TODO: error behavior for bad queries
+		panic("path outside library")
+	}
+
+	if doc, isOnRecord := lib.relPathIndex[result.libraryPath]; isOnRecord {
+		switch status := doc.VerifyRecordedFileStatus(); status {
+		case UnmodifiedFile:
+			result.status = Tracked
+		case TouchedFile:
+			result.status = Touched
+		case ModifiedFile:
+			result.status = Modified
+		case RemovedFile:
+			result.status = Removed
+		case MissingFile:
+			result.status = Missing
+		case ZombieFile:
+			result.status = Untracked
+		}
+		return
+	}
+
+	//path not on record
+
+	fileChecksum, err := calculateFileChecksum(result.libraryPath)
+	if err != nil {
+		result.status = Unknown
+		return
+	}
+
+	result.status = Untracked
+	for _, doc := range lib.documents {
+		if doc.MatchesChecksum(fileChecksum) && doc.VerifyRecordedFileStatus() == MissingFile {
+			result.status = Moved
+			break
+		}
+	}
 	return
+}
+
+func calculateFileChecksum(relativePath string) (sum [sha256.Size]byte, err error) {
+	content, err := os.ReadFile(relativePath)
+	if err != nil {
+		return
+	}
+	sum = sha256.Sum256(content)
+	return
+}
+
+func (lib *library) Scan() []CheckedPath {
+	return make([]CheckedPath, 0, len(lib.documents))
 }
 
 func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativePath string, insideLibraryDir bool) {
@@ -155,10 +222,6 @@ func (lib *library) AllRecordsAsText() string {
 		fmt.Fprintln(&builder, doc)
 	}
 	return builder.String()
-}
-
-func (files LibraryFiles) DisplayDelta(absoluteWorkingDirectory string) {
-	//TODO
 }
 
 func (libDoc *LibraryDocument) IsRemoved() bool {

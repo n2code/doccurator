@@ -72,15 +72,13 @@ func CommandList() {
 }
 
 func CommandStatus() error {
-	files, err := appLib.Scan()
-	if err != nil {
-		return newCommandError("scanning failed", err)
-	}
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		return newCommandError("working directory indeterminable", err)
-	}
-	files.DisplayDelta(workingDirectory)
+	// workingDirectory, err := os.Getwd()
+	// if err != nil {
+	// 	return newCommandError("working directory indeterminable", err)
+	// }
+	// appLib.ChdirToRoot()
+	// paths := appLib.Scan()
+	// ...
 	return nil
 }
 

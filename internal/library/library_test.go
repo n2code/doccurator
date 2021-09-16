@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetPathRelativeToLibraryRoot(t *testing.T) {
@@ -56,6 +57,17 @@ func TestLibraryApi(t *testing.T) {
 
 	Lib := MakeRuntimeLibrary()
 	Lib.SetRoot(libRootDir)
+	Lib.ChdirToRoot()
+
+	assertPathCheck := func(actPath string, expPathStatus PathStatus) {
+		checkResult, err := Lib.CheckPath(actPath)
+		if err != nil && expPathStatus != Unknown {
+			t.Fatalf("got error for path check of %s instead of expected %s: %s", actPath, string(expPathStatus), err)
+		}
+		if checkResult.status != expPathStatus {
+			t.Fatalf("status of %s is not %s as expected, got %s", actPath, string(expPathStatus), string(checkResult.status))
+		}
+	}
 
 	docB, err := Lib.CreateDocument(2)
 	if err != nil || docB == (LibraryDocument{}) {
@@ -71,14 +83,37 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("creation not rejected as expected")
 	}
 
-	Lib.SetDocumentPath(docA, filePathA)
-	Lib.SetDocumentPath(docB, filePathB)
+	assertPathCheck(filePathA, Unknown)
 
 	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
 
-	Lib.ChdirToRoot()
+	assertPathCheck(filePathA, Untracked)
+
+	Lib.SetDocumentPath(docA, filePathA)
+	Lib.SetDocumentPath(docB, filePathB)
+
+	assertPathCheck(filePathA, Modified)
+
 	Lib.UpdateDocumentFromFile(docA)
+
+	assertPathCheck(filePathA, Tracked)
+	assertPathCheck(filepath.Join(libRootDir, "file_which_should_not_exist"), Unknown)
+
+	inTheFuture := time.Now().Add(time.Second)
+	os.Chtimes(filePathA, inTheFuture, inTheFuture)
+
+	assertPathCheck(filePathA, Touched)
+
+	Lib.UpdateDocumentFromFile(docA)
+
+	assertPathCheck(filePathA, Tracked)
+
+	os.Rename(filePathA, filePathA+".hidden")
+
+	assertPathCheck(filePathA, Missing)
+
+	os.Rename(filePathA+".hidden", filePathA)
 
 	unrecordedDoc, exists := Lib.GetDocumentByPath(filepath.Join(libRootDir, "file_not_on_record"))
 	if unrecordedDoc != (LibraryDocument{}) || exists {
@@ -93,11 +128,27 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("retrieval of A failed")
 	}
 
+	os.Rename(filePathA, filePathA+".renamed")
+
+	assertPathCheck(filePathA+".renamed", Moved)
+
+	os.WriteFile(filePathA, []byte("A+"), fs.ModePerm)
+
+	assertPathCheck(filePathA+".renamed", Untracked)
+
+	os.Rename(filePathA+".renamed", filePathA)
+
 	if docA.IsRemoved() {
 		t.Fatal("A is already removed")
 	}
 
 	Lib.MarkDocumentAsRemoved(docA)
+
+	assertPathCheck(filePathA, Untracked) //zombie file status (real file not removed yet)
+
+	os.Remove(filePathA)
+
+	assertPathCheck(filePathA, Removed)
 
 	if _, exists := Lib.GetDocumentByPath(filePathA); !exists {
 		t.Fatal("removal mark on A went too far")
@@ -110,6 +161,8 @@ func TestLibraryApi(t *testing.T) {
 	if _, exists := Lib.GetDocumentByPath(filePathA); exists {
 		t.Fatal("A not forgotten")
 	}
+
+	// assertPathCheck(filePathA, Untracked)
 
 	allRecords := Lib.AllRecordsAsText()
 	if !strings.Contains(allRecords, fileNameB) || strings.Contains(allRecords, fileNameA) {

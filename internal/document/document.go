@@ -11,17 +11,6 @@ import (
 	"time"
 )
 
-type PathStatus rune
-
-const (
-	UntrackedDocument  PathStatus = '+'
-	ModifiedDocument   PathStatus = '!'
-	MovedDocument      PathStatus = '>'
-	UnmodifiedDocument PathStatus = '='
-	RemovedDocument    PathStatus = 'X'
-	MissingDocument    PathStatus = '?'
-)
-
 type TrackedFileStatus rune
 
 const (
@@ -166,6 +155,10 @@ func (doc *Document) VerifyRecordedFileStatus() TrackedFileStatus {
 		return TouchedFile
 	}
 	return UnmodifiedFile
+}
+
+func (doc *Document) MatchesChecksum(sha256 [sha256.Size]byte) bool {
+	return doc.contentMetadata.sha256Hash == sha256
 }
 
 func (doc *Document) String() string {
