@@ -25,7 +25,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 		t.Fatal("fresh document has different change and recorded timestamp")
 	}
 
-	doc.changed = unchangedPlaceholder
+	doc.(*document).changed = unchangedPlaceholder
 
 	doc.SetPath("dummy")
 
@@ -49,7 +49,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 	}()
 	sourceFilePath := filepath.Join(libRootDir, "dummy")
 	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm)
-	doc.changed = unchangedPlaceholder
+	doc.(*document).changed = unchangedPlaceholder
 
 	doc.UpdateFromFile(sourceFilePath)
 
@@ -60,7 +60,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 		t.Fatal("recorded timestamp changed later")
 	}
 
-	doc.changed = unchangedPlaceholder
+	doc.(*document).changed = unchangedPlaceholder
 
 	doc.UpdateFromFile(sourceFilePath)
 
@@ -72,7 +72,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 	}
 
 	os.WriteFile(sourceFilePath, []byte("BBB"), fs.ModePerm)
-	doc.changed = unchangedPlaceholder
+	doc.(*document).changed = unchangedPlaceholder
 
 	doc.UpdateFromFile(sourceFilePath)
 
@@ -112,14 +112,14 @@ func TestFileStatusVerification(t *testing.T) {
 		t.Fatal("file not considered unmodified")
 	}
 
-	correctTimestamp := doc.localStorage.lastModified
-	doc.localStorage.lastModified--
+	correctTimestamp := doc.(*document).localStorage.lastModified
+	doc.(*document).localStorage.lastModified--
 
 	if doc.VerifyRecordedFileStatus() != TouchedFile {
 		t.Fatal("file not considered touched")
 	}
 
-	doc.localStorage.lastModified = correctTimestamp
+	doc.(*document).localStorage.lastModified = correctTimestamp
 	os.WriteFile(sourceFilePath, []byte("B"), fs.ModePerm)
 
 	if doc.VerifyRecordedFileStatus() != ModifiedFile {
@@ -138,7 +138,7 @@ func TestFileStatusVerification(t *testing.T) {
 		t.Fatal("file not considered missing")
 	}
 
-	doc.removed = true
+	doc.SetRemoved()
 
 	if doc.VerifyRecordedFileStatus() != RemovedFile {
 		t.Fatal("file not considered removed")

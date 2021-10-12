@@ -8,7 +8,7 @@ import (
 
 type jsonLib struct {
 	LocalRoot string
-	Documents map[DocumentId]*Document
+	Documents DocumentIndex
 }
 
 func (lib *library) MarshalJSON() ([]byte, error) {
@@ -26,9 +26,8 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 		return err
 	}
 	lib.rootPath = loadedLib.LocalRoot
-	for id, doc := range loadedLib.Documents {
-		doc.SetId(id)
-		lib.documents[id] = doc
+	lib.documents = loadedLib.Documents
+	for _, doc := range lib.documents {
 		lib.relPathIndex[doc.Path()] = doc
 	}
 	return nil

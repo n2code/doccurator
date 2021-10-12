@@ -11,59 +11,6 @@ import (
 	. "github.com/n2code/doccinator/internal/document"
 )
 
-type library struct {
-	documents    map[DocumentId]*Document
-	relPathIndex map[string]*Document
-	rootPath     string // path has system-native directory separators
-}
-
-type LibraryDocument struct {
-	id      DocumentId
-	library *library
-}
-
-type PathStatus rune
-
-const (
-	Unknown   PathStatus = '?'
-	Untracked PathStatus = '+'
-	Tracked   PathStatus = '='
-	Touched   PathStatus = '~'
-	Modified  PathStatus = '!'
-	Moved     PathStatus = '>'
-	Removed   PathStatus = 'X'
-	Missing   PathStatus = '∅'
-	Duplicate PathStatus = '2'
-)
-
-type CheckedPath struct {
-	libraryPath string
-	status      PathStatus
-}
-
-// The Library API expects absolute system-native paths (with respect to the directory separator)
-type Library interface {
-	CreateDocument(DocumentId) (LibraryDocument, error)
-	SetDocumentPath(doc LibraryDocument, absolutePath string)
-	GetDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
-	UpdateDocumentFromFile(LibraryDocument) error
-	MarkDocumentAsRemoved(LibraryDocument)
-	ForgetDocument(LibraryDocument)
-	CheckPath(absolutePath string) (result CheckedPath, err error)
-	Scan() []CheckedPath
-	SaveToLocalFile(absolutePath string, overwrite bool)
-	LoadFromLocalFile(absolutePath string)
-	SetRoot(absolutePath string)
-	ChdirToRoot()
-	AllRecordsAsText() string
-}
-
-func MakeRuntimeLibrary() Library {
-	return &library{
-		documents:    make(map[DocumentId]*Document),
-		relPathIndex: make(map[string]*Document)}
-}
-
 func (lib *library) CreateDocument(id DocumentId) (document LibraryDocument, err error) {
 	if _, exists := lib.documents[id]; exists {
 		err = fmt.Errorf("document ID %s already exists", id)
@@ -202,8 +149,6 @@ func (lib *library) ChdirToRoot() {
 		panic(err)
 	}
 }
-
-type docsByRecordedAndId []*Document
 
 func (l docsByRecordedAndId) Len() int {
 	return len(l)

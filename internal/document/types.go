@@ -1,11 +1,10 @@
 package document
 
-type DocumentId uint64
 type unixTimestamp int64
 
-const MissingId DocumentId = 0
+const missingId DocumentId = 0
 
-type Document struct {
+type document struct {
 	id              DocumentId
 	recorded        unixTimestamp   //when the first record of the document entered the system
 	changed         unixTimestamp   //when the library record was last changed (change to any field)

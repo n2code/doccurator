@@ -21,7 +21,7 @@ type jsonDoc struct {
 	FileRemoved  bool
 }
 
-func (doc *Document) MarshalJSON() ([]byte, error) {
+func (doc *document) MarshalJSON() ([]byte, error) {
 	persistedDoc := jsonDoc{
 		Dir:          doc.localStorage.directory,
 		File:         doc.localStorage.name,
@@ -35,13 +35,29 @@ func (doc *Document) MarshalJSON() ([]byte, error) {
 	return json.Marshal(persistedDoc)
 }
 
-func (doc *Document) UnmarshalJSON(blob []byte) error {
+func (docMap *DocumentIndex) UnmarshalJSON(blob []byte) error {
+	var loadedMap map[DocumentId]*document
+	err := json.Unmarshal(blob, &loadedMap)
+	if err != nil {
+		return err
+	}
+	if *docMap == nil {
+		*docMap = make(DocumentIndex, len(loadedMap))
+	}
+	for id, doc := range loadedMap {
+		doc.SetId(id)
+		(*docMap)[id] = doc
+	}
+	return nil
+}
+
+func (doc *document) UnmarshalJSON(blob []byte) error {
 	var loadedDoc jsonDoc
 	err := json.Unmarshal(blob, &loadedDoc)
 	if err != nil {
 		return err
 	}
-	doc.id = MissingId
+	doc.id = missingId
 	doc.localStorage.directory = loadedDoc.Dir
 	doc.localStorage.name = loadedDoc.File
 	doc.localStorage.lastModified = loadedDoc.FileModified
