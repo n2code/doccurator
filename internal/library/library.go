@@ -33,6 +33,7 @@ const (
 	Moved     PathStatus = '>'
 	Removed   PathStatus = 'X'
 	Missing   PathStatus = '∅'
+	Duplicate PathStatus = '2'
 )
 
 type CheckedPath struct {
@@ -153,9 +154,15 @@ func (lib *library) CheckPath(absolutePath string) (result CheckedPath, err erro
 
 	result.status = Untracked
 	for _, doc := range lib.documents {
-		if doc.MatchesChecksum(fileChecksum) && doc.VerifyRecordedFileStatus() == MissingFile {
-			result.status = Moved
-			break
+		if doc.MatchesChecksum(fileChecksum) {
+			switch doc.VerifyRecordedFileStatus() {
+			case MissingFile:
+				result.status = Moved
+				break
+			case UnmodifiedFile, TouchedFile:
+				result.status = Duplicate
+				break
+			}
 		}
 	}
 	return

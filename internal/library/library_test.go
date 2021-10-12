@@ -52,8 +52,10 @@ func TestLibraryApi(t *testing.T) {
 	}()
 	fileNameA := "file_a"
 	fileNameB := "file_b"
+	fileNameC := "file_c" //copy of A
 	filePathA := filepath.Join(libRootDir, fileNameA)
 	filePathB := filepath.Join(libRootDir, fileNameB)
+	filePathC := filepath.Join(libRootDir, fileNameC)
 
 	Lib := MakeRuntimeLibrary()
 	Lib.SetRoot(libRootDir)
@@ -87,23 +89,28 @@ func TestLibraryApi(t *testing.T) {
 
 	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
+	os.WriteFile(filePathC, []byte("AAA"), fs.ModePerm)
 
 	assertPathCheck(filePathA, Untracked)
+	assertPathCheck(filePathC, Untracked)
 
 	Lib.SetDocumentPath(docA, filePathA)
 	Lib.SetDocumentPath(docB, filePathB)
 
 	assertPathCheck(filePathA, Modified)
+	assertPathCheck(filePathC, Untracked)
 
 	Lib.UpdateDocumentFromFile(docA)
 
 	assertPathCheck(filePathA, Tracked)
 	assertPathCheck(filepath.Join(libRootDir, "file_which_should_not_exist"), Unknown)
+	assertPathCheck(filePathC, Duplicate)
 
 	inTheFuture := time.Now().Add(time.Second)
 	os.Chtimes(filePathA, inTheFuture, inTheFuture)
 
 	assertPathCheck(filePathA, Touched)
+	assertPathCheck(filePathC, Duplicate)
 
 	Lib.UpdateDocumentFromFile(docA)
 
