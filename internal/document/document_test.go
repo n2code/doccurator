@@ -14,16 +14,26 @@ func TestChangeTimestampUpdating(t *testing.T) {
 
 	doc := NewDocument(42)
 
-	if doc.changed == 0 {
+	if doc.Changed() == 0 {
 		t.Fatal("fresh document missing change timestamp")
+	}
+	initialRecorded := doc.Recorded()
+	if initialRecorded == 0 {
+		t.Fatal("fresh document missing recorded timestamp")
+	}
+	if initialRecorded != doc.Changed() {
+		t.Fatal("fresh document has different change and recorded timestamp")
 	}
 
 	doc.changed = unchangedPlaceholder
 
 	doc.SetPath("dummy")
 
-	if doc.changed == unchangedPlaceholder {
+	if doc.Changed() == unchangedPlaceholder {
 		t.Fatal("change timestamp not updated by setting path")
+	}
+	if doc.Recorded() != initialRecorded {
+		t.Fatal("recorded timestamp changed later")
 	}
 
 	tmpDir, err := os.MkdirTemp("", "doccinator-test-*")
@@ -43,16 +53,22 @@ func TestChangeTimestampUpdating(t *testing.T) {
 
 	doc.UpdateFromFile(sourceFilePath)
 
-	if doc.changed == unchangedPlaceholder {
+	if doc.Changed() == unchangedPlaceholder {
 		t.Fatal("change timestamp not updated by update from file")
+	}
+	if doc.Recorded() != initialRecorded {
+		t.Fatal("recorded timestamp changed later")
 	}
 
 	doc.changed = unchangedPlaceholder
 
 	doc.UpdateFromFile(sourceFilePath)
 
-	if doc.changed != unchangedPlaceholder {
+	if doc.Changed() != unchangedPlaceholder {
 		t.Fatal("change timestamp updated without file being changed")
+	}
+	if doc.Recorded() != initialRecorded {
+		t.Fatal("recorded timestamp changed later")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("BBB"), fs.ModePerm)
@@ -60,8 +76,11 @@ func TestChangeTimestampUpdating(t *testing.T) {
 
 	doc.UpdateFromFile(sourceFilePath)
 
-	if doc.changed == unchangedPlaceholder {
+	if doc.Changed() == unchangedPlaceholder {
 		t.Fatal("change timestamp not updated by change to file")
+	}
+	if doc.Recorded() != initialRecorded {
+		t.Fatal("recorded timestamp changed later")
 	}
 }
 
