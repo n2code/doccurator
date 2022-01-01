@@ -69,8 +69,8 @@ func (lib *library) CheckPath(absolutePath string) (result CheckedPath, err erro
 	var inLibrary bool
 	result.libraryPath, inLibrary = lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
-		//TODO: error behavior for bad queries
-		panic("path outside library")
+		err = fmt.Errorf("path is not below library root: %s", absolutePath)
+		return
 	}
 
 	if doc, isOnRecord := lib.relPathIndex[result.libraryPath]; isOnRecord {

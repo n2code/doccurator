@@ -70,6 +70,12 @@ func TestLibraryApi(t *testing.T) {
 			t.Fatalf("status of %s is not %s as expected, got %s", actPath, string(expPathStatus), string(checkResult.status))
 		}
 	}
+	assertPathCheckError := func(actPath string) {
+		_, err := Lib.CheckPath(actPath)
+		if err == nil {
+			t.Fatalf("did not get error for path check of %s", actPath)
+		}
+	}
 
 	docB, err := Lib.CreateDocument(2)
 	if err != nil || docB == (LibraryDocument{}) {
@@ -86,6 +92,7 @@ func TestLibraryApi(t *testing.T) {
 	}
 
 	assertPathCheck(filePathA, Unknown)
+	assertPathCheckError("/tmp/file_outside_library")
 
 	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
