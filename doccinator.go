@@ -32,7 +32,7 @@ func newCommandError(message string, cause error) *CommandError {
 	return &CommandError{message: message, cause: cause}
 }
 
-// add records a new document in the library
+// Records a new document in the library
 func CommandAdd(id document.DocumentId, fileAbsolutePath string) error {
 	doc, err := appLib.CreateDocument(id)
 	if err != nil {
@@ -43,7 +43,7 @@ func CommandAdd(id document.DocumentId, fileAbsolutePath string) error {
 	return nil
 }
 
-// update an existing document in the library
+// Updates an existing document in the library
 func CommandUpdateByPath(fileAbsolutePath string) error {
 	doc, exists := appLib.GetDocumentByPath(fileAbsolutePath)
 	if !exists {
@@ -53,7 +53,7 @@ func CommandUpdateByPath(fileAbsolutePath string) error {
 	return nil
 }
 
-// remove an existing document from the library
+// Removes an existing document from the library
 func CommandRemoveByPath(fileAbsolutePath string) error {
 	doc, exists := appLib.GetDocumentByPath(fileAbsolutePath)
 	if !exists {
@@ -63,6 +63,7 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 	return nil
 }
 
+// Outputs all library records
 func CommandList() {
 	allRecords := appLib.AllRecordsAsText()
 	fmt.Print(allRecords)
@@ -71,7 +72,9 @@ func CommandList() {
 	}
 }
 
-func CommandStatus() error {
+// Calculates states for all present and recorded paths.
+//  Tracked and removed paths require special flag triggers to be listed.
+func CommandScan() error {
 	// workingDirectory, err := os.Getwd()
 	// if err != nil {
 	// 	return newCommandError("working directory indeterminable", err)
@@ -79,6 +82,14 @@ func CommandStatus() error {
 	// appLib.ChdirToRoot()
 	// paths := appLib.Scan()
 	// ...
+	return nil
+}
+
+// Auto pilot adds untracked paths, updates touched & moved paths, and removes duplicates.
+//  Modified and missing are not changed but reported.
+//  If additional flags are passed modified paths are updated and/or missing paths removed.
+//  Unknown paths are reported.
+func CommandAuto() error {
 	return nil
 }
 
