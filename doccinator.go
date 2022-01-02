@@ -14,7 +14,7 @@ import (
 
 const libraryPointerFileName = ".doccinator"
 
-var appLib Library
+var appLib LibraryApi
 
 type CommandError struct {
 	message string

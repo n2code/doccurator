@@ -29,8 +29,8 @@ type CheckedPath struct {
 	status      PathStatus
 }
 
-// The Library API expects absolute system-native paths (with respect to the directory separator)
-type Library interface {
+// LibraryApi expects absolute system-native paths (with respect to the directory separator)
+type LibraryApi interface {
 	CreateDocument(DocumentId) (LibraryDocument, error)
 	SetDocumentPath(doc LibraryDocument, absolutePath string)
 	GetDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
@@ -46,7 +46,7 @@ type Library interface {
 	AllRecordsAsText() string
 }
 
-func MakeRuntimeLibrary() Library {
+func MakeRuntimeLibrary() LibraryApi {
 	return &library{
 		documents:    make(map[DocumentId]DocumentApi),
 		relPathIndex: make(map[string]DocumentApi)}
