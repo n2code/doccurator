@@ -143,7 +143,7 @@ func (doc *document) MatchesChecksum(sha256 [sha256.Size]byte) bool {
 }
 
 func (doc *document) String() string {
-	return fmt.Sprintf("Document %d\n  Path:     %s\n  Size:     %d bytes\n  SHA256:   %s\n  Recorded: %s\n  Modified: %s",
+	return fmt.Sprintf("Document %s\n  Path:     %s\n  Size:     %d bytes\n  SHA256:   %s\n  Recorded: %s\n  Modified: %s",
 		doc.id,
 		doc.localStorage.pathRelativeToLibrary(),
 		doc.contentMetadata.size,

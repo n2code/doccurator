@@ -4,10 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
+	"github.com/n2code/ndocid"
 )
 
 func (id DocumentId) String() string {
-	return fmt.Sprintf("%d", id)
+	return fmt.Sprintf("%s", ndocid.EncodeUint64(uint64(id)))
 }
 
 type jsonDoc struct {
