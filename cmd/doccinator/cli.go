@@ -80,8 +80,12 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 			err = errors.New("No targets given!")
 			return
 		}
+	case "scan", "dump":
+		if len(request.targets) > 0 {
+			err = errors.New("Too many arguments!")
+			return
+		}
 	}
-
 	return
 }
 
