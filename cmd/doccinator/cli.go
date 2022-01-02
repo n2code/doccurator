@@ -115,18 +115,6 @@ func (rq *CliRequest) execute() (err error) {
 		os.WriteFile("/tmp/demofileA", []byte("hello world"), fs.ModePerm)
 		os.WriteFile("/tmp/demofileB", []byte("goodbye!"), fs.ModePerm)
 		doccinator.CreateDatabase("/tmp/doccinator.db")
-	case "demo-list":
-		err = doccinator.DiscoverAppLibrary("/tmp")
-		if err != nil {
-			return
-		}
-		doccinator.CommandList(os.Stdout)
-	case "demo-scan":
-		err = doccinator.DiscoverAppLibrary("/tmp")
-		if err != nil {
-			return
-		}
-		doccinator.CommandScan(os.Stdout)
 	case "demo-scenario":
 		err = doccinator.DiscoverAppLibrary("/tmp")
 		if err != nil {
@@ -141,6 +129,18 @@ func (rq *CliRequest) execute() (err error) {
 			return
 		}
 		doccinator.PersistDatabase()
+	case "dump":
+		err = doccinator.DiscoverAppLibrary(workingDir)
+		if err != nil {
+			return
+		}
+		doccinator.CommandDump(os.Stdout)
+	case "scan":
+		err = doccinator.DiscoverAppLibrary(workingDir)
+		if err != nil {
+			return
+		}
+		doccinator.CommandScan(os.Stdout)
 	case "add":
 		err = doccinator.DiscoverAppLibrary(workingDir)
 		if err != nil {

@@ -66,7 +66,7 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 }
 
 // Outputs all library records
-func CommandList(out io.Writer) {
+func CommandDump(out io.Writer) {
 	allRecords := appLib.AllRecordsAsText()
 
 	fmt.Fprint(out, allRecords)
@@ -79,11 +79,12 @@ func CommandList(out io.Writer) {
 //  Tracked and removed paths require special flag triggers to be listed.
 func CommandScan(out io.Writer) error {
 	appLib.ChdirToRoot()
+	workingDir, _ := os.Getwd()
+	fmt.Fprintf(out, "Scanning library in %s ...\n", workingDir)
 	paths := appLib.Scan()
 	for _, checkedPath := range paths {
 		fmt.Fprintf(out, "[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
 	}
-	// ...
 	return nil
 }
 
