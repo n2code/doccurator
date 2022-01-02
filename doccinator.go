@@ -3,6 +3,7 @@ package doccinator
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -64,21 +65,22 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 }
 
 // Outputs all library records
-func CommandList() {
+func CommandList(out io.Writer) {
 	allRecords := appLib.AllRecordsAsText()
-	fmt.Print(allRecords)
+
+	fmt.Fprint(out, allRecords)
 	if len(allRecords) == 0 {
-		fmt.Println("<no records>")
+		fmt.Fprintln(out, "<no records>")
 	}
 }
 
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths require special flag triggers to be listed.
-func CommandScan() error {
+func CommandScan(out io.Writer) error {
 	appLib.ChdirToRoot()
 	paths := appLib.Scan()
 	for _, checkedPath := range paths {
-		fmt.Printf("[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
+		fmt.Fprintf(out, "[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
 	}
 	// ...
 	return nil
