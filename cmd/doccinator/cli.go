@@ -7,9 +7,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/n2code/doccinator"
+	"github.com/n2code/doccinator/internal/document"
+	"github.com/n2code/ndocid"
 )
 
 type CliRequest struct {
@@ -17,6 +20,11 @@ type CliRequest struct {
 	action  string
 	targets []string
 }
+
+const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
+
+//represents file.ndoc.23456X777.ext or file_without_ext.ndoc.23456X777 or .ndoc.23456X777.ext_only
+var ndocFileNameRegex = regexp.MustCompile(`^.*\.ndoc\.(` + idPattern + `)(?:\.[^.]+)?$`)
 
 func parseFlags(args []string) (request *CliRequest, output string, err error, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
@@ -139,7 +147,20 @@ func (rq *CliRequest) execute() (err error) {
 			return
 		}
 		for _, target := range rq.targets {
-			err = doccinator.CommandAdd(99, mustAbsPath(target))
+			filename := filepath.Base(target)
+			matches := ndocFileNameRegex.FindStringSubmatch(filename)
+			if matches == nil {
+				err = fmt.Errorf(`ID missing in path %s`, target)
+				return
+			}
+			textId := matches[1]
+			var numId uint64
+			numId, err, _ = ndocid.Decode(textId)
+			if err != nil {
+				err = fmt.Errorf(`bad ID in path %s (%s)`, target, err)
+				return
+			}
+			err = doccinator.CommandAdd(document.DocumentId(numId), mustAbsPath(target))
 			if err != nil {
 				return
 			}
