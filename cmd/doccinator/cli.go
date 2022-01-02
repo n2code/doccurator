@@ -92,6 +92,12 @@ func (rq *CliRequest) execute() (err error) {
 			return
 		}
 		doccinator.CommandList()
+	case "demo-scan":
+		err = doccinator.DiscoverAppLibrary("/tmp")
+		if err != nil {
+			return
+		}
+		doccinator.CommandScan()
 	case "demo-scenario":
 		err = doccinator.DiscoverAppLibrary("/tmp")
 		if err != nil {

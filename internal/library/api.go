@@ -12,6 +12,7 @@ type LibraryDocument struct {
 type PathStatus rune
 
 const (
+	Error     PathStatus = 'E'
 	Unknown   PathStatus = '?'
 	Untracked PathStatus = '+'
 	Tracked   PathStatus = '='
@@ -36,7 +37,7 @@ type Library interface {
 	UpdateDocumentFromFile(LibraryDocument) error
 	MarkDocumentAsRemoved(LibraryDocument)
 	ForgetDocument(LibraryDocument)
-	CheckPath(absolutePath string) (result CheckedPath, err error)
+	CheckFilePath(absolutePath string) (result CheckedPath, err error)
 	Scan() []CheckedPath
 	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)

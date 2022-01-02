@@ -3,6 +3,7 @@ package library
 import (
 	"crypto/sha256"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -65,10 +66,13 @@ func (lib *library) ForgetDocument(document LibraryDocument) {
 
 //CheckPath requires the current working directory to be the library root.
 // It deals with all combinations of the given path being on record and/or [not] existing in reality.
-func (lib *library) CheckPath(absolutePath string) (result CheckedPath, err error) {
+func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err error) {
+	result.status = Unknown
+
 	var inLibrary bool
 	result.libraryPath, inLibrary = lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
+		result.status = Error
 		err = fmt.Errorf("path is not below library root: %s", absolutePath)
 		return
 	}
@@ -95,7 +99,7 @@ func (lib *library) CheckPath(absolutePath string) (result CheckedPath, err erro
 
 	fileChecksum, err := calculateFileChecksum(result.libraryPath)
 	if err != nil {
-		result.status = Unknown
+		result.status = Error
 		return
 	}
 
@@ -124,8 +128,37 @@ func calculateFileChecksum(relativePath string) (sum [sha256.Size]byte, err erro
 	return
 }
 
-func (lib *library) Scan() []CheckedPath {
-	return make([]CheckedPath, 0, len(lib.documents))
+//Scan requires the current working directory to be the library root.
+func (lib *library) Scan() (paths []CheckedPath) {
+	paths = make([]CheckedPath, 0, len(lib.documents))
+	coveredLibraryPaths := make(map[string]bool)
+
+	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
+		if walkError != nil {
+			return walkError
+		}
+		if !d.IsDir() {
+			libPath, _ := lib.CheckFilePath(absolutePath)
+			paths = append(paths, libPath)
+			coveredLibraryPaths[libPath.libraryPath] = true
+			//TODO: provide check path error output
+			// if err != nil {
+			// 	fmt.Println
+			// }
+		}
+		return nil
+	}
+	filepath.WalkDir(lib.rootPath, visitor)
+
+	for _, doc := range lib.documents {
+		if _, alreadyChecked := coveredLibraryPaths[doc.Path()]; !alreadyChecked {
+			absolutePath := lib.getAbsolutePathOfDocument(doc)
+			libPath, _ := lib.CheckFilePath(absolutePath)
+			paths = append(paths, libPath)
+		}
+	}
+
+	return
 }
 
 func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativePath string, insideLibraryDir bool) {
@@ -137,6 +170,10 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 	}
 	insideLibraryDir = true
 	return
+}
+
+func (lib *library) getAbsolutePathOfDocument(doc DocumentApi) string {
+	return filepath.Join(lib.rootPath, doc.Path())
 }
 
 func (lib *library) SetRoot(path string) {
@@ -179,4 +216,12 @@ func (lib *library) AllRecordsAsText() string {
 func (libDoc *LibraryDocument) IsRemoved() bool {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	return doc.Removed()
+}
+
+func (p CheckedPath) Status() PathStatus {
+	return p.status
+}
+
+func (p CheckedPath) PathRelativeToLibraryRoot() string {
+	return p.libraryPath
 }

@@ -75,12 +75,11 @@ func CommandList() {
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths require special flag triggers to be listed.
 func CommandScan() error {
-	// workingDirectory, err := os.Getwd()
-	// if err != nil {
-	// 	return newCommandError("working directory indeterminable", err)
-	// }
-	// appLib.ChdirToRoot()
-	// paths := appLib.Scan()
+	appLib.ChdirToRoot()
+	paths := appLib.Scan()
+	for _, checkedPath := range paths {
+		fmt.Printf("[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
+	}
 	// ...
 	return nil
 }

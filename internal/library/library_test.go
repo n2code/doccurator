@@ -62,18 +62,15 @@ func TestLibraryApi(t *testing.T) {
 	Lib.ChdirToRoot()
 
 	assertPathCheck := func(actPath string, expPathStatus PathStatus) {
-		checkResult, err := Lib.CheckPath(actPath)
-		if err != nil && expPathStatus != Unknown {
+		checkResult, err := Lib.CheckFilePath(actPath)
+		if err != nil && expPathStatus != Error {
 			t.Fatalf("got error for path check of %s instead of expected %s: %s", actPath, string(expPathStatus), err)
+		}
+		if expPathStatus == Error && err == nil {
+			t.Fatalf("did not get error for path check of %s", actPath)
 		}
 		if checkResult.status != expPathStatus {
 			t.Fatalf("status of %s is not %s as expected, got %s", actPath, string(expPathStatus), string(checkResult.status))
-		}
-	}
-	assertPathCheckError := func(actPath string) {
-		_, err := Lib.CheckPath(actPath)
-		if err == nil {
-			t.Fatalf("did not get error for path check of %s", actPath)
 		}
 	}
 
@@ -91,8 +88,8 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("creation not rejected as expected")
 	}
 
-	assertPathCheck(filePathA, Unknown)
-	assertPathCheckError("/tmp/file_outside_library")
+	assertPathCheck(filePathA, Error)
+	assertPathCheck("/tmp/file_outside_library", Error)
 
 	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
@@ -110,7 +107,7 @@ func TestLibraryApi(t *testing.T) {
 	Lib.UpdateDocumentFromFile(docA)
 
 	assertPathCheck(filePathA, Tracked)
-	assertPathCheck(filepath.Join(libRootDir, "file_which_should_not_exist"), Unknown)
+	assertPathCheck(filepath.Join(libRootDir, "file_which_should_not_exist"), Error)
 	assertPathCheck(filePathC, Duplicate)
 
 	inTheFuture := time.Now().Add(time.Second)
