@@ -15,6 +15,7 @@ import (
 const libraryPointerFileName = ".doccinator"
 
 var appLib LibraryApi
+var libFile string
 
 type CommandError struct {
 	message string
@@ -121,8 +122,9 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 			if url.Scheme != "file" {
 				return errors.New("scheme of URL in library locator file missing or unsupported: " + url.Scheme)
 			}
+			libFile = url.Path
 			appLib = MakeRuntimeLibrary()
-			appLib.LoadFromLocalFile(url.Path)
+			appLib.LoadFromLocalFile(libFile)
 			return nil
 		} else if errors.Is(statErr, os.ErrNotExist) {
 			if currentDir == "/" {
@@ -136,9 +138,10 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 }
 
 func CreateDatabase(absolutePath string) {
-	appLib.SaveToLocalFile(absolutePath, false)
+	libFile = absolutePath
+	appLib.SaveToLocalFile(libFile, false)
 }
 
-func PersistDatabase(absolutePath string) {
-	appLib.SaveToLocalFile(absolutePath, true)
+func PersistDatabase() {
+	appLib.SaveToLocalFile(libFile, true)
 }

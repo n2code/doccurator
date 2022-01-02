@@ -37,7 +37,12 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 		if err == flag.ErrHelp {
 			exitCode = 0
 		} else if err != nil {
-			output = fmt.Sprintln(err, "\n\n", output)
+			if len(output) > 0 {
+				output = fmt.Sprint(err, "\n\n", output)
+			} else {
+				output = fmt.Sprint(err)
+			}
+
 			exitCode = 2
 		}
 	}()
@@ -59,6 +64,16 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 	}
 
 	request.action = flags.Arg(0)
+	request.targets = flags.Args()[1:]
+
+	switch request.action {
+	case "add":
+		if len(request.targets) < 1 {
+			err = errors.New("No targets given!")
+			return
+		}
+	}
+
 	return
 }
 
@@ -79,6 +94,12 @@ func getRealWorkingDirectory() string {
 }
 
 func (rq *CliRequest) execute() (err error) {
+	var workingDir string
+	workingDir, err = os.Getwd()
+	if err != nil {
+		return
+	}
+
 	switch rq.action {
 	case "demo-setup":
 		doccinator.InitAppLibrary("/tmp")
@@ -111,11 +132,31 @@ func (rq *CliRequest) execute() (err error) {
 		if err != nil {
 			return
 		}
-		doccinator.PersistDatabase("/tmp/doccinator.db")
+		doccinator.PersistDatabase()
+	case "add":
+		err = doccinator.DiscoverAppLibrary(workingDir)
+		if err != nil {
+			return
+		}
+		for _, target := range rq.targets {
+			err = doccinator.CommandAdd(99, mustAbsPath(target))
+			if err != nil {
+				return
+			}
+		}
+		doccinator.PersistDatabase()
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, rq.action)
 	}
 	return
+}
+
+func mustAbsPath(somePath string) string {
+	abs, err := filepath.Abs(somePath)
+	if err != nil {
+		panic(err)
+	}
+	return abs
 }
 
 func main() {
