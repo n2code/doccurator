@@ -129,11 +129,17 @@ func calculateFileChecksum(relativePath string) (sum [sha256.Size]byte, err erro
 }
 
 //Scan requires the current working directory to be the library root.
-func (lib *library) Scan() (paths []CheckedPath) {
+func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPath) {
 	paths = make([]CheckedPath, 0, len(lib.documents))
 	coveredLibraryPaths := make(map[string]bool)
 
 	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
+		if skip(absolutePath) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if walkError != nil {
 			return walkError
 		}

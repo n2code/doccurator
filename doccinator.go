@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 
 	document "github.com/n2code/doccinator/internal/document"
 	. "github.com/n2code/doccinator/internal/library"
@@ -81,7 +83,10 @@ func CommandScan(out io.Writer) error {
 	appLib.ChdirToRoot()
 	workingDir, _ := os.Getwd()
 	fmt.Fprintf(out, "Scanning library in %s ...\n", workingDir)
-	paths := appLib.Scan()
+	skipDbAndPointers := func(path string) bool {
+		return path == libFile || filepath.Base(path) == libraryPointerFileName
+	}
+	paths := appLib.Scan(skipDbAndPointers)
 	for _, checkedPath := range paths {
 		fmt.Fprintf(out, "[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
 	}
@@ -96,9 +101,15 @@ func CommandAuto() error {
 	return nil
 }
 
-func InitAppLibrary(absoluteRoot string) {
+func InitLibrary(absoluteRoot string, absoluteDbFilePath string) {
 	appLib = MakeRuntimeLibrary()
 	appLib.SetRoot(absoluteRoot)
+	libFile = absoluteDbFilePath
+	appLib.SaveToLocalFile(absoluteDbFilePath, false)
+	err := os.WriteFile(filepath.Join(absoluteRoot, libraryPointerFileName), []byte("file://"+absoluteDbFilePath), fs.ModePerm)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
@@ -136,11 +147,6 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 			return statErr
 		}
 	}
-}
-
-func CreateDatabase(absolutePath string) {
-	libFile = absolutePath
-	appLib.SaveToLocalFile(libFile, false)
 }
 
 func PersistDatabase() {

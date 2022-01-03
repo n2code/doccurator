@@ -38,7 +38,7 @@ type LibraryApi interface {
 	MarkDocumentAsRemoved(LibraryDocument)
 	ForgetDocument(LibraryDocument)
 	CheckFilePath(absolutePath string) (result CheckedPath, err error)
-	Scan() []CheckedPath
+	Scan(skip func(absoluteFilePath string) bool) []CheckedPath
 	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)
 	SetRoot(absolutePath string)

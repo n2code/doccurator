@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,9 +21,10 @@ type CliRequest struct {
 }
 
 const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
+const defaultDbFileName = string(`doccinator.db`)
 
-//represents file.ndoc.23456X777.ext or file_without_ext.ndoc.23456X777 or .ndoc.23456X777.ext_only
-var ndocFileNameRegex = regexp.MustCompile(`^.*\.ndoc\.(` + idPattern + `)(?:\.[^.]+)?$`)
+//represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
+var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + idPattern + `)\.ndoc(?:\.[^.]+)?$`)
 
 func parseFlags(args []string) (request *CliRequest, output string, err error, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
@@ -85,6 +85,11 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 			err = errors.New("Too many arguments!")
 			return
 		}
+	case "init":
+		if len(request.targets) != 1 {
+			err = errors.New("Bad number of arguments, exactly one expected!")
+			return
+		}
 	}
 	return
 }
@@ -113,26 +118,9 @@ func (rq *CliRequest) execute() (err error) {
 	}
 
 	switch rq.action {
-	case "demo-setup":
-		doccinator.InitAppLibrary("/tmp")
-		os.WriteFile("/tmp/.doccinator", []byte("file:///tmp/doccinator.db"), fs.ModePerm)
-		os.WriteFile("/tmp/demofileA", []byte("hello world"), fs.ModePerm)
-		os.WriteFile("/tmp/demofileB", []byte("goodbye!"), fs.ModePerm)
-		doccinator.CreateDatabase("/tmp/doccinator.db")
-	case "demo-scenario":
-		err = doccinator.DiscoverAppLibrary("/tmp")
-		if err != nil {
-			return
-		}
-		err = doccinator.CommandAdd(23, "/tmp/demofileA")
-		if err != nil {
-			return
-		}
-		err = doccinator.CommandAdd(42, "/tmp/demofileB")
-		if err != nil {
-			return
-		}
-		doccinator.PersistDatabase()
+	case "init":
+		libRoot := mustAbsPath(rq.targets[0])
+		doccinator.InitLibrary(libRoot, filepath.Join(libRoot, defaultDbFileName))
 	case "dump":
 		err = doccinator.DiscoverAppLibrary(workingDir)
 		if err != nil {
