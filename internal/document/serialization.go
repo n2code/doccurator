@@ -4,12 +4,23 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/n2code/ndocid"
 )
 
 func (id DocumentId) String() string {
 	return fmt.Sprintf("%s", ndocid.EncodeUint64(uint64(id)))
+}
+
+func (doc *document) String() string {
+	return fmt.Sprintf("Document %s\n  Path:     %s\n  Size:     %d bytes\n  SHA256:   %s\n  Recorded: %s\n  Modified: %s",
+		doc.id,
+		doc.localStorage.pathRelativeToLibrary(),
+		doc.contentMetadata.size,
+		hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
+		time.Unix(int64(doc.recorded), 0).Local().Format(time.RFC1123),
+		time.Unix(int64(doc.localStorage.lastModified), 0).Local().Format(time.RFC1123))
 }
 
 type jsonDoc struct {

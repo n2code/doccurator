@@ -78,6 +78,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 	}
 
 	if doc, isOnRecord := lib.relPathIndex[result.libraryPath]; isOnRecord {
+		// result.matchingId = doc.Id() //TODO: justify and activate
 		switch status := doc.VerifyRecordedFileStatus(); status {
 		case UnmodifiedFile:
 			result.status = Tracked
@@ -106,6 +107,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 	result.status = Untracked
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
+			result.matchingId = doc.Id()
 			switch doc.VerifyRecordedFileStatus() {
 			case MissingFile:
 				result.status = Moved
@@ -132,6 +134,7 @@ func calculateFileChecksum(relativePath string) (sum [sha256.Size]byte, err erro
 func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPath) {
 	paths = make([]CheckedPath, 0, len(lib.documents))
 	coveredLibraryPaths := make(map[string]bool)
+	movedIds := make(map[DocumentId]bool)
 
 	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
 		if skip(absolutePath) {
@@ -145,22 +148,27 @@ func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPa
 		}
 		if !d.IsDir() {
 			libPath, _ := lib.CheckFilePath(absolutePath)
-			paths = append(paths, libPath)
-			coveredLibraryPaths[libPath.libraryPath] = true
 			//TODO: provide check path error output
 			// if err != nil {
 			// 	fmt.Println
 			// }
+			paths = append(paths, libPath)
+			coveredLibraryPaths[libPath.libraryPath] = true
+			if libPath.status == Moved {
+				movedIds[libPath.matchingId] = true
+			}
 		}
 		return nil
 	}
 	filepath.WalkDir(lib.rootPath, visitor)
 
 	for _, doc := range lib.documents {
-		if _, alreadyChecked := coveredLibraryPaths[doc.Path()]; !alreadyChecked {
-			absolutePath := lib.getAbsolutePathOfDocument(doc)
-			libPath, _ := lib.CheckFilePath(absolutePath)
-			paths = append(paths, libPath)
+		if _, alreadyCheckedPath := coveredLibraryPaths[doc.Path()]; !alreadyCheckedPath {
+			if _, alreadyCoveredId := movedIds[doc.Id()]; !alreadyCoveredId {
+				absolutePath := lib.getAbsolutePathOfDocument(doc)
+				libPath, _ := lib.CheckFilePath(absolutePath)
+				paths = append(paths, libPath)
+			}
 		}
 	}
 

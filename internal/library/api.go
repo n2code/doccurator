@@ -27,6 +27,7 @@ const (
 type CheckedPath struct {
 	libraryPath string
 	status      PathStatus
+	matchingId  DocumentId
 }
 
 // LibraryApi expects absolute system-native paths (with respect to the directory separator)
