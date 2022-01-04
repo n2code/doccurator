@@ -75,7 +75,7 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 	request.targets = flags.Args()[1:]
 
 	switch request.action {
-	case "add":
+	case "add", "status":
 		if len(request.targets) < 1 {
 			err = errors.New("No targets given!")
 			return
@@ -158,6 +158,15 @@ func (rq *CliRequest) execute() (err error) {
 			}
 		}
 		doccinator.PersistDatabase()
+	case "status":
+		err = doccinator.DiscoverAppLibrary(workingDir)
+		if err != nil {
+			return
+		}
+		err = doccinator.CommandStatus(rq.targets, os.Stdout)
+		if err != nil {
+			return
+		}
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, rq.action)
 	}

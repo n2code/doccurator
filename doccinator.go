@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	document "github.com/n2code/doccinator/internal/document"
 	. "github.com/n2code/doccinator/internal/library"
@@ -89,6 +90,54 @@ func CommandScan(out io.Writer) error {
 	paths := appLib.Scan(skipDbAndPointers)
 	for _, checkedPath := range paths {
 		fmt.Fprintf(out, "[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
+	}
+	return nil
+}
+
+// Queries the given [possibly relative] paths about their affiliation and state with respect to the library
+func CommandStatus(paths []string, out io.Writer) error {
+	var buckets map[PathStatus][]string = make(map[PathStatus][]string)
+
+	var errorMessages strings.Builder
+
+	for _, path := range paths {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+
+		res, err := appLib.CheckFilePath(abs)
+
+		switch status := res.Status(); status {
+		case Error:
+			fmt.Fprintf(&errorMessages, "  [E] %s (%s)\n", err, abs)
+		default:
+			displayPath := "" //relative to working directory, if possible
+			if wd, err := os.Getwd(); err != nil {
+				displayPath, _ = filepath.Rel(wd, abs)
+			}
+			if len(displayPath) == 0 {
+				displayPath = path
+			}
+			buckets[status] = append(buckets[status], displayPath)
+		}
+
+	}
+
+	if errorMessages.Len() > 0 {
+		fmt.Fprintf(out, "Errors occurred:\n%s\n", errorMessages.String())
+	}
+	for status, bucket := range buckets {
+		fmt.Fprintf(out, "%s (%d file%s)\n", status, len(bucket), func() (pluralS string) {
+			if len(bucket) != 1 {
+				pluralS = "s"
+			}
+			return
+		}())
+		for _, path := range bucket {
+			fmt.Fprintf(out, "  [%s] %s\n", string(rune(status)), path)
+		}
+		fmt.Fprintln(out)
 	}
 	return nil
 }

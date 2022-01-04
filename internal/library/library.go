@@ -67,12 +67,15 @@ func (lib *library) ForgetDocument(document LibraryDocument) {
 //CheckPath requires the current working directory to be the library root.
 // It deals with all combinations of the given path being on record and/or [not] existing in reality.
 func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err error) {
-	result.status = Unknown
+	defer func() {
+		if err != nil {
+			result.status = Error
+		}
+	}()
 
 	var inLibrary bool
 	result.libraryPath, inLibrary = lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
-		result.status = Error
 		err = fmt.Errorf("path is not below library root: %s", absolutePath)
 		return
 	}
@@ -98,19 +101,27 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 
 	//path not on record
 
+	stat, err := os.Stat(result.libraryPath)
+	if err != nil {
+		return
+	}
+	if stat.IsDir() {
+		err = fmt.Errorf("Path is not a file: %s", result.libraryPath)
+		return
+	}
+
 	fileChecksum, err := calculateFileChecksum(result.libraryPath)
 	if err != nil {
-		result.status = Error
 		return
 	}
 
 	result.status = Untracked
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
-			result.matchingId = doc.Id()
 			switch doc.VerifyRecordedFileStatus() {
 			case MissingFile:
 				result.status = Moved
+				result.matchingId = doc.Id()
 				break
 			case UnmodifiedFile, TouchedFile:
 				result.status = Duplicate
@@ -238,4 +249,8 @@ func (p CheckedPath) Status() PathStatus {
 
 func (p CheckedPath) PathRelativeToLibraryRoot() string {
 	return p.libraryPath
+}
+
+func (p CheckedPath) GetError() error {
+	return nil
 }

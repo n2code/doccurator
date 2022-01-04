@@ -13,15 +13,14 @@ type PathStatus rune
 
 const (
 	Error     PathStatus = 'E'
-	Unknown   PathStatus = '?'
-	Untracked PathStatus = '+'
-	Tracked   PathStatus = '='
-	Touched   PathStatus = '~'
-	Modified  PathStatus = '!'
-	Moved     PathStatus = '>'
-	Removed   PathStatus = 'X'
-	Missing   PathStatus = '∅'
-	Duplicate PathStatus = '2'
+	Tracked   PathStatus = '=' //no change
+	Removed   PathStatus = 'X' //no change
+	Duplicate PathStatus = '2' //uncritical, automatically resolvable
+	Touched   PathStatus = '~' //uncritical, automatically resolvable
+	Moved     PathStatus = '>' //uncritical, automatically resolvable
+	Untracked PathStatus = '+' //action required
+	Modified  PathStatus = '!' //action required
+	Missing   PathStatus = '?' //action required
 )
 
 type CheckedPath struct {

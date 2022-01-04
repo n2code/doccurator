@@ -62,8 +62,9 @@ func (doc *document) UpdateFromFile(location string) {
 	}
 }
 
-//VerifyRecordedFileStatus stats and reads the document's location so the working directory must be
-// set to the library root in order to make the access by relative path work.
+//VerifyRecordedFileStatus stats and reads the document's location so the
+// working directory must be set to the library root in order to make the
+// access by relative path work.
 func (doc *document) VerifyRecordedFileStatus() TrackedFileStatus {
 	location := doc.localStorage.pathRelativeToLibrary()
 

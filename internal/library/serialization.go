@@ -32,3 +32,19 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 	}
 	return nil
 }
+
+var pathStatusText = map[PathStatus]string{
+	Error:     "Error",
+	Untracked: "Untracked",
+	Tracked:   "Tracked",
+	Touched:   "Touched",
+	Modified:  "Modified",
+	Moved:     "Moved",
+	Removed:   "Removed",
+	Missing:   "Missing",
+	Duplicate: "Duplicate",
+}
+
+func (status PathStatus) String() string {
+	return pathStatusText[status]
+}
