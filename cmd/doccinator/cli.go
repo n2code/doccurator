@@ -120,7 +120,7 @@ func (rq *CliRequest) execute() (err error) {
 	switch rq.action {
 	case "init":
 		libRoot := mustAbsPath(rq.targets[0])
-		doccinator.InitLibrary(libRoot, filepath.Join(libRoot, defaultDbFileName))
+		doccinator.InitLibrary(libRoot, filepath.Join(libRoot, defaultDbFileName), os.Stdout)
 	case "dump":
 		err = doccinator.DiscoverAppLibrary(workingDir)
 		if err != nil {
@@ -152,7 +152,7 @@ func (rq *CliRequest) execute() (err error) {
 				err = fmt.Errorf(`bad ID in path %s (%s)`, target, err)
 				return
 			}
-			err = doccinator.CommandAdd(document.DocumentId(numId), mustAbsPath(target))
+			err = doccinator.CommandAdd(document.DocumentId(numId), mustAbsPath(target), os.Stdout)
 			if err != nil {
 				return
 			}

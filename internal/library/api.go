@@ -1,6 +1,8 @@
 package library
 
 import (
+	"io"
+
 	. "github.com/n2code/doccinator/internal/document"
 )
 
@@ -42,8 +44,8 @@ type LibraryApi interface {
 	SaveToLocalFile(absolutePath string, overwrite bool)
 	LoadFromLocalFile(absolutePath string)
 	SetRoot(absolutePath string)
-	ChdirToRoot()
-	AllRecordsAsText() string
+	GetRoot() string
+	PrintAllRecords(io.Writer)
 }
 
 func MakeRuntimeLibrary() LibraryApi {

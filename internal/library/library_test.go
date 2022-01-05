@@ -59,7 +59,7 @@ func TestLibraryApi(t *testing.T) {
 
 	Lib := MakeRuntimeLibrary()
 	Lib.SetRoot(libRootDir)
-	Lib.ChdirToRoot()
+	os.Chdir(Lib.GetRoot())
 
 	assertPathCheck := func(actPath string, expPathStatus PathStatus) {
 		checkResult, err := Lib.CheckFilePath(actPath)
@@ -175,8 +175,9 @@ func TestLibraryApi(t *testing.T) {
 
 	// assertPathCheck(filePathA, Untracked)
 
-	allRecords := Lib.AllRecordsAsText()
-	if !strings.Contains(allRecords, fileNameB) || strings.Contains(allRecords, fileNameA) {
-		t.Fatal("record printout unexpected:\n" + allRecords)
+	var allRecords strings.Builder
+	Lib.PrintAllRecords(&allRecords)
+	if !strings.Contains(allRecords.String(), fileNameB) || strings.Contains(allRecords.String(), fileNameA) {
+		t.Fatal("record printout unexpected:\n" + allRecords.String())
 	}
 }

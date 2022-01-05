@@ -38,13 +38,14 @@ func newCommandError(message string, cause error) *CommandError {
 }
 
 // Records a new document in the library
-func CommandAdd(id document.DocumentId, fileAbsolutePath string) error {
+func CommandAdd(id document.DocumentId, fileAbsolutePath string, out io.Writer) error {
 	doc, err := appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation failed", err)
 	}
 	appLib.SetDocumentPath(doc, fileAbsolutePath)
 	appLib.UpdateDocumentFromFile(doc)
+	fmt.Fprintf(out, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
 	return nil
 }
 
@@ -70,20 +71,19 @@ func CommandRemoveByPath(fileAbsolutePath string) error {
 
 // Outputs all library records
 func CommandDump(out io.Writer) {
-	allRecords := appLib.AllRecordsAsText()
-
-	fmt.Fprint(out, allRecords)
-	if len(allRecords) == 0 {
-		fmt.Fprintln(out, "<no records>")
-	}
+	fmt.Fprintf(out, "Library: %s\n--------\n", appLib.GetRoot())
+	appLib.PrintAllRecords(out)
 }
 
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths require special flag triggers to be listed.
 func CommandScan(out io.Writer) error {
-	appLib.ChdirToRoot()
-	workingDir, _ := os.Getwd()
-	fmt.Fprintf(out, "Scanning library in %s ...\n", workingDir)
+	root := appLib.GetRoot()
+	err := os.Chdir(root)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Scanning library in %s ...\n", root)
 	skipDbAndPointers := func(path string) bool {
 		return path == libFile || filepath.Base(path) == libraryPointerFileName
 	}
@@ -97,6 +97,7 @@ func CommandScan(out io.Writer) error {
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
 func CommandStatus(paths []string, out io.Writer) error {
 	var buckets map[PathStatus][]string = make(map[PathStatus][]string)
+	fmt.Fprintf(out, "Checking %d path%s against library %s ...\n\n", len(paths), pluralS(paths), appLib.GetRoot())
 
 	var errorMessages strings.Builder
 
@@ -150,7 +151,7 @@ func CommandAuto() error {
 	return nil
 }
 
-func InitLibrary(absoluteRoot string, absoluteDbFilePath string) {
+func InitLibrary(absoluteRoot string, absoluteDbFilePath string, out io.Writer) {
 	appLib = MakeRuntimeLibrary()
 	appLib.SetRoot(absoluteRoot)
 	libFile = absoluteDbFilePath
@@ -159,6 +160,7 @@ func InitLibrary(absoluteRoot string, absoluteDbFilePath string) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Fprintf(out, "Initialized library with root %s\n", absoluteRoot)
 }
 
 func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
@@ -200,4 +202,14 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 
 func PersistDatabase() {
 	appLib.SaveToLocalFile(libFile, true)
+}
+
+func pluralS(countable interface{}) string {
+	switch c := countable.(type) {
+	case []string:
+		if len(c) != 1 {
+			return "s"
+		}
+	}
+	return ""
 }

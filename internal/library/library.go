@@ -3,6 +3,7 @@ package library
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -205,11 +206,8 @@ func (lib *library) SetRoot(path string) {
 	lib.rootPath = path
 }
 
-func (lib *library) ChdirToRoot() {
-	err := os.Chdir(lib.rootPath)
-	if err != nil {
-		panic(err)
-	}
+func (lib *library) GetRoot() string {
+	return lib.rootPath
 }
 
 func (l docsByRecordedAndId) Len() int {
@@ -222,7 +220,7 @@ func (l docsByRecordedAndId) Less(i, j int) bool {
 	return l[i].Recorded() < l[j].Recorded() || (l[i].Recorded() == l[j].Recorded() && l[i].Id() < l[j].Id())
 }
 
-func (lib *library) AllRecordsAsText() string {
+func (lib *library) PrintAllRecords(out io.Writer) {
 	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
 		if !doc.Removed() {
@@ -231,16 +229,24 @@ func (lib *library) AllRecordsAsText() string {
 	}
 	sort.Sort(docList)
 
-	var builder strings.Builder
 	for _, doc := range docList {
-		fmt.Fprintln(&builder, doc)
+		fmt.Fprintf(out, "%s\n", doc)
 	}
-	return builder.String()
+	if len(docList) == 0 {
+		fmt.Fprintln(out, "<no records>")
+	} else {
+		fmt.Fprintf(out, "--------------\n%d in total\n", len(docList))
+	}
 }
 
 func (libDoc *LibraryDocument) IsRemoved() bool {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	return doc.Removed()
+}
+
+func (libDoc *LibraryDocument) PathRelativeToLibraryRoot() string {
+	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
+	return doc.Path()
 }
 
 func (p CheckedPath) Status() PathStatus {

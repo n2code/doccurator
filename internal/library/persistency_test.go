@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -52,7 +53,7 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
 	os.WriteFile(filePathC, []byte("C"), fs.ModePerm)
 
-	Lib.ChdirToRoot()
+	os.Chdir(Lib.GetRoot())
 	Lib.UpdateDocumentFromFile(docA)
 	Lib.UpdateDocumentFromFile(docB)
 	Lib.UpdateDocumentFromFile(docC)
@@ -63,7 +64,11 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	LoadedLib := MakeRuntimeLibrary()
 	LoadedLib.LoadFromLocalFile(libraryFilePath)
 
-	if Lib.AllRecordsAsText() != LoadedLib.AllRecordsAsText() {
-		t.Fatalf("library not reloaded correctly\nexpected:\n%s\ngot:\n%s", Lib.AllRecordsAsText(), LoadedLib.AllRecordsAsText())
+	var originalLibRecords strings.Builder
+	var loadedLibRecords strings.Builder
+	Lib.PrintAllRecords(&originalLibRecords)
+	LoadedLib.PrintAllRecords(&loadedLibRecords)
+	if originalLibRecords.String() != loadedLibRecords.String() {
+		t.Fatalf("library not reloaded correctly\nexpected:\n%s\ngot:\n%s", originalLibRecords.String(), loadedLibRecords.String())
 	}
 }
