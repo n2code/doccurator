@@ -7,7 +7,7 @@ import (
 type library struct {
 	documents    map[DocumentId]DocumentApi
 	relPathIndex map[string]DocumentApi
-	rootPath     string // system-native path
+	rootPath     string //absolute, system-native path
 }
 
 type orderedDocuments []DocumentApi

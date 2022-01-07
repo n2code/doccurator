@@ -48,11 +48,11 @@ func (doc *document) SetPath(relativePath string) {
 	doc.updateChangeDate()
 }
 
-//UpdateFromFile reads and stats the given location so relative/absolute path handling is up
-// to the OS and the current working directory. The recorded document path does not matter.
-func (doc *document) UpdateFromFile(location string) {
-	statsChanged := doc.localStorage.updateFileStats(location)
-	content, err := os.ReadFile(location)
+//reads and stats the document using the recorded document path and the library root (relative/absolute)
+func (doc *document) UpdateFromFileOnStorage(libraryRoot string) {
+	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary()) //path may be relative if the library root is relative
+	statsChanged := doc.localStorage.updateFileStats(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		panic(err)
 	}
@@ -62,13 +62,11 @@ func (doc *document) UpdateFromFile(location string) {
 	}
 }
 
-//VerifyRecordedFileStatus stats and reads the document's location so the
-// working directory must be set to the library root in order to make the
-// access by relative path work.
-func (doc *document) VerifyRecordedFileStatus() TrackedFileStatus {
-	location := doc.localStorage.pathRelativeToLibrary()
+//Calculates file status using the recorded document path and the library root (relative/absolute)
+func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatus {
+	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary())
 
-	stat, err := os.Stat(location)
+	stat, err := os.Stat(path)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			panic(err)
@@ -87,7 +85,7 @@ func (doc *document) VerifyRecordedFileStatus() TrackedFileStatus {
 		return ModifiedFile
 	}
 	//TODO: introduce switch which skips the full read at this point for better performance
-	content, err := os.ReadFile(location)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		panic(err)
 	}
@@ -118,8 +116,8 @@ func (stored *storedFile) pathRelativeToLibrary() string {
 	return filepath.Join(stored.directory.ToNativeFilepath(), stored.name)
 }
 
-func (stored *storedFile) updateFileStats(location string) (hasChanged bool) {
-	stat, err := os.Stat(location)
+func (stored *storedFile) updateFileStats(path string) (hasChanged bool) {
+	stat, err := os.Stat(path)
 	if err != nil {
 		panic(err)
 	}

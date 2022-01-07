@@ -129,7 +129,7 @@ func (rq *CliRequest) execute() error {
 				if err != nil {
 					return fmt.Errorf(`bad ID in path %s (%w)`, target, err)
 				}
-				err = api.CommandAdd(document.DocumentId(numId), mustAbsPath(target))
+				err = api.CommandAdd(document.DocumentId(numId), target)
 				if err != nil {
 					return err
 				}
@@ -148,14 +148,6 @@ func (rq *CliRequest) execute() error {
 		}
 	}
 	return nil
-}
-
-func mustAbsPath(somePath string) string {
-	abs, err := filepath.Abs(somePath)
-	if err != nil {
-		panic(err)
-	}
-	return abs
 }
 
 func main() {

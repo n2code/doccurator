@@ -26,7 +26,7 @@ const (
 )
 
 type CheckedPath struct {
-	libraryPath string
+	libraryPath string //relative to library root, system-native
 	status      PathStatus
 	matchingId  DocumentId
 }
@@ -41,8 +41,8 @@ type LibraryApi interface {
 	ForgetDocument(LibraryDocument)
 	CheckFilePath(absolutePath string) (result CheckedPath, err error)
 	Scan(skip func(absoluteFilePath string) bool) []CheckedPath
-	SaveToLocalFile(absolutePath string, overwrite bool) error
-	LoadFromLocalFile(absolutePath string)
+	SaveToLocalFile(path string, overwrite bool) error
+	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)
 	GetRoot() string
 	PrintAllRecords(io.Writer)

@@ -46,10 +46,9 @@ func (lib *library) GetDocumentByPath(absolutePath string) (document LibraryDocu
 	return
 }
 
-func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error {
+func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error { //TODO: reading errors may occur, introduce propagation
 	doc := lib.documents[document.id] //caller error if nil
-	absoluteLocation := filepath.Join(lib.rootPath, doc.Path())
-	doc.UpdateFromFile(absoluteLocation)
+	doc.UpdateFromFileOnStorage(lib.rootPath)
 	return nil
 }
 
@@ -65,8 +64,7 @@ func (lib *library) ForgetDocument(document LibraryDocument) {
 	delete(lib.documents, doc.Id())
 }
 
-//CheckPath requires the current working directory to be the library root.
-// It deals with all combinations of the given path being on record and/or [not] existing in reality.
+//deals with all combinations of the given path being on record and/or [not] existing in reality.
 func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err error) {
 	defer func() {
 		if err != nil {
@@ -83,7 +81,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 
 	if doc, isOnRecord := lib.relPathIndex[result.libraryPath]; isOnRecord {
 		// result.matchingId = doc.Id() //TODO: justify and activate
-		switch status := doc.VerifyRecordedFileStatus(); status {
+		switch status := doc.CompareToFileOnStorage(lib.rootPath); status {
 		case UnmodifiedFile:
 			result.status = Tracked
 		case TouchedFile:
@@ -102,16 +100,16 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 
 	//path not on record
 
-	stat, err := os.Stat(result.libraryPath)
+	stat, err := os.Stat(absolutePath)
 	if err != nil {
 		return
 	}
 	if stat.IsDir() {
-		err = fmt.Errorf("Path is not a file: %s", result.libraryPath)
+		err = fmt.Errorf("Path is not a file: %s", absolutePath)
 		return
 	}
 
-	fileChecksum, err := calculateFileChecksum(result.libraryPath)
+	fileChecksum, err := calculateFileChecksum(absolutePath)
 	if err != nil {
 		return
 	}
@@ -119,7 +117,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 	result.status = Untracked
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
-			switch doc.VerifyRecordedFileStatus() {
+			switch doc.CompareToFileOnStorage(lib.rootPath) {
 			case MissingFile:
 				result.status = Moved
 				result.matchingId = doc.Id()
@@ -133,8 +131,8 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath, err 
 	return
 }
 
-func calculateFileChecksum(relativePath string) (sum [sha256.Size]byte, err error) {
-	content, err := os.ReadFile(relativePath)
+func calculateFileChecksum(path string) (sum [sha256.Size]byte, err error) {
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
@@ -142,7 +140,6 @@ func calculateFileChecksum(relativePath string) (sum [sha256.Size]byte, err erro
 	return
 }
 
-//Scan requires the current working directory to be the library root.
 func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPath) {
 	paths = make([]CheckedPath, 0, len(lib.documents))
 	coveredLibraryPaths := make(map[string]bool)
@@ -202,10 +199,11 @@ func (lib *library) getAbsolutePathOfDocument(doc DocumentApi) string {
 	return filepath.Join(lib.rootPath, doc.Path())
 }
 
-func (lib *library) SetRoot(path string) {
-	lib.rootPath = path
+func (lib *library) SetRoot(absolutePath string) {
+	lib.rootPath = absolutePath
 }
 
+//yields absolute path
 func (lib *library) GetRoot() string {
 	return lib.rootPath
 }

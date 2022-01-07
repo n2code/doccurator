@@ -11,9 +11,9 @@ import (
 )
 
 type Doccinator interface {
-	CommandAdd(id document.DocumentId, fileAbsolutePath string) error
-	CommandUpdateByPath(fileAbsolutePath string) error
-	CommandRemoveByPath(fileAbsolutePath string) error
+	CommandAdd(id document.DocumentId, path string) error
+	CommandUpdateByPath(fileAbsolutePath string) error //TODO: de-absolutize
+	CommandRemoveByPath(fileAbsolutePath string) error //TODO: de-absolutize
 	CommandDump()
 	CommandScan() error
 	CommandStatus(paths []string) error
@@ -23,9 +23,9 @@ type Doccinator interface {
 
 type doccinator struct {
 	appLib     LibraryApi
-	libFile    string
+	libFile    string //absolute, system-native path
 	out        io.Writer
-	verboseOut io.Writer
+	verboseOut io.Writer //TODO: make use of this
 }
 
 const libraryLocatorFileName = ".doccinator"

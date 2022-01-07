@@ -12,12 +12,12 @@ import (
 )
 
 // Records a new document in the library
-func (d *doccinator) CommandAdd(id document.DocumentId, fileAbsolutePath string) error {
+func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation failed", err)
 	}
-	d.appLib.SetDocumentPath(doc, fileAbsolutePath)
+	d.appLib.SetDocumentPath(doc, mustAbsFilepath(filePath))
 	d.appLib.UpdateDocumentFromFile(doc)
 	fmt.Fprintf(d.out, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
 	return nil
@@ -52,15 +52,10 @@ func (d *doccinator) CommandDump() {
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths require special flag triggers to be listed.
 func (d *doccinator) CommandScan() error {
-	root := d.appLib.GetRoot()
-	err := os.Chdir(root)
-	if err != nil {
-		return err
-	}
 	skipDbAndPointers := func(path string) bool {
 		return path == d.libFile || filepath.Base(path) == libraryLocatorFileName
 	}
-	tree := output.NewVisualFileTree(root + " [library root]")
+	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	paths := d.appLib.Scan(skipDbAndPointers)
 	for _, checkedPath := range paths {

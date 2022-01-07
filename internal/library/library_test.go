@@ -59,7 +59,6 @@ func TestLibraryApi(t *testing.T) {
 
 	Lib := MakeRuntimeLibrary()
 	Lib.SetRoot(libRootDir)
-	os.Chdir(Lib.GetRoot())
 
 	assertPathCheck := func(actPath string, expPathStatus PathStatus) {
 		checkResult, err := Lib.CheckFilePath(actPath)

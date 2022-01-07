@@ -27,8 +27,8 @@ type DocumentApi interface {
 	SetRemoved()
 	Path() string
 	SetPath(relativePath string)
-	UpdateFromFile(location string)
-	VerifyRecordedFileStatus() TrackedFileStatus
+	UpdateFromFileOnStorage(libraryRoot string)
+	CompareToFileOnStorage(libraryRoot string) TrackedFileStatus
 	MatchesChecksum(sha256 [sha256.Size]byte) bool
 	String() string
 }

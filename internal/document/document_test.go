@@ -51,7 +51,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm)
 	doc.(*document).changed = unchangedPlaceholder
 
-	doc.UpdateFromFile(sourceFilePath)
+	doc.UpdateFromFileOnStorage(libRootDir)
 
 	if doc.Changed() == unchangedPlaceholder {
 		t.Fatal("change timestamp not updated by update from file")
@@ -62,7 +62,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 
 	doc.(*document).changed = unchangedPlaceholder
 
-	doc.UpdateFromFile(sourceFilePath)
+	doc.UpdateFromFileOnStorage(libRootDir)
 
 	if doc.Changed() != unchangedPlaceholder {
 		t.Fatal("change timestamp updated without file being changed")
@@ -74,7 +74,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 	os.WriteFile(sourceFilePath, []byte("BBB"), fs.ModePerm)
 	doc.(*document).changed = unchangedPlaceholder
 
-	doc.UpdateFromFile(sourceFilePath)
+	doc.UpdateFromFileOnStorage(libRootDir)
 
 	if doc.Changed() == unchangedPlaceholder {
 		t.Fatal("change timestamp not updated by change to file")
@@ -93,10 +93,6 @@ func TestFileStatusVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Chdir(libRootDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer func() {
 		os.RemoveAll(libRootDir)
 	}()
@@ -106,47 +102,47 @@ func TestFileStatusVerification(t *testing.T) {
 
 	doc := NewDocument(42)
 	doc.SetPath(sourceFileName)
-	doc.UpdateFromFile(sourceFilePath)
+	doc.UpdateFromFileOnStorage(libRootDir)
 
-	if doc.VerifyRecordedFileStatus() != UnmodifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir) != UnmodifiedFile {
 		t.Fatal("file not considered unmodified")
 	}
 
 	correctTimestamp := doc.(*document).localStorage.lastModified
 	doc.(*document).localStorage.lastModified--
 
-	if doc.VerifyRecordedFileStatus() != TouchedFile {
+	if doc.CompareToFileOnStorage(libRootDir) != TouchedFile {
 		t.Fatal("file not considered touched")
 	}
 
 	doc.(*document).localStorage.lastModified = correctTimestamp
 	os.WriteFile(sourceFilePath, []byte("B"), fs.ModePerm)
 
-	if doc.VerifyRecordedFileStatus() != ModifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
 		t.Fatal("file not considered modified")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("CCC"), fs.ModePerm)
 
-	if doc.VerifyRecordedFileStatus() != ModifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
 		t.Fatal("file not considered modified")
 	}
 
 	os.Remove(sourceFilePath)
 
-	if doc.VerifyRecordedFileStatus() != MissingFile {
+	if doc.CompareToFileOnStorage(libRootDir) != MissingFile {
 		t.Fatal("file not considered missing")
 	}
 
 	doc.SetRemoved()
 
-	if doc.VerifyRecordedFileStatus() != RemovedFile {
+	if doc.CompareToFileOnStorage(libRootDir) != RemovedFile {
 		t.Fatal("file not considered removed")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm)
 
-	if doc.VerifyRecordedFileStatus() != ZombieFile {
+	if doc.CompareToFileOnStorage(libRootDir) != ZombieFile {
 		t.Fatal("file not considered zombie")
 	}
 }

@@ -22,6 +22,7 @@ func (d *doccinator) createLibrary(absoluteRoot string, absoluteDbFilePath strin
 	}
 
 	locatorLocation := filepath.Join(absoluteRoot, libraryLocatorFileName)
+	//TODO: generate slash-direction-safe URL
 	if err := os.WriteFile(locatorLocation, []byte("file://"+absoluteDbFilePath), fs.ModePerm); err != nil {
 		return fmt.Errorf("writing library locator (%s) failed:\n%w", locatorLocation, err)
 	}
@@ -52,6 +53,7 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 			if url.Scheme != "file" {
 				return fmt.Errorf(`scheme of URL in library locator file (%s) missing or unsupported: "%s"`, locatorFile, url.Scheme)
 			}
+			//TODO: adapt to slash-agnostic URL format
 			d.libFile = url.Path
 			d.appLib = MakeRuntimeLibrary()
 			d.appLib.LoadFromLocalFile(d.libFile)
