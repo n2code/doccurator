@@ -22,25 +22,33 @@ const semVerPattern = `^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>
 var semanticVersionRegex = regexp.MustCompile(semVerPattern)
 var semanticVersionMajorSubmatchIndex = semanticVersionRegex.SubexpIndex("major")
 
-func (lib *library) SaveToLocalFile(path string, overwrite bool) {
+func (lib *library) SaveToLocalFile(path string, overwrite bool) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("saving library failed: %w", err)
+		}
+	}()
+
 	if !overwrite {
-		if _, err := os.Lstat(path); err == nil {
-			panic("library file exists, overwrite not requested")
+		if _, statErr := os.Lstat(path); statErr == nil {
+			return fmt.Errorf("path of library file exists already (%s)", path)
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			return statErr
 		}
 	}
 
 	tempPath := path + workInProgressFileSuffix
 
 	file, err := os.OpenFile(tempPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600|os.ModeExclusive)
-	if err != nil {
-		panic(err)
+	if err != nil { //plausible failure
+		return
 	}
 	fileClosed := false
 	closeFile := func() {
 		if !fileClosed {
-			err := file.Close()
+			err = file.Close()
 			if err != nil {
-				panic(err)
+				return
 			}
 			fileClosed = true
 		}
@@ -49,16 +57,16 @@ func (lib *library) SaveToLocalFile(path string, overwrite bool) {
 
 	compressor, _ := gzip.NewWriterLevel(file, gzip.BestSpeed)
 	closeCompressor := func() {
-		err := compressor.Close()
-		if err != nil {
+		err = compressor.Close()
+		if err != nil { //rather unexpected failure since file open has worked
 			panic(err)
 		}
 	}
 	defer closeCompressor()
 
 	writeLine := func(text string) {
-		_, err := compressor.Write([]byte(text + "\n"))
-		if err != nil {
+		_, err = compressor.Write([]byte(text + "\n"))
+		if err != nil { //rather unexpected failure since file open has worked
 			panic(err)
 		}
 	}
@@ -70,7 +78,7 @@ func (lib *library) SaveToLocalFile(path string, overwrite bool) {
 	encoder.SetIndent("", "\t")
 
 	err = encoder.Encode(lib)
-	if err != nil {
+	if err != nil { //rather unexpected failure since file open has worked
 		panic(err)
 	}
 
@@ -81,8 +89,10 @@ func (lib *library) SaveToLocalFile(path string, overwrite bool) {
 
 	err = os.Rename(tempPath, path)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("replacing library file (%s) with temporary working copy (%s) failed: %w", path, tempPath, err)
 	}
+
+	return nil
 }
 
 func (lib *library) LoadFromLocalFile(path string) {

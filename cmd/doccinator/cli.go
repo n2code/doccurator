@@ -120,7 +120,10 @@ func (rq *CliRequest) execute() (err error) {
 	switch rq.action {
 	case "init":
 		libRoot := mustAbsPath(rq.targets[0])
-		doccinator.InitLibrary(libRoot, filepath.Join(libRoot, defaultDbFileName), os.Stdout)
+		err = doccinator.InitLibrary(libRoot, filepath.Join(libRoot, defaultDbFileName), os.Stdout)
+		if err != nil {
+			return
+		}
 	case "dump":
 		err = doccinator.DiscoverAppLibrary(workingDir)
 		if err != nil {
@@ -142,22 +145,23 @@ func (rq *CliRequest) execute() (err error) {
 			filename := filepath.Base(target)
 			matches := ndocFileNameRegex.FindStringSubmatch(filename)
 			if matches == nil {
-				err = fmt.Errorf(`ID missing in path %s`, target)
-				return
+				return fmt.Errorf(`ID missing in path %s`, target)
 			}
 			textId := matches[1]
 			var numId uint64
 			numId, err, _ = ndocid.Decode(textId)
 			if err != nil {
-				err = fmt.Errorf(`bad ID in path %s (%s)`, target, err)
-				return
+				return fmt.Errorf(`bad ID in path %s (%s)`, target, err)
 			}
 			err = doccinator.CommandAdd(document.DocumentId(numId), mustAbsPath(target), os.Stdout)
 			if err != nil {
 				return
 			}
 		}
-		doccinator.PersistDatabase()
+		err = doccinator.PersistDatabase()
+		if err != nil {
+			return
+		}
 	case "status":
 		err = doccinator.DiscoverAppLibrary(workingDir)
 		if err != nil {

@@ -41,7 +41,7 @@ type LibraryApi interface {
 	ForgetDocument(LibraryDocument)
 	CheckFilePath(absolutePath string) (result CheckedPath, err error)
 	Scan(skip func(absoluteFilePath string) bool) []CheckedPath
-	SaveToLocalFile(absolutePath string, overwrite bool)
+	SaveToLocalFile(absolutePath string, overwrite bool) error
 	LoadFromLocalFile(absolutePath string)
 	SetRoot(absolutePath string)
 	GetRoot() string

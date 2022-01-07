@@ -151,16 +151,23 @@ func CommandAuto() error {
 	return nil
 }
 
-func InitLibrary(absoluteRoot string, absoluteDbFilePath string, out io.Writer) {
+func InitLibrary(absoluteRoot string, absoluteDbFilePath string, out io.Writer) error {
 	appLib = MakeRuntimeLibrary()
+
 	appLib.SetRoot(absoluteRoot)
+
 	libFile = absoluteDbFilePath
-	appLib.SaveToLocalFile(absoluteDbFilePath, false)
-	err := os.WriteFile(filepath.Join(absoluteRoot, libraryPointerFileName), []byte("file://"+absoluteDbFilePath), fs.ModePerm)
-	if err != nil {
-		panic(err)
+	if err := appLib.SaveToLocalFile(absoluteDbFilePath, false); err != nil {
+		return err
 	}
+
+	locatorLocation := filepath.Join(absoluteRoot, libraryPointerFileName)
+	if err := os.WriteFile(locatorLocation, []byte("file://"+absoluteDbFilePath), fs.ModePerm); err != nil {
+		return fmt.Errorf("writing library locator (%s) failed:\n%w", locatorLocation, err)
+	}
+
 	fmt.Fprintf(out, "Initialized library with root %s\n", absoluteRoot)
+	return nil
 }
 
 func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
@@ -171,10 +178,10 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 	}()
 	currentDir := startingDirectoryAbsolute
 	for {
-		pointerFile := path.Join(currentDir, libraryPointerFileName)
-		stat, statErr := os.Stat(pointerFile)
+		locatorFile := path.Join(currentDir, libraryPointerFileName)
+		stat, statErr := os.Stat(locatorFile)
 		if statErr == nil && stat.Mode().IsRegular() {
-			contents, readErr := os.ReadFile(pointerFile)
+			contents, readErr := os.ReadFile(locatorFile)
 			if readErr != nil {
 				return readErr
 			}
@@ -183,7 +190,7 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 				return parseErr
 			}
 			if url.Scheme != "file" {
-				return errors.New("scheme of URL in library locator file missing or unsupported: " + url.Scheme)
+				return fmt.Errorf(`scheme of URL in library locator file (%s) missing or unsupported: "%s"`, locatorFile, url.Scheme)
 			}
 			libFile = url.Path
 			appLib = MakeRuntimeLibrary()
@@ -200,8 +207,8 @@ func DiscoverAppLibrary(startingDirectoryAbsolute string) (err error) {
 	}
 }
 
-func PersistDatabase() {
-	appLib.SaveToLocalFile(libFile, true)
+func PersistDatabase() error {
+	return appLib.SaveToLocalFile(libFile, true)
 }
 
 func pluralS(countable interface{}) string {
