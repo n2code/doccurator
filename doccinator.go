@@ -13,6 +13,7 @@ import (
 
 	document "github.com/n2code/doccinator/internal/document"
 	. "github.com/n2code/doccinator/internal/library"
+	output "github.com/n2code/doccinator/internal/output"
 )
 
 const libraryPointerFileName = ".doccinator"
@@ -83,14 +84,20 @@ func CommandScan(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Scanning library in %s ...\n", root)
 	skipDbAndPointers := func(path string) bool {
 		return path == libFile || filepath.Base(path) == libraryPointerFileName
 	}
+	tree := output.NewVisualFileTree(root + " [library root]")
+
 	paths := appLib.Scan(skipDbAndPointers)
 	for _, checkedPath := range paths {
-		fmt.Fprintf(out, "[%s] %s\n", string(checkedPath.Status()), checkedPath.PathRelativeToLibraryRoot())
+		prefix := ""
+		if status := checkedPath.Status(); status != Tracked {
+			prefix = fmt.Sprintf("[%s] ", string(status))
+		}
+		tree.InsertPath(checkedPath.PathRelativeToLibraryRoot(), prefix)
 	}
+	fmt.Fprint(out, tree.Render())
 	return nil
 }
 
