@@ -90,91 +90,64 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 			err = errors.New("Bad number of arguments, exactly one expected!")
 			return
 		}
-	}
-	return
-}
-
-func getRealWorkingDirectory() string {
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	absoluteWorkingDirectory, err := filepath.Abs(workingDirectory)
-	if err != nil {
-		panic(err)
-	}
-	realWorkingDirectory, err := filepath.EvalSymlinks(absoluteWorkingDirectory)
-	if err != nil {
-		panic(err)
-	}
-	return realWorkingDirectory
-}
-
-func (rq *CliRequest) execute() (err error) {
-	var workingDir string
-	workingDir, err = os.Getwd()
-	if err != nil {
+	default:
+		err = fmt.Errorf(`unknown action "%s"`, request.action)
 		return
 	}
-
-	switch rq.action {
-	case "init":
-		libRoot := mustAbsPath(rq.targets[0])
-		err = doccinator.InitLibrary(libRoot, filepath.Join(libRoot, defaultDbFileName), os.Stdout)
-		if err != nil {
-			return
-		}
-	case "dump":
-		err = doccinator.DiscoverAppLibrary(workingDir)
-		if err != nil {
-			return
-		}
-		doccinator.CommandDump(os.Stdout)
-	case "scan":
-		err = doccinator.DiscoverAppLibrary(workingDir)
-		if err != nil {
-			return
-		}
-		doccinator.CommandScan(os.Stdout)
-	case "add":
-		err = doccinator.DiscoverAppLibrary(workingDir)
-		if err != nil {
-			return
-		}
-		for _, target := range rq.targets {
-			filename := filepath.Base(target)
-			matches := ndocFileNameRegex.FindStringSubmatch(filename)
-			if matches == nil {
-				return fmt.Errorf(`ID missing in path %s`, target)
-			}
-			textId := matches[1]
-			var numId uint64
-			numId, err, _ = ndocid.Decode(textId)
-			if err != nil {
-				return fmt.Errorf(`bad ID in path %s (%s)`, target, err)
-			}
-			err = doccinator.CommandAdd(document.DocumentId(numId), mustAbsPath(target), os.Stdout)
-			if err != nil {
-				return
-			}
-		}
-		err = doccinator.PersistDatabase()
-		if err != nil {
-			return
-		}
-	case "status":
-		err = doccinator.DiscoverAppLibrary(workingDir)
-		if err != nil {
-			return
-		}
-		err = doccinator.CommandStatus(rq.targets, os.Stdout)
-		if err != nil {
-			return
-		}
-	default:
-		err = fmt.Errorf(`unknown action "%s"`, rq.action)
-	}
 	return
+}
+
+func (rq *CliRequest) execute() error {
+	if rq.action == "init" {
+		if _, err := doccinator.New(rq.targets[0], filepath.Join(rq.targets[0], defaultDbFileName)); err != nil {
+			return err
+		}
+	} else {
+		workingDir, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		api, err := doccinator.Open(workingDir)
+		if err != nil {
+			return err
+		}
+		switch rq.action {
+		case "dump":
+			api.CommandDump()
+		case "scan":
+			api.CommandScan()
+		case "add":
+			for _, target := range rq.targets {
+				filename := filepath.Base(target)
+				matches := ndocFileNameRegex.FindStringSubmatch(filename)
+				if matches == nil {
+					return fmt.Errorf(`ID missing in path %s`, target)
+				}
+				textId := matches[1]
+				var numId uint64
+				numId, err, _ = ndocid.Decode(textId)
+				if err != nil {
+					return fmt.Errorf(`bad ID in path %s (%w)`, target, err)
+				}
+				err = api.CommandAdd(document.DocumentId(numId), mustAbsPath(target))
+				if err != nil {
+					return err
+				}
+			}
+			err = api.PersistChanges()
+			if err != nil {
+				return err
+			}
+		case "status":
+			err = api.CommandStatus(rq.targets)
+			if err != nil {
+				return err
+			}
+		default:
+			panic("bad action")
+		}
+	}
+	return nil
 }
 
 func mustAbsPath(somePath string) string {
