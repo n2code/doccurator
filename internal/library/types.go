@@ -7,7 +7,7 @@ import (
 type library struct {
 	documents    map[DocumentId]DocumentApi
 	relPathIndex map[string]DocumentApi
-	rootPath     string // path has system-native directory separators
+	rootPath     string // system-native path
 }
 
 type orderedDocuments []DocumentApi

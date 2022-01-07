@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 
 	. "github.com/n2code/doccinator/internal/library"
@@ -39,7 +38,7 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	}()
 	currentDir := startingDirectoryAbsolute
 	for {
-		locatorFile := path.Join(currentDir, libraryLocatorFileName)
+		locatorFile := filepath.Join(currentDir, libraryLocatorFileName)
 		stat, statErr := os.Stat(locatorFile)
 		if statErr == nil && stat.Mode().IsRegular() {
 			contents, readErr := os.ReadFile(locatorFile)
@@ -61,7 +60,7 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 			if currentDir == "/" {
 				return errors.New("stopping at filesystem root")
 			}
-			currentDir = path.Dir(currentDir)
+			currentDir = filepath.Dir(currentDir)
 		} else {
 			return statErr
 		}

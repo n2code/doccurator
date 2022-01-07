@@ -1,5 +1,7 @@
 package document
 
+import "path/filepath"
+
 type unixTimestamp int64
 
 const missingId DocumentId = 0
@@ -13,12 +15,20 @@ type document struct {
 	removed         bool            //tombstone marker to record removal from library
 }
 
+type SemanticPath string //slash-separated regardless of OS
+
+func (p SemanticPath) ToNativeFilepath() string {
+	return filepath.FromSlash(string(p))
+}
+
+func SemanticPathFromNative(path string) SemanticPath {
+	return SemanticPath(filepath.ToSlash(path))
+}
+
 // storedFile is location relative to the storage root
 type storedFile struct {
-	// directory is a slash separated path relative to the library's root directory
-	directory string
-	// name is a pure filename without path information
-	name         string
+	directory    SemanticPath // directory is a semantic path relative to the library's root directory
+	name         string       // name is a pure filename without path information
 	lastModified unixTimestamp
 }
 

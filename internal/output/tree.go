@@ -1,7 +1,7 @@
 package output
 
 import (
-	"path"
+	"path/filepath"
 
 	"github.com/disiqueira/gotree/v3"
 )
@@ -21,17 +21,17 @@ func (t VisualFileTree) getDir(dirPath string) (dir gotree.Tree) {
 	}
 	dir = t.dirs[dirPath]
 	if dir == nil {
-		parentPath := path.Dir(dirPath)
+		parentPath := filepath.Dir(dirPath)
 		parentDir := t.getDir(parentPath)
-		dir = parentDir.Add(path.Base(dirPath))
+		dir = parentDir.Add(filepath.Base(dirPath))
 		t.dirs[dirPath] = dir
 	}
 	return
 }
 
 func (t VisualFileTree) InsertPath(filePath string, nodePrefix string) {
-	file := path.Base(filePath)
-	dir := t.getDir(path.Dir(filePath))
+	file := filepath.Base(filePath)
+	dir := t.getDir(filepath.Dir(filePath))
 	dir.Add(nodePrefix + file)
 }
 

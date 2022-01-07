@@ -24,7 +24,7 @@ func (doc *document) String() string {
 }
 
 type jsonDoc struct {
-	Dir          string
+	Dir          SemanticPath
 	File         string
 	Size         int64
 	Sha256       string

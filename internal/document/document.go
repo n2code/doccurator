@@ -110,12 +110,12 @@ func (doc *document) updateChangeDate() {
 }
 
 func (stored *storedFile) setFromRelativePath(relativePath string) {
-	stored.directory = filepath.ToSlash(filepath.Dir(relativePath))
+	stored.directory = SemanticPathFromNative(filepath.Dir(relativePath))
 	stored.name = filepath.Base(relativePath)
 }
 
 func (stored *storedFile) pathRelativeToLibrary() string {
-	return filepath.Join(filepath.FromSlash(stored.directory), stored.name)
+	return filepath.Join(stored.directory.ToNativeFilepath(), stored.name)
 }
 
 func (stored *storedFile) updateFileStats(location string) (hasChanged bool) {

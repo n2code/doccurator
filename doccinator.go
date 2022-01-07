@@ -32,7 +32,7 @@ const libraryLocatorFileName = ".doccinator"
 
 func New(root string, database string) (Doccinator, error) {
 	handle := &doccinator{out: os.Stdout, verboseOut: io.Discard}
-	err := handle.createLibrary(mustAbsPath(root), mustAbsPath(database))
+	err := handle.createLibrary(mustAbsFilepath(root), mustAbsFilepath(database))
 	if err != nil {
 		return nil, fmt.Errorf("library create error: %w", err)
 	}
@@ -41,7 +41,7 @@ func New(root string, database string) (Doccinator, error) {
 
 func Open(directory string) (Doccinator, error) {
 	handle := &doccinator{out: os.Stdout, verboseOut: io.Discard}
-	err := handle.loadLibrary(mustAbsPath(directory))
+	err := handle.loadLibrary(mustAbsFilepath(directory))
 	if err != nil {
 		return nil, fmt.Errorf("library load error: %w", err)
 	}
@@ -56,7 +56,7 @@ func (d *doccinator) PersistChanges() error {
 
 }
 
-func mustAbsPath(somePath string) string {
+func mustAbsFilepath(somePath string) string {
 	abs, err := filepath.Abs(somePath)
 	if err != nil {
 		panic(err)
