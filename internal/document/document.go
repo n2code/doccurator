@@ -69,7 +69,7 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	stat, err := os.Stat(path)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
-			panic(err)
+			return AccessError
 		}
 		if doc.removed {
 			return RemovedFile
@@ -84,16 +84,16 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	if stat.Size() != doc.contentMetadata.size {
 		return ModifiedFile
 	}
-	//TODO: introduce switch which skips the full read at this point for better performance
+	//TODO [FEATURE]: introduce switch which skips the full read at this point for better performance
 	content, err := os.ReadFile(path)
 	if err != nil {
-		panic(err)
+		return AccessError
 	}
 	if sha256.Sum256(content) != doc.contentMetadata.sha256Hash {
 		return ModifiedFile
 	}
 	if unixTimestamp(stat.ModTime().Unix()) != doc.localStorage.lastModified {
-		//TODO: on performance optimization do a full read if last modified differs
+		//TODO [FEATURE]: on performance optimization do a full read if last modified differs
 		return TouchedFile
 	}
 	return UnmodifiedFile

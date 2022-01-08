@@ -59,23 +59,39 @@ func (d *doccinator) CommandDump() {
 }
 
 // Calculates states for all present and recorded paths.
-//  Tracked and removed paths require special flag triggers to be listed. //<-- TODO: implement said flags
+//  Tracked and removed paths require special flag triggers to be listed. //<-- TODO [FEATURE]: implement said flags
 func (d *doccinator) CommandScan() error {
 	skipDbAndPointers := func(path string) bool {
 		return path == d.libFile || filepath.Base(path) == libraryLocatorFileName
 	}
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
-	paths := d.appLib.Scan(skipDbAndPointers)
-	for _, checkedPath := range paths {
+	var pathsWithErrors []*CheckedPath
+	paths, ok := d.appLib.Scan(skipDbAndPointers)
+	for index, checkedPath := range paths {
 		prefix := ""
-		if status := checkedPath.Status(); status != Tracked {
+		status := checkedPath.Status()
+		if status != Tracked {
 			prefix = fmt.Sprintf("[%s] ", string(status))
 		}
 		tree.InsertPath(checkedPath.PathRelativeToLibraryRoot(), prefix)
+		if status == Error {
+			pathsWithErrors = append(pathsWithErrors, &paths[index])
+		}
 	}
+
 	fmt.Fprint(d.out, tree.Render())
-	return nil
+
+	if !ok {
+		var msg strings.Builder
+		fmt.Fprintf(&msg, "Scanning error%s occurred:\n", output.PluralS(len(pathsWithErrors) != 1))
+		for _, errorPath := range pathsWithErrors {
+			fmt.Fprintf(&msg, "@%s: %s\n", errorPath.PathRelativeToLibraryRoot(), errorPath.GetError())
+		}
+		return fmt.Errorf(msg.String())
+	} else {
+		return nil
+	}
 }
 
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
@@ -85,6 +101,7 @@ func (d *doccinator) CommandStatus(paths []string) error {
 	fmt.Fprintln(d.out)
 
 	var errorMessages strings.Builder
+	errorCount := 0
 
 	for _, path := range paths {
 		abs, err := filepath.Abs(path)
@@ -92,11 +109,12 @@ func (d *doccinator) CommandStatus(paths []string) error {
 			return err
 		}
 
-		res, err := d.appLib.CheckFilePath(abs)
+		res := d.appLib.CheckFilePath(abs)
 
 		switch status := res.Status(); status {
 		case Error:
-			fmt.Fprintf(&errorMessages, "  [E] %s (%s)\n", err, abs)
+			fmt.Fprintf(&errorMessages, "  [E] @%s: %s\n", abs, res.GetError())
+			errorCount++
 		default:
 			displayPath := "" //relative to working directory, if possible
 			if wd, err := os.Getwd(); err != nil {
@@ -110,15 +128,15 @@ func (d *doccinator) CommandStatus(paths []string) error {
 
 	}
 
-	if errorMessages.Len() > 0 {
-		fmt.Fprintf(d.out, "Errors occurred:\n%s\n", errorMessages.String())
-	}
 	for status, bucket := range buckets {
 		fmt.Fprintf(d.out, "%s (%d file%s)\n", status, len(bucket), output.PluralS(bucket))
 		for _, path := range bucket {
 			fmt.Fprintf(d.out, "  [%s] %s\n", string(rune(status)), path)
 		}
 		fmt.Fprintln(d.out)
+	}
+	if errorCount > 0 {
+		fmt.Fprintf(d.out, "Error%s occurred:\n%s\n", output.PluralS(errorCount != 1), errorMessages.String()) //not on stderr because it was explicitly queried
 	}
 	return nil
 }

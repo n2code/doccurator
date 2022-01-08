@@ -63,11 +63,11 @@ func TestLibraryApi(t *testing.T) {
 	Lib.SetRoot(libRootDir)
 
 	assertPathCheck := func(actPath string, expPathStatus PathStatus) {
-		checkResult, err := Lib.CheckFilePath(actPath)
-		if err != nil && expPathStatus != Error {
+		checkResult := Lib.CheckFilePath(actPath)
+		if checkResult.err != nil && expPathStatus != Error {
 			t.Fatalf("got error for path check of %s instead of expected %s: %s", actPath, string(expPathStatus), err)
 		}
-		if expPathStatus == Error && err == nil {
+		if expPathStatus == Error && checkResult.err == nil {
 			t.Fatalf("did not get error for path check of %s", actPath)
 		}
 		if checkResult.status != expPathStatus {

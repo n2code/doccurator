@@ -16,6 +16,7 @@ const (
 	RemovedFile                             //file marked as removed and consequently not found at last known location
 	MissingFile                             //file not found at the expected location
 	ZombieFile                              //something is present at the file's last known location although file is marked as removed (so it should have been deleted)
+	AccessError                             //error accessing probed location
 )
 
 type DocumentApi interface {

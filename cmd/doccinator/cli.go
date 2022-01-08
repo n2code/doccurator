@@ -119,7 +119,9 @@ func (rq *CliRequest) execute() error {
 		case "dump":
 			api.CommandDump()
 		case "scan":
-			api.CommandScan() //TODO deal with error in signature
+			if err := api.CommandScan(); err != nil {
+				return err
+			}
 		case "add":
 			for _, target := range rq.actionArgs {
 				filename := filepath.Base(target)

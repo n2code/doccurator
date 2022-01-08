@@ -6,6 +6,10 @@ func PluralS(countable interface{}) string {
 		if len(c) != 1 {
 			return "s"
 		}
+	case bool:
+		if c {
+			return "s"
+		}
 	}
 	return ""
 }

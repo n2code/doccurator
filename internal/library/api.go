@@ -27,6 +27,7 @@ type CheckedPath struct {
 	libraryPath string //relative to library root, system-native
 	status      PathStatus
 	matchingId  DocumentId
+	err         error
 }
 
 // LibraryApi expects absolute system-native paths (with respect to the directory separator)
@@ -37,8 +38,8 @@ type LibraryApi interface {
 	UpdateDocumentFromFile(LibraryDocument) error
 	MarkDocumentAsRemoved(LibraryDocument)
 	ForgetDocument(LibraryDocument)
-	CheckFilePath(absolutePath string) (result CheckedPath, err error)
-	Scan(skip func(absoluteFilePath string) bool) []CheckedPath
+	CheckFilePath(absolutePath string) CheckedPath
+	Scan(skip func(absoluteFilePath string) bool) (paths []CheckedPath, hasNoErrors bool)
 	SaveToLocalFile(path string, overwrite bool) error
 	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)
