@@ -4,10 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/n2code/doccinator"
 	"github.com/n2code/doccinator/internal/document"
@@ -15,10 +15,10 @@ import (
 )
 
 type CliRequest struct {
-	verbose bool
-	quiet   bool
-	action  string
-	targets []string
+	verbose    bool
+	quiet      bool
+	action     string
+	actionArgs []string
 }
 
 const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
@@ -27,73 +27,61 @@ const defaultDbFileName = string(`doccinator.db`)
 //represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
 var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + idPattern + `)\.ndoc(?:\.[^.]+)?$`)
 
-func parseFlags(args []string) (request *CliRequest, output string, err error, exitCode int) {
-	flags := flag.NewFlagSet("", flag.ContinueOnError)
-
-	var outputBuffer strings.Builder
-	flags.SetOutput(&outputBuffer)
-
+func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliRequest, exitCode int) {
+	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
-		outputBuffer.WriteString("Usage: doccinator [FLAGS...] <action> [FILE...]\n\n Flags:\n")
+		flags.Output().Write([]byte("Usage: doccinator [MODE] <action> [TARGET...]\n\n MODE switches for all actions:\n"))
 		flags.PrintDefaults()
 	}
 
 	request = &CliRequest{}
+	var generalHelpRequested bool
 	flags.BoolVar(&request.verbose, "v", false, "Output more details on what is done (verbose mode)")
 	flags.BoolVar(&request.quiet, "q", false, "Output as little as possible, i.e. only requested information (quiet mode)")
+	flags.BoolVar(&generalHelpRequested, "h", false, "Display general usage help")
 
+	var err error
 	defer func() {
-		output = outputBuffer.String()
-		if err == flag.ErrHelp {
-			exitCode = 0
-		} else if err != nil {
-			if len(output) > 0 {
-				output = fmt.Sprint(err, "\n\n", output)
-			} else {
-				output = fmt.Sprint(err)
-			}
-
+		if err != nil {
+			fmt.Fprintf(errOut, "%s\nUsage help: doccinator -h\n", err)
 			exitCode = 2
+			request = nil
 		}
 	}()
 
-	err = flags.Parse(args)
-	if err != nil {
+	flags.Parse(args) //exits on error
+
+	if generalHelpRequested {
+		flags.Usage()
+		exitCode = 0
+		request = nil
 		return
 	}
-
 	if flags.NArg() == 0 {
 		err = errors.New("No arguments given!")
-		flags.Usage()
-		return
-	}
-	if flags.Arg(0) == "help" {
-		flags.Usage()
-		err = flag.ErrHelp
 		return
 	}
 	if request.verbose && request.quiet {
 		err = errors.New("Quiet mode and verbose mode are mutually exclusive!")
-		flags.Usage()
 		return
 	}
 
 	request.action = flags.Arg(0)
-	request.targets = flags.Args()[1:]
+	request.actionArgs = flags.Args()[1:]
 
 	switch request.action {
 	case "add", "status":
-		if len(request.targets) < 1 {
+		if len(request.actionArgs) < 1 {
 			err = errors.New("No targets given!")
 			return
 		}
 	case "scan", "dump":
-		if len(request.targets) > 0 {
+		if len(request.actionArgs) > 0 {
 			err = errors.New("Too many arguments!")
 			return
 		}
 	case "init":
-		if len(request.targets) != 1 {
+		if len(request.actionArgs) != 1 {
 			err = errors.New("Bad number of arguments, exactly one expected!")
 			return
 		}
@@ -114,7 +102,7 @@ func (rq *CliRequest) execute() error {
 	}
 
 	if rq.action == "init" {
-		if _, err := doccinator.New(rq.targets[0], filepath.Join(rq.targets[0], defaultDbFileName), config); err != nil {
+		if _, err := doccinator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config); err != nil {
 			return err
 		}
 	} else {
@@ -133,7 +121,7 @@ func (rq *CliRequest) execute() error {
 		case "scan":
 			api.CommandScan() //TODO deal with error in signature
 		case "add":
-			for _, target := range rq.targets {
+			for _, target := range rq.actionArgs {
 				filename := filepath.Base(target)
 				matches := ndocFileNameRegex.FindStringSubmatch(filename)
 				if matches == nil {
@@ -155,7 +143,7 @@ func (rq *CliRequest) execute() error {
 				return err
 			}
 		case "status":
-			err = api.CommandStatus(rq.targets)
+			err = api.CommandStatus(rq.actionArgs)
 			if err != nil {
 				return err
 			}
@@ -167,13 +155,11 @@ func (rq *CliRequest) execute() error {
 }
 
 func main() {
-	rq, output, err, rc := parseFlags(os.Args[1:])
-	if err != nil {
-		fmt.Println(output)
+	rq, rc := parseFlags(os.Args[1:], os.Stdout, os.Stderr)
+	if rc != 0 || rq == nil {
 		os.Exit(rc)
 	}
-	err = rq.execute()
-	if err != nil {
+	if err := rq.execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		if rq.action == "add" && !rq.quiet {
 			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")

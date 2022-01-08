@@ -59,7 +59,7 @@ func (d *doccinator) CommandDump() {
 }
 
 // Calculates states for all present and recorded paths.
-//  Tracked and removed paths require special flag triggers to be listed.
+//  Tracked and removed paths require special flag triggers to be listed. //<-- TODO: implement said flags
 func (d *doccinator) CommandScan() error {
 	skipDbAndPointers := func(path string) bool {
 		return path == d.libFile || filepath.Base(path) == libraryLocatorFileName
