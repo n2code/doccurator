@@ -16,6 +16,7 @@ import (
 
 type CliRequest struct {
 	verbose bool
+	quiet   bool
 	action  string
 	targets []string
 }
@@ -33,12 +34,13 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 	flags.SetOutput(&outputBuffer)
 
 	flags.Usage = func() {
-		outputBuffer.WriteString("Usage: doccinator <action> [FLAGS...] FILE...\n\n Flags:\n")
+		outputBuffer.WriteString("Usage: doccinator [FLAGS...] <action> [FILE...]\n\n Flags:\n")
 		flags.PrintDefaults()
 	}
 
 	request = &CliRequest{}
 	flags.BoolVar(&request.verbose, "v", false, "Output more details on what is done (verbose mode)")
+	flags.BoolVar(&request.quiet, "q", false, "Output as little as possible, i.e. only requested information (quiet mode)")
 
 	defer func() {
 		output = outputBuffer.String()
@@ -70,6 +72,11 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 		err = flag.ErrHelp
 		return
 	}
+	if request.verbose && request.quiet {
+		err = errors.New("Quiet mode and verbose mode are mutually exclusive!")
+		flags.Usage()
+		return
+	}
 
 	request.action = flags.Arg(0)
 	request.targets = flags.Args()[1:]
@@ -98,8 +105,16 @@ func parseFlags(args []string) (request *CliRequest, output string, err error, e
 }
 
 func (rq *CliRequest) execute() error {
+	var config doccinator.CreateConfig
+	if rq.verbose {
+		config.Verbosity = doccinator.VerboseMode
+	}
+	if rq.quiet {
+		config.Verbosity = doccinator.QuietMode
+	}
+
 	if rq.action == "init" {
-		if _, err := doccinator.New(rq.targets[0], filepath.Join(rq.targets[0], defaultDbFileName)); err != nil {
+		if _, err := doccinator.New(rq.targets[0], filepath.Join(rq.targets[0], defaultDbFileName), config); err != nil {
 			return err
 		}
 	} else {
@@ -107,15 +122,16 @@ func (rq *CliRequest) execute() error {
 		if err != nil {
 			return err
 		}
-		api, err := doccinator.Open(workingDir)
+		api, err := doccinator.Open(workingDir, config)
 		if err != nil {
 			return err
 		}
+
 		switch rq.action {
 		case "dump":
 			api.CommandDump()
 		case "scan":
-			api.CommandScan()
+			api.CommandScan() //TODO deal with error in signature
 		case "add":
 			for _, target := range rq.targets {
 				filename := filepath.Base(target)
@@ -159,6 +175,9 @@ func main() {
 	err = rq.execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		if rq.action == "add" && !rq.quiet {
+			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
+		}
 		os.Exit(1)
 	}
 	os.Exit(0)

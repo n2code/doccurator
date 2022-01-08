@@ -19,7 +19,7 @@ func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
 	}
 	d.appLib.SetDocumentPath(doc, mustAbsFilepath(filePath))
 	d.appLib.UpdateDocumentFromFile(doc)
-	fmt.Fprintf(d.out, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
+	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
 	return nil
 }
 
@@ -45,8 +45,17 @@ func (d *doccinator) CommandRemoveByPath(fileAbsolutePath string) error {
 
 // Outputs all library records
 func (d *doccinator) CommandDump() {
-	fmt.Fprintf(d.out, "Library: %s\n--------\n", d.appLib.GetRoot())
-	d.appLib.PrintAllRecords(d.out)
+	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
+	count := 0
+	d.appLib.VisitAllRecords(func(doc document.DocumentApi) {
+		fmt.Fprintf(d.out, "%s\n", doc)
+		count++
+	})
+	if count == 0 {
+		fmt.Fprintln(d.extraOut, "<no records>")
+	} else {
+		fmt.Fprintf(d.extraOut, "\n%d in total\n", count)
+	}
 }
 
 // Calculates states for all present and recorded paths.
@@ -72,7 +81,8 @@ func (d *doccinator) CommandScan() error {
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
 func (d *doccinator) CommandStatus(paths []string) error {
 	var buckets map[PathStatus][]string = make(map[PathStatus][]string)
-	fmt.Fprintf(d.out, "Checking %d path%s against library %s ...\n\n", len(paths), output.PluralS(paths), d.appLib.GetRoot())
+	fmt.Fprintf(d.verboseOut, "Checking %d path%s against library %s ...\n", len(paths), output.PluralS(paths), d.appLib.GetRoot())
+	fmt.Fprintln(d.out)
 
 	var errorMessages strings.Builder
 

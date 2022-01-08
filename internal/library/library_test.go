@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/n2code/doccinator/internal/document"
 )
 
 func TestGetPathRelativeToLibraryRoot(t *testing.T) {
@@ -172,11 +174,16 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("A not forgotten")
 	}
 
-	// assertPathCheck(filePathA, Untracked)
+	os.WriteFile(filePathA, []byte("reborn A"), fs.ModePerm)
 
-	var allRecords strings.Builder
-	Lib.PrintAllRecords(&allRecords)
-	if !strings.Contains(allRecords.String(), fileNameB) || strings.Contains(allRecords.String(), fileNameA) {
-		t.Fatal("record printout unexpected:\n" + allRecords.String())
+	assertPathCheck(filePathA, Untracked)
+
+	var recordPrintout strings.Builder
+	Lib.VisitAllRecords(func(doc document.DocumentApi) {
+		recordPrintout.WriteString(doc.String())
+		recordPrintout.WriteRune('\n')
+	})
+	if !strings.Contains(recordPrintout.String(), fileNameB) || strings.Contains(recordPrintout.String(), fileNameA) {
+		t.Fatal("record printout unexpected:\n" + recordPrintout.String())
 	}
 }

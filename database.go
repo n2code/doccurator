@@ -27,7 +27,8 @@ func (d *doccinator) createLibrary(absoluteRoot string, absoluteDbFilePath strin
 		return err
 	}
 
-	fmt.Fprintf(d.out, "Initialized library with root %s\n", absoluteRoot)
+	fmt.Fprintf(d.extraOut, "Initialized library with root %s\n", absoluteRoot)
+	fmt.Fprintf(d.verboseOut, "Database saved in %s\n", absoluteDbFilePath)
 	return nil
 }
 

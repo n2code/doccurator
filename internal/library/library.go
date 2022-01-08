@@ -3,7 +3,6 @@ package library
 import (
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -218,7 +217,7 @@ func (l docsByRecordedAndId) Less(i, j int) bool {
 	return l[i].Recorded() < l[j].Recorded() || (l[i].Recorded() == l[j].Recorded() && l[i].Id() < l[j].Id())
 }
 
-func (lib *library) PrintAllRecords(out io.Writer) {
+func (lib *library) VisitAllRecords(visitor func(DocumentApi)) {
 	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
 		if !doc.Removed() {
@@ -228,12 +227,7 @@ func (lib *library) PrintAllRecords(out io.Writer) {
 	sort.Sort(docList)
 
 	for _, doc := range docList {
-		fmt.Fprintf(out, "%s\n", doc)
-	}
-	if len(docList) == 0 {
-		fmt.Fprintln(out, "<no records>")
-	} else {
-		fmt.Fprintf(out, "--------------\n%d in total\n", len(docList))
+		visitor(doc)
 	}
 }
 
