@@ -3,13 +3,15 @@ package doccinator
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
 
 	. "github.com/n2code/doccinator/internal/library"
 )
+
+const libraryLocatorFileName = ".doccinator"
+const libraryLocatorPermissions = 0o440 //owner and group can read
 
 func (d *doccinator) createLibrary(absoluteRoot string, absoluteDbFilePath string) error {
 	d.appLib = MakeRuntimeLibrary()
@@ -21,10 +23,8 @@ func (d *doccinator) createLibrary(absoluteRoot string, absoluteDbFilePath strin
 		return err
 	}
 
-	locatorLocation := filepath.Join(absoluteRoot, libraryLocatorFileName)
-	//TODO: generate slash-direction-safe URL
-	if err := os.WriteFile(locatorLocation, []byte("file://"+absoluteDbFilePath), fs.ModePerm); err != nil {
-		return fmt.Errorf("writing library locator (%s) failed:\n%w", locatorLocation, err)
+	if err := d.createLocatorFile(absoluteRoot); err != nil {
+		return err
 	}
 
 	fmt.Fprintf(d.out, "Initialized library with root %s\n", absoluteRoot)
@@ -39,22 +39,13 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	}()
 	currentDir := startingDirectoryAbsolute
 	for {
-		locatorFile := filepath.Join(currentDir, libraryLocatorFileName)
-		stat, statErr := os.Stat(locatorFile)
+		locatorPath := filepath.Join(currentDir, libraryLocatorFileName)
+		stat, statErr := os.Stat(locatorPath)
 		if statErr == nil && stat.Mode().IsRegular() {
-			contents, readErr := os.ReadFile(locatorFile)
-			if readErr != nil {
-				return readErr
+			err = d.loadLibFilePathFromLocatorFile(locatorPath)
+			if err != nil {
+				return
 			}
-			url, parseErr := url.Parse(string(contents))
-			if parseErr != nil {
-				return parseErr
-			}
-			if url.Scheme != "file" {
-				return fmt.Errorf(`scheme of URL in library locator file (%s) missing or unsupported: "%s"`, locatorFile, url.Scheme)
-			}
-			//TODO: adapt to slash-agnostic URL format
-			d.libFile = url.Path
 			d.appLib = MakeRuntimeLibrary()
 			d.appLib.LoadFromLocalFile(d.libFile)
 			return nil
@@ -67,4 +58,32 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 			return statErr
 		}
 	}
+}
+
+func (d *doccinator) createLocatorFile(directory string) error {
+	path := filepath.Join(directory, libraryLocatorFileName)
+	locationUri := url.URL{Scheme: "file", Path: d.libFile}
+	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
+		return fmt.Errorf("writing library locator (%s) failed: %w", path, err)
+	}
+	return nil
+}
+
+func (d *doccinator) loadLibFilePathFromLocatorFile(path string) error {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	url, err := url.Parse(string(contents))
+	if err != nil {
+		return err
+	}
+	if url.Scheme != "file" {
+		return fmt.Errorf(`scheme of URL in library locator file (%s) missing or unsupported: "%s"`, path, url.Scheme)
+	}
+	if !filepath.IsAbs(url.Path) {
+		return fmt.Errorf(`no absolute path in library locator file (%s): "%s"`, path, url.Path)
+	}
+	d.libFile = url.Path
+	return nil
 }

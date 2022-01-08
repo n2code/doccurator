@@ -28,8 +28,6 @@ type doccinator struct {
 	verboseOut io.Writer //TODO: make use of this
 }
 
-const libraryLocatorFileName = ".doccinator"
-
 func New(root string, database string) (Doccinator, error) {
 	handle := &doccinator{out: os.Stdout, verboseOut: io.Discard}
 	err := handle.createLibrary(mustAbsFilepath(root), mustAbsFilepath(database))
