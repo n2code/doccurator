@@ -98,15 +98,47 @@ func TestFileStatusVerification(t *testing.T) {
 	}()
 	const sourceFileName = "verifile"
 	sourceFilePath := filepath.Join(libRootDir, sourceFileName)
-	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm)
 
 	doc := NewDocument(42)
 	doc.SetPath(sourceFileName)
-	doc.UpdateFromFileOnStorage(libRootDir)
+
+	err = doc.UpdateFromFileOnStorage(libRootDir)
+	if err == nil {
+		t.Fatal("error expected if file not found")
+	}
+
+	os.WriteFile(sourceFilePath, []byte("AAA"), 0o333)
+
+	err = doc.UpdateFromFileOnStorage(libRootDir)
+	if err == nil {
+		t.Fatal("error expected if file unreadable")
+	}
+
+	os.Chmod(sourceFilePath, 0o777)
+
+	err = doc.UpdateFromFileOnStorage(libRootDir)
+	if err != nil {
+		t.Fatal("error on updating from existing file")
+	}
 
 	if doc.CompareToFileOnStorage(libRootDir) != UnmodifiedFile {
 		t.Fatal("file not considered unmodified")
 	}
+
+	os.Chmod(sourceFilePath, 0o333)
+
+	if doc.CompareToFileOnStorage(libRootDir) != AccessError {
+		t.Fatal("error expected if file unreadable")
+	}
+
+	os.Chmod(sourceFilePath, 0o777)
+	os.Chmod(libRootDir, 0o666)
+
+	if doc.CompareToFileOnStorage(libRootDir) != AccessError {
+		t.Fatal("error expected if file unreadable")
+	}
+
+	os.Chmod(libRootDir, 0o777)
 
 	correctTimestamp := doc.(*document).localStorage.lastModified
 	doc.(*document).localStorage.lastModified--

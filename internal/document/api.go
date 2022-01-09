@@ -21,14 +21,13 @@ const (
 
 type DocumentApi interface {
 	Id() DocumentId
-	SetId(DocumentId)
 	Recorded() unixTimestamp
 	Changed() unixTimestamp
 	Removed() bool
 	SetRemoved()
 	Path() string
 	SetPath(relativePath string)
-	UpdateFromFileOnStorage(libraryRoot string)
+	UpdateFromFileOnStorage(libraryRoot string) error
 	CompareToFileOnStorage(libraryRoot string) TrackedFileStatus
 	MatchesChecksum(sha256 [sha256.Size]byte) bool
 	String() string

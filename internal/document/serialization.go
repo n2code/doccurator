@@ -52,13 +52,13 @@ func (docMap *DocumentIndex) UnmarshalJSON(blob []byte) error {
 	var loadedMap map[DocumentId]*document
 	err := json.Unmarshal(blob, &loadedMap)
 	if err != nil {
-		return err
+		panic(err) //must not occur because persisted library's format is versioned
 	}
 	if *docMap == nil {
 		*docMap = make(DocumentIndex, len(loadedMap))
 	}
 	for id, doc := range loadedMap {
-		doc.SetId(id)
+		doc.id = id
 		(*docMap)[id] = doc
 	}
 	return nil
@@ -68,7 +68,7 @@ func (doc *document) UnmarshalJSON(blob []byte) error {
 	var loadedDoc jsonDoc
 	err := json.Unmarshal(blob, &loadedDoc)
 	if err != nil {
-		return err
+		panic(err) //must not occur because persisted library's format is versioned
 	}
 	doc.id = missingId
 	doc.localStorage.directory = loadedDoc.Dir
@@ -78,10 +78,10 @@ func (doc *document) UnmarshalJSON(blob []byte) error {
 	doc.contentMetadata.size = loadedDoc.Size
 	shaBytes, err := hex.DecodeString(loadedDoc.Sha256)
 	if err != nil {
-		panic(err)
+		panic(err) //must not occur unless the library has been manipulated
 	}
 	if len(shaBytes) != 32 {
-		panic("persisted hash has bad length")
+		panic("persisted hash has bad length") //must not occur because persisted library's format is versioned
 	}
 	copy(doc.contentMetadata.sha256Hash[:], shaBytes)
 	doc.recorded = loadedDoc.Recorded

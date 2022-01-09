@@ -25,7 +25,7 @@ type CreateConfig struct {
 
 type Doccinator interface {
 	CommandAdd(id document.DocumentId, path string) error
-	CommandUpdateByPath(fileAbsolutePath string) error //TODO: de-absolutize
+	CommandUpdateByPath(path string) error
 	CommandRemoveByPath(fileAbsolutePath string) error //TODO: de-absolutize
 	CommandDump()
 	CommandScan() error

@@ -89,7 +89,7 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("creation not rejected as expected")
 	}
 
-	assertPathCheck(filePathA, Error)
+	assertPathCheck(filePathA, Error) //does not exist yet
 	assertPathCheck("/tmp/file_outside_library", Error)
 
 	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
@@ -105,7 +105,21 @@ func TestLibraryApi(t *testing.T) {
 	assertPathCheck(filePathA, Modified)
 	assertPathCheck(filePathC, Untracked)
 
-	Lib.UpdateDocumentFromFile(docA)
+	err = Lib.UpdateDocumentFromFile(docA)
+	if err != nil {
+		t.Fatal("update reported error")
+	}
+
+	os.Chmod(filePathA, 0o333)
+
+	assertPathCheck(filePathA, Error) //read forbidden
+
+	err = Lib.UpdateDocumentFromFile(docA)
+	if err == nil {
+		t.Fatal("update did not report error")
+	}
+
+	os.Chmod(filePathA, 0o777)
 
 	assertPathCheck(filePathA, Tracked)
 	assertPathCheck(filepath.Join(libRootDir, "file_which_should_not_exist"), Error)

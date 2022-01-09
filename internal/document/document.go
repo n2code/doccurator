@@ -13,14 +13,6 @@ func (doc *document) Id() DocumentId {
 	return doc.id
 }
 
-//SetId allows ID restoration after deserialization and thus does not affect the change timestamp
-func (doc *document) SetId(id DocumentId) {
-	if doc.id != missingId {
-		panic("ID change attempt")
-	}
-	doc.id = id
-}
-
 func (doc *document) Recorded() unixTimestamp {
 	return doc.recorded
 }
@@ -49,17 +41,21 @@ func (doc *document) SetPath(relativePath string) {
 }
 
 //reads and stats the document using the recorded document path and the library root (relative/absolute)
-func (doc *document) UpdateFromFileOnStorage(libraryRoot string) {
+func (doc *document) UpdateFromFileOnStorage(libraryRoot string) error {
 	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary()) //path may be relative if the library root is relative
-	statsChanged := doc.localStorage.updateFileStats(path)
+	statsChanged, err := doc.localStorage.updateFileStats(path)
+	if err != nil {
+		return err
+	}
 	content, err := os.ReadFile(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	contentChanged := doc.contentMetadata.setFromContent(content)
 	if statsChanged || contentChanged {
 		doc.updateChangeDate()
 	}
+	return nil
 }
 
 //Calculates file status using the recorded document path and the library root (relative/absolute)
@@ -116,10 +112,10 @@ func (stored *storedFile) pathRelativeToLibrary() string {
 	return filepath.Join(stored.directory.ToNativeFilepath(), stored.name)
 }
 
-func (stored *storedFile) updateFileStats(path string) (hasChanged bool) {
+func (stored *storedFile) updateFileStats(path string) (hasChanged bool, err error) {
 	stat, err := os.Stat(path)
 	if err != nil {
-		panic(err)
+		return
 	}
 	oldLastModified := stored.lastModified
 	stored.lastModified = unixTimestamp(stat.ModTime().Unix())

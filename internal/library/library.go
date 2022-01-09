@@ -21,15 +21,16 @@ func (lib *library) CreateDocument(id DocumentId) (document LibraryDocument, err
 	return LibraryDocument{id: id, library: lib}, nil
 }
 
-func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath string) {
+func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath string) error {
 	newRelativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
-		panic("path not inside library")
+		return fmt.Errorf("path outside library: %s", absolutePath)
 	}
 	doc := lib.documents[document.id] //caller error if nil
 	delete(lib.relPathIndex, doc.Path())
 	doc.SetPath(newRelativePath)
 	lib.relPathIndex[newRelativePath] = doc
+	return nil
 }
 
 func (lib *library) GetDocumentByPath(absolutePath string) (document LibraryDocument, exists bool) {
@@ -45,10 +46,9 @@ func (lib *library) GetDocumentByPath(absolutePath string) (document LibraryDocu
 	return
 }
 
-func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error { //TODO: reading errors may occur, introduce propagation
+func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error {
 	doc := lib.documents[document.id] //caller error if nil
-	doc.UpdateFromFileOnStorage(lib.rootPath)
-	return nil
+	return doc.UpdateFromFileOnStorage(lib.rootPath)
 }
 
 func (lib *library) MarkDocumentAsRemoved(document LibraryDocument) {

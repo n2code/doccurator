@@ -23,7 +23,7 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 	var loadedLib jsonLib
 	err := json.Unmarshal(blob, &loadedLib)
 	if err != nil {
-		return err
+		panic(err) //must not occur because persisted library's format is versioned
 	}
 	lib.rootPath = loadedLib.LocalRoot
 	lib.documents = loadedLib.Documents

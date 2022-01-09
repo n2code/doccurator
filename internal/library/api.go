@@ -33,7 +33,7 @@ type CheckedPath struct {
 // LibraryApi expects absolute system-native paths (with respect to the directory separator)
 type LibraryApi interface {
 	CreateDocument(DocumentId) (LibraryDocument, error)
-	SetDocumentPath(doc LibraryDocument, absolutePath string)
+	SetDocumentPath(doc LibraryDocument, absolutePath string) error
 	GetDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
 	UpdateDocumentFromFile(LibraryDocument) error
 	MarkDocumentAsRemoved(LibraryDocument)

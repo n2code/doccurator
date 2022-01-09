@@ -70,7 +70,7 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 	request.actionArgs = flags.Args()[1:]
 
 	switch request.action {
-	case "add", "status":
+	case "add", "update", "status":
 		if len(request.actionArgs) < 1 {
 			err = errors.New("No targets given!")
 			return
@@ -144,6 +144,17 @@ func (rq *CliRequest) execute() error {
 			if err != nil {
 				return err
 			}
+		case "update":
+			for _, target := range rq.actionArgs {
+				err = api.CommandUpdateByPath(target)
+				if err != nil {
+					return err
+				}
+			}
+			err = api.PersistChanges()
+			if err != nil {
+				return err
+			}
 		case "status":
 			err = api.CommandStatus(rq.actionArgs)
 			if err != nil {
@@ -163,8 +174,11 @@ func main() {
 	}
 	if err := rq.execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		if rq.action == "add" && !rq.quiet {
-			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
+		switch rq.action {
+		case "add", "update":
+			if !rq.quiet {
+				fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
+			}
 		}
 		os.Exit(1)
 	}

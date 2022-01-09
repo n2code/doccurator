@@ -13,24 +13,30 @@ import (
 
 // Records a new document in the library
 func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
+	//TODO [FEATURE]: detect and prevent adding existing paths
 	doc, err := d.appLib.CreateDocument(id)
+	if err != nil {
+		return newCommandError("document creation blocked", err)
+	}
+	err = d.appLib.SetDocumentPath(doc, mustAbsFilepath(filePath))
+	if err != nil {
+		return newCommandError("document creation impossible", err)
+	}
+	err = d.appLib.UpdateDocumentFromFile(doc)
 	if err != nil {
 		return newCommandError("document creation failed", err)
 	}
-	d.appLib.SetDocumentPath(doc, mustAbsFilepath(filePath))
-	d.appLib.UpdateDocumentFromFile(doc)
 	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
 	return nil
 }
 
 // Updates an existing document in the library
-func (d *doccinator) CommandUpdateByPath(fileAbsolutePath string) error {
-	doc, exists := d.appLib.GetDocumentByPath(fileAbsolutePath)
+func (d *doccinator) CommandUpdateByPath(filePath string) error {
+	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(filePath))
 	if !exists {
-		return newCommandError(fmt.Sprintf("path unknown: %s", fileAbsolutePath), nil)
+		return newCommandError(fmt.Sprintf("path not on record: %s", filePath), nil)
 	}
-	d.appLib.UpdateDocumentFromFile(doc)
-	return nil
+	return d.appLib.UpdateDocumentFromFile(doc)
 }
 
 // Removes an existing document from the library
