@@ -49,6 +49,7 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 			}
 			d.appLib = MakeRuntimeLibrary()
 			d.appLib.LoadFromLocalFile(d.libFile)
+			fmt.Fprintf(d.verboseOut, "Loaded library rooted at %s from %s\n", d.appLib.GetRoot(), d.libFile)
 			return nil
 		} else if errors.Is(statErr, os.ErrNotExist) {
 			if currentDir == "/" {
@@ -67,6 +68,7 @@ func (d *doccinator) createLocatorFile(directory string) error {
 	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
 		return fmt.Errorf("writing library locator (%s) failed: %w", path, err)
 	}
+	fmt.Fprintf(d.verboseOut, "Created library locator %s\n", path)
 	return nil
 }
 
@@ -86,5 +88,6 @@ func (d *doccinator) loadLibFilePathFromLocatorFile(path string) error {
 		return fmt.Errorf(`no absolute path in library locator file (%s): "%s"`, path, url.Path)
 	}
 	d.libFile = url.Path
+	fmt.Fprintf(d.verboseOut, "Used library locator %s\n", path)
 	return nil
 }
