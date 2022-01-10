@@ -70,7 +70,9 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 	request.actionArgs = flags.Args()[1:]
 
 	switch request.action {
-	case "add", "update", "status":
+	case "status":
+		//no constraints, all arguments optional
+	case "add", "update":
 		if len(request.actionArgs) < 1 {
 			err = errors.New("No targets given!")
 			return
@@ -106,10 +108,7 @@ func (rq *CliRequest) execute() error {
 			return err
 		}
 	} else {
-		workingDir, err := os.Getwd()
-		if err != nil {
-			return err
-		}
+		workingDir, _ := os.Getwd()
 		api, err := doccinator.Open(workingDir, config)
 		if err != nil {
 			return err
@@ -156,8 +155,7 @@ func (rq *CliRequest) execute() error {
 				return err
 			}
 		case "status":
-			err = api.CommandStatus(rq.actionArgs)
-			if err != nil {
+			if err = api.CommandStatus(rq.actionArgs); err != nil {
 				return err
 			}
 		default:

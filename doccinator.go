@@ -80,10 +80,22 @@ func makeDoccinator(config CreateConfig) (docc *doccinator) {
 	return
 }
 
-func mustAbsFilepath(somePath string) string {
-	abs, err := filepath.Abs(somePath)
+func mustAbsFilepath(path string) string {
+	abs, err := filepath.Abs(path)
 	if err != nil {
 		panic(err)
 	}
 	return abs
+}
+
+func mustRelFilepathToWorkingDir(path string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	rel, err := filepath.Rel(wd, path)
+	if err != nil {
+		panic(err)
+	}
+	return rel
 }
