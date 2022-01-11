@@ -257,3 +257,7 @@ func (p CheckedPath) PathRelativeToLibraryRoot() string {
 func (p CheckedPath) GetError() error {
 	return p.err
 }
+
+func (s PathStatus) RepresentsChange() bool {
+	return s != Tracked && s != Removed
+}

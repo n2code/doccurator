@@ -106,6 +106,7 @@ func (d *doccinator) CommandTree(excludeUnchanged bool) error {
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
 func (d *doccinator) CommandStatus(paths []string) error {
 	var buckets map[PathStatus][]string = make(map[PathStatus][]string)
+
 	if len(paths) > 0 {
 		fmt.Fprintf(d.extraOut, "Status of %d specified path%s:\n", len(paths), output.PluralS(paths))
 	}
@@ -113,14 +114,18 @@ func (d *doccinator) CommandStatus(paths []string) error {
 
 	var errorMessages strings.Builder
 	errorCount := 0
+	hasChanges := false
 
 	processResult := func(result *CheckedPath, absolutePath string) {
 		switch status := result.Status(); status {
 		case Error:
-			fmt.Fprintf(&errorMessages, "  [E] @%s: %s\n", absolutePath, result.GetError())
+			fmt.Fprintf(&errorMessages, "  [E] @%s\n      %s\n", absolutePath, result.GetError())
 			errorCount++
 		default:
 			buckets[status] = append(buckets[status], mustRelFilepathToWorkingDir(absolutePath))
+			if status.RepresentsChange() {
+				hasChanges = true
+			}
 		}
 	}
 
@@ -142,6 +147,9 @@ func (d *doccinator) CommandStatus(paths []string) error {
 
 	//TODO [FEATURE]: coloring
 	for status, bucket := range buckets {
+		if !status.RepresentsChange() && len(paths) == 0 {
+			continue //to hide unchanged files when no explicit paths are queried
+		}
 		fmt.Fprintf(d.out, " %s (%d file%s)\n", status, len(bucket), output.PluralS(bucket))
 		for _, path := range bucket {
 			fmt.Fprintf(d.out, "  [%s] %s\n", string(rune(status)), path)
@@ -150,6 +158,8 @@ func (d *doccinator) CommandStatus(paths []string) error {
 	}
 	if errorCount > 0 {
 		fmt.Fprintf(d.out, " Error%s occurred:\n%s\n", output.PluralS(errorCount != 1), errorMessages.String()) //not on stderr because it was explicitly queried
+	} else if hasChanges == false && len(paths) == 0 {
+		fmt.Fprint(d.out, " Library in sync with all records.\n\n")
 	}
 	return nil
 }
