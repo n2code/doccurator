@@ -15,10 +15,11 @@ import (
 )
 
 type CliRequest struct {
-	verbose    bool
-	quiet      bool
-	action     string
-	actionArgs []string
+	verbose     bool
+	quiet       bool
+	action      string
+	actionFlags map[string]interface{}
+	actionArgs  []string
 }
 
 const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
@@ -30,8 +31,19 @@ var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + idPattern + `)\.ndoc(?:\.[
 func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliRequest, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
-		flags.Output().Write([]byte("Usage: doccinator [MODE] <action> [TARGET...]\n\n MODE switches for all actions:\n"))
+		flags.Output().Write([]byte(`
+Usage:   doccinator [-v|-q|-h] <ACTION> [FLAG...] [TARGET...]
+
+ ACTIONs:  init  status  add  update  tree  dump
+
+`))
 		flags.PrintDefaults()
+		flags.Output().Write([]byte(`
+ FLAGs and TARGETs are action-specific.
+ You can read the help on any action:    doccinator <ACTION> -h
+
+`))
+
 	}
 
 	request = &CliRequest{}
@@ -67,6 +79,7 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 	}
 
 	request.action = flags.Arg(0)
+	request.actionFlags = make(map[string]interface{})
 	request.actionArgs = flags.Args()[1:]
 
 	switch request.action {
@@ -77,9 +90,17 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 			err = errors.New("No targets given!")
 			return
 		}
-	case "scan", "dump":
+	case "dump":
 		if len(request.actionArgs) > 0 {
 			err = errors.New("Too many arguments!")
+			return
+		}
+	case "tree":
+		treeFlags := flag.NewFlagSet("tree action", flag.ExitOnError)
+		request.actionFlags["diff"] = treeFlags.Bool("diff", false, "show only difference to library records, i.e. exclude unchanged and removed files")
+		treeFlags.Parse(request.actionArgs)
+		if treeFlags.NArg() > 0 {
+			err = errors.New("Command accepts no arguments, only flags.")
 			return
 		}
 	case "init":
@@ -117,8 +138,8 @@ func (rq *CliRequest) execute() error {
 		switch rq.action {
 		case "dump":
 			api.CommandDump()
-		case "scan":
-			if err := api.CommandScan(); err != nil {
+		case "tree":
+			if err := api.CommandTree(*(rq.actionFlags["diff"].(*bool))); err != nil {
 				return err
 			}
 		case "add":

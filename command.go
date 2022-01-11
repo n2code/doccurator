@@ -64,8 +64,8 @@ func (d *doccinator) CommandDump() {
 }
 
 // Calculates states for all present and recorded paths.
-//  Tracked and removed paths require special flag triggers to be listed. //<-- TODO [FEATURE]: implement said flags
-func (d *doccinator) CommandScan() error { //TODO: choose better name
+//  Tracked and removed paths are listed depending on the flag.
+func (d *doccinator) CommandTree(excludeUnchanged bool) error {
 	skipDbAndPointers := func(path string) bool {
 		return path == d.libFile || filepath.Base(path) == libraryLocatorFileName
 	}
@@ -76,6 +76,9 @@ func (d *doccinator) CommandScan() error { //TODO: choose better name
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
+		if excludeUnchanged && (status == Tracked || status == Removed) {
+			continue
+		}
 		if status != Tracked {
 			prefix = fmt.Sprintf("[%s] ", string(status))
 		}

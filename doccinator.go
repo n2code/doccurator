@@ -28,7 +28,7 @@ type Doccinator interface {
 	CommandUpdateByPath(path string) error
 	CommandRemoveByPath(fileAbsolutePath string) error //TODO: de-absolutize
 	CommandDump()
-	CommandScan() error
+	CommandTree(excludeUnchanged bool) error
 	CommandStatus(paths []string) error
 	CommandAuto() error
 	PersistChanges() error
