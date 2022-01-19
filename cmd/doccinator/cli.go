@@ -32,15 +32,17 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
-Usage:   doccinator [-v|-q|-h] <ACTION> [FLAG...] [TARGET...]
+Usage:
+   doccinator [-v|-q|-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  tree  dump
 
 `))
 		flags.PrintDefaults()
 		flags.Output().Write([]byte(`
- FLAGs and TARGETs are action-specific.
- You can read the help on any action:    doccinator <ACTION> -h
+ FLAG(s) and TARGET(s) are action-specific.
+ You can read the help on any action:
+    doccinator <ACTION> -h
 
 `))
 
@@ -81,30 +83,63 @@ Usage:   doccinator [-v|-q|-h] <ACTION> [FLAG...] [TARGET...]
 	request.action = flags.Arg(0)
 	request.actionFlags = make(map[string]interface{})
 	request.actionArgs = flags.Args()[1:]
+	flagSpecification := ""
+	argumentSpecification := ""
+
+	actionParams := flag.NewFlagSet(request.action+" action", flag.ExitOnError)
+	actionParams.Usage = func() {
+		fmt.Fprintf(actionParams.Output(), `
+Usage of %s action:
+   doccinator [MODE] %s%s%s
+`, request.action, request.action, flagSpecification, argumentSpecification)
+		if len(flagSpecification) > 0 {
+			fmt.Fprint(actionParams.Output(), `
+ Available FLAGs:
+`)
+		}
+		actionParams.PrintDefaults()
+		fmt.Fprintf(actionParams.Output(), `
+ Global MODE documentation can be shown by:
+    doccinator -h
+
+`)
+	}
 
 	switch request.action {
 	case "status":
-		//no constraints, all arguments optional
+		argumentSpecification = " [FILEPATH...]"
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		//beyond flags all arguments are optional
 	case "add", "update":
-		if len(request.actionArgs) < 1 {
+		argumentSpecification = " FILEPATH..."
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		if actionParams.NArg() < 1 {
 			err = errors.New("No targets given!")
 			return
 		}
 	case "dump":
-		if len(request.actionArgs) > 0 {
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		if actionParams.NArg() > 0 {
 			err = errors.New("Too many arguments!")
 			return
 		}
 	case "tree":
-		treeFlags := flag.NewFlagSet("tree action", flag.ExitOnError)
-		request.actionFlags["diff"] = treeFlags.Bool("diff", false, "show only difference to library records, i.e. exclude unchanged and removed files")
-		treeFlags.Parse(request.actionArgs)
-		if treeFlags.NArg() > 0 {
+		flagSpecification = " [-diff]"
+		request.actionFlags["diff"] = actionParams.Bool("diff", false, "show only difference to library records, i.e. exclude unchanged and removed files")
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		if actionParams.NArg() > 0 {
 			err = errors.New("Command accepts no arguments, only flags.")
 			return
 		}
 	case "init":
-		if len(request.actionArgs) != 1 {
+		argumentSpecification = " DIRECTORY"
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		if actionParams.NArg() != 1 {
 			err = errors.New("Bad number of arguments, exactly one expected!")
 			return
 		}
