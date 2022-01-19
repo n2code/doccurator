@@ -14,8 +14,14 @@ func (id DocumentId) String() string {
 }
 
 func (doc *document) String() string {
-	return fmt.Sprintf("Document %s\n  Path:     %s\n  Size:     %d bytes\n  SHA256:   %s\n  Recorded: %s\n  Modified: %s",
+	return fmt.Sprintf(`Document %s%s
+  Path:     %s
+  Size:     %d bytes
+  SHA256:   %s
+  Recorded: %s
+  Modified: %s`,
 		doc.id,
+		map[bool]string{true: " (retired)"}[doc.removed],
 		doc.localStorage.pathRelativeToLibrary(),
 		doc.contentMetadata.size,
 		hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),

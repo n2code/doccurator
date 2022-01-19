@@ -225,9 +225,7 @@ func (l docsByRecordedAndId) Less(i, j int) bool {
 func (lib *library) VisitAllRecords(visitor func(DocumentApi)) {
 	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
-		if !doc.Removed() {
-			docList = append(docList, doc)
-		}
+		docList = append(docList, doc)
 	}
 	sort.Sort(docList)
 

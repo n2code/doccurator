@@ -72,10 +72,13 @@ func (d *doccinator) CommandForgetByPath(path string, ignoreRetire bool) error {
 }
 
 // Outputs all library records
-func (d *doccinator) CommandDump() {
+func (d *doccinator) CommandDump(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
 	d.appLib.VisitAllRecords(func(doc document.DocumentApi) {
+		if doc.Removed() && excludeRetired {
+			return
+		}
 		fmt.Fprintf(d.out, "%s\n", doc)
 		count++
 	})

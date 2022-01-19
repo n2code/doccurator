@@ -133,10 +133,10 @@ Usage of %s action:
 				actionDescriptionIndent + "If an identical file appears at a later point in time the library is\n" +
 				actionDescriptionIndent + "thereby able to recognize it as an obsolete duplicate (\"zombie\")."
 		case "forget":
-			flagSpecification = " [-no-require-retire]"
+			flagSpecification = " [-no-require-retired]"
 			actionDescription += "Delete the library records corresponding to the given FILEPATH(s).\n" +
 				actionDescriptionIndent + "The paths have to be retired unless the flag to ignore this is set."
-			request.actionFlags["no-require-retire"] = actionParams.Bool("no-require-retire", false, "ignore if a document is retired or not, force forget regardless")
+			request.actionFlags["no-require-retired"] = actionParams.Bool("no-require-retired", false, "ignore if a document is retired or not, force forget regardless")
 		}
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
@@ -145,7 +145,9 @@ Usage of %s action:
 			return
 		}
 	case "dump":
+		flagSpecification = " [-exclude-retired]"
 		actionDescription += "Print all library records."
+		request.actionFlags["exclude-retired"] = actionParams.Bool("exclude-retired", false, "do not print records marked as obsolete (\"retired\")")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -203,7 +205,7 @@ func (rq *CliRequest) execute() error {
 
 		switch rq.action {
 		case "dump":
-			api.CommandDump()
+			api.CommandDump(*(rq.actionFlags["exclude-retired"].(*bool)))
 		case "tree":
 			if err := api.CommandTree(*(rq.actionFlags["diff"].(*bool))); err != nil {
 				return err
@@ -254,7 +256,7 @@ func (rq *CliRequest) execute() error {
 			}
 		case "forget":
 			for _, target := range rq.actionArgs {
-				err = api.CommandForgetByPath(target, *(rq.actionFlags["no-require-retire"].(*bool)))
+				err = api.CommandForgetByPath(target, *(rq.actionFlags["no-require-retired"].(*bool)))
 				if err != nil {
 					return err
 				}
