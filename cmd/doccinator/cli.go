@@ -131,7 +131,7 @@ Usage of %s action:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() < 1 {
-			err = errors.New("No targets given!")
+			err = errors.New("no targets given")
 			return
 		}
 	case "dump":
@@ -139,7 +139,7 @@ Usage of %s action:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
-			err = errors.New("Too many arguments!")
+			err = errors.New("too many arguments")
 			return
 		}
 	case "tree":
@@ -150,7 +150,7 @@ Usage of %s action:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
-			err = errors.New("Command accepts no arguments, only flags.")
+			err = errors.New("command accepts no arguments, only flags")
 			return
 		}
 	case "init":
@@ -161,7 +161,7 @@ Usage of %s action:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() != 1 {
-			err = errors.New("Bad number of arguments, exactly one expected!")
+			err = errors.New("bad number of arguments, exactly one expected")
 			return
 		}
 	default:
