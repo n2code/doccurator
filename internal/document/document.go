@@ -26,7 +26,10 @@ func (doc *document) Removed() bool {
 }
 
 func (doc *document) SetRemoved() {
-	doc.removed = true
+	if !doc.removed {
+		doc.removed = true
+		doc.updateRecordChangeDate()
+	}
 }
 
 //Path returns a filepath relative to the library root directory
@@ -37,7 +40,7 @@ func (doc *document) Path() string {
 //SetPath expects a filepath relative to the library root directory
 func (doc *document) SetPath(relativePath string) {
 	doc.localStorage.setFromRelativePath(relativePath)
-	doc.updateChangeDate()
+	doc.updateRecordChangeDate()
 }
 
 //reads and stats the document using the recorded document path and the library root (relative/absolute)
@@ -54,7 +57,7 @@ func (doc *document) UpdateFromFileOnStorage(libraryRoot string) (changed bool, 
 	contentChanged := doc.contentMetadata.setFromContent(content)
 	changed = statsChanged || contentChanged
 	if changed {
-		doc.updateChangeDate()
+		doc.updateRecordChangeDate()
 	}
 	return
 }
@@ -100,7 +103,7 @@ func (doc *document) MatchesChecksum(sha256 [checksum.Size]byte) bool {
 	return doc.contentMetadata.sha256Hash == sha256
 }
 
-func (doc *document) updateChangeDate() {
+func (doc *document) updateRecordChangeDate() {
 	doc.changed = unixTimestamp(time.Now().Unix())
 }
 

@@ -14,19 +14,26 @@ func (id DocumentId) String() string {
 }
 
 func (doc *document) String() string {
-	return fmt.Sprintf(`Document %s%s
+	formatTime := func(ts unixTimestamp) string {
+		return time.Unix(int64(ts), 0).Local().Format(time.RFC1123)
+	}
+	retiredDateLine := ""
+	if doc.removed {
+		retiredDateLine = fmt.Sprintf("\n  Retired:  %s", formatTime(doc.changed))
+	}
+	return fmt.Sprintf(`Document %s
   Path:     %s
   Size:     %d bytes
   SHA256:   %s
   Recorded: %s
-  Modified: %s`,
+  Modified: %s%s`,
 		doc.id,
-		map[bool]string{true: " (retired)"}[doc.removed],
 		doc.localStorage.pathRelativeToLibrary(),
 		doc.contentMetadata.size,
 		hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
-		time.Unix(int64(doc.recorded), 0).Local().Format(time.RFC1123),
-		time.Unix(int64(doc.localStorage.lastModified), 0).Local().Format(time.RFC1123))
+		formatTime(doc.recorded),
+		formatTime(doc.localStorage.lastModified),
+		retiredDateLine)
 }
 
 type jsonDoc struct {
