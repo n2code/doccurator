@@ -1,6 +1,9 @@
 package doccinator
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type CommandError struct {
 	message string
@@ -8,7 +11,12 @@ type CommandError struct {
 }
 
 func (e *CommandError) Error() string {
-	return fmt.Sprintf("%s: %s", e.message, e.cause)
+	var msg strings.Builder
+	fmt.Fprint(&msg, e.message)
+	if e.cause != nil {
+		fmt.Fprint(&msg, ": ", e.cause)
+	}
+	return msg.String()
 }
 
 func (e *CommandError) Unwrap() error {

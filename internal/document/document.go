@@ -1,7 +1,7 @@
 package document
 
 import (
-	"crypto/sha256"
+	checksum "crypto/sha256"
 	"errors"
 	"io/fs"
 	"os"
@@ -41,21 +41,22 @@ func (doc *document) SetPath(relativePath string) {
 }
 
 //reads and stats the document using the recorded document path and the library root (relative/absolute)
-func (doc *document) UpdateFromFileOnStorage(libraryRoot string) error {
+func (doc *document) UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error) {
 	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary()) //path may be relative if the library root is relative
 	statsChanged, err := doc.localStorage.updateFileStats(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	contentChanged := doc.contentMetadata.setFromContent(content)
-	if statsChanged || contentChanged {
+	changed = statsChanged || contentChanged
+	if changed {
 		doc.updateChangeDate()
 	}
-	return nil
+	return
 }
 
 //Calculates file status using the recorded document path and the library root (relative/absolute)
@@ -85,7 +86,7 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	if err != nil {
 		return AccessError
 	}
-	if sha256.Sum256(content) != doc.contentMetadata.sha256Hash {
+	if checksum.Sum256(content) != doc.contentMetadata.sha256Hash {
 		return ModifiedFile
 	}
 	if unixTimestamp(stat.ModTime().Unix()) != doc.localStorage.lastModified {
@@ -95,7 +96,7 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	return UnmodifiedFile
 }
 
-func (doc *document) MatchesChecksum(sha256 [sha256.Size]byte) bool {
+func (doc *document) MatchesChecksum(sha256 [checksum.Size]byte) bool {
 	return doc.contentMetadata.sha256Hash == sha256
 }
 
@@ -129,7 +130,7 @@ func (meta *contentMetadata) setFromContent(content []byte) (hasChanged bool) {
 	oldSize := meta.size
 	oldHash := meta.sha256Hash
 	meta.size = int64(len(content))
-	meta.sha256Hash = sha256.Sum256(content)
+	meta.sha256Hash = checksum.Sum256(content)
 	if meta.size != oldSize || meta.sha256Hash != oldHash {
 		hasChanged = true
 	}

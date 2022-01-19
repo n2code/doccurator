@@ -21,7 +21,7 @@ func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
 	if err != nil {
 		return newCommandError("document creation impossible", err)
 	}
-	err = d.appLib.UpdateDocumentFromFile(doc)
+	_, err = d.appLib.UpdateDocumentFromFile(doc)
 	if err != nil {
 		return newCommandError("document creation failed", err)
 	}
@@ -35,7 +35,11 @@ func (d *doccinator) CommandUpdateByPath(filePath string) error {
 	if !exists {
 		return newCommandError(fmt.Sprintf("path not on record: %s", filePath), nil)
 	}
-	return d.appLib.UpdateDocumentFromFile(doc)
+	changed, err := d.appLib.UpdateDocumentFromFile(doc)
+	if !changed {
+		fmt.Fprintf(d.extraOut, "No changes detected in %s\n", doc.PathRelativeToLibraryRoot())
+	}
+	return err
 }
 
 // Removes an existing document from the library

@@ -105,18 +105,32 @@ func TestLibraryApi(t *testing.T) {
 	assertPathCheck(filePathA, Modified)
 	assertPathCheck(filePathC, Untracked)
 
-	err = Lib.UpdateDocumentFromFile(docA)
+	changed, err := Lib.UpdateDocumentFromFile(docA)
 	if err != nil {
 		t.Fatal("update reported error")
+	}
+	if changed == false {
+		t.Fatal("update did not report change")
+	}
+
+	changed, err = Lib.UpdateDocumentFromFile(docA)
+	if err != nil {
+		t.Fatal("repeated update reported error")
+	}
+	if changed == true {
+		t.Fatal("repeated update reported change")
 	}
 
 	os.Chmod(filePathA, 0o333)
 
 	assertPathCheck(filePathA, Error) //read forbidden
 
-	err = Lib.UpdateDocumentFromFile(docA)
+	changed, err = Lib.UpdateDocumentFromFile(docA)
 	if err == nil {
 		t.Fatal("update did not report error")
+	}
+	if changed == true {
+		t.Fatal("update reported change although error occurred")
 	}
 
 	os.Chmod(filePathA, 0o777)

@@ -35,7 +35,7 @@ type LibraryApi interface {
 	CreateDocument(DocumentId) (LibraryDocument, error)
 	SetDocumentPath(doc LibraryDocument, absolutePath string) error
 	GetDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
-	UpdateDocumentFromFile(LibraryDocument) error
+	UpdateDocumentFromFile(LibraryDocument) (changed bool, err error)
 	MarkDocumentAsRemoved(LibraryDocument)
 	ForgetDocument(LibraryDocument)
 	CheckFilePath(absolutePath string) CheckedPath

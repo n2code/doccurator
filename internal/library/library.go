@@ -46,7 +46,7 @@ func (lib *library) GetDocumentByPath(absolutePath string) (document LibraryDocu
 	return
 }
 
-func (lib *library) UpdateDocumentFromFile(document LibraryDocument) error {
+func (lib *library) UpdateDocumentFromFile(document LibraryDocument) (changed bool, err error) {
 	doc := lib.documents[document.id] //caller error if nil
 	return doc.UpdateFromFileOnStorage(lib.rootPath)
 }

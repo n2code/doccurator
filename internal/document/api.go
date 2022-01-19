@@ -1,7 +1,7 @@
 package document
 
 import (
-	"crypto/sha256"
+	checksum "crypto/sha256"
 	"time"
 )
 
@@ -27,9 +27,9 @@ type DocumentApi interface {
 	SetRemoved()
 	Path() string
 	SetPath(relativePath string)
-	UpdateFromFileOnStorage(libraryRoot string) error
+	UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error)
 	CompareToFileOnStorage(libraryRoot string) TrackedFileStatus
-	MatchesChecksum(sha256 [sha256.Size]byte) bool
+	MatchesChecksum(sha256 [checksum.Size]byte) bool
 	String() string
 }
 

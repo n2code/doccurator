@@ -102,21 +102,21 @@ func TestFileStatusVerification(t *testing.T) {
 	doc := NewDocument(42)
 	doc.SetPath(sourceFileName)
 
-	err = doc.UpdateFromFileOnStorage(libRootDir)
+	_, err = doc.UpdateFromFileOnStorage(libRootDir)
 	if err == nil {
 		t.Fatal("error expected if file not found")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("AAA"), 0o333)
 
-	err = doc.UpdateFromFileOnStorage(libRootDir)
+	_, err = doc.UpdateFromFileOnStorage(libRootDir)
 	if err == nil {
 		t.Fatal("error expected if file unreadable")
 	}
 
 	os.Chmod(sourceFilePath, 0o777)
 
-	err = doc.UpdateFromFileOnStorage(libRootDir)
+	_, err = doc.UpdateFromFileOnStorage(libRootDir)
 	if err != nil {
 		t.Fatal("error on updating from existing file")
 	}
