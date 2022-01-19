@@ -83,6 +83,8 @@ Usage:
 	request.action = flags.Arg(0)
 	request.actionFlags = make(map[string]interface{})
 	request.actionArgs = flags.Args()[1:]
+	actionDescriptionIndent := "  "
+	actionDescription := actionDescriptionIndent
 	flagSpecification := ""
 	argumentSpecification := ""
 
@@ -91,7 +93,9 @@ Usage:
 		fmt.Fprintf(actionParams.Output(), `
 Usage of %s action:
    doccinator [MODE] %s%s%s
-`, request.action, request.action, flagSpecification, argumentSpecification)
+
+%s
+`, request.action, request.action, flagSpecification, argumentSpecification, actionDescription)
 		if len(flagSpecification) > 0 {
 			fmt.Fprint(actionParams.Output(), `
  Available FLAGs:
@@ -108,11 +112,22 @@ Usage of %s action:
 	switch request.action {
 	case "status":
 		argumentSpecification = " [FILEPATH...]"
+		actionDescription += "Compare files in the library folder to the records.\n" +
+			actionDescriptionIndent + "If one or more FILEPATHs are given only compare those files otherwise\n" +
+			actionDescriptionIndent + "compare all. For an explicit list of paths all states are listed. For\n" +
+			actionDescriptionIndent + "a full scan (no paths specified) unchanged tracked files are omitted."
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		//beyond flags all arguments are optional
 	case "add", "update":
 		argumentSpecification = " FILEPATH..."
+		switch request.action {
+		case "add":
+			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records."
+		case "update":
+			actionDescription += "Update the library records to match the current state of the file(s)\n" +
+				actionDescriptionIndent + "at the given FILEPATH(s)."
+		}
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() < 1 {
@@ -120,6 +135,7 @@ Usage of %s action:
 			return
 		}
 	case "dump":
+		actionDescription += "Print all library records."
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -128,7 +144,9 @@ Usage of %s action:
 		}
 	case "tree":
 		flagSpecification = " [-diff]"
-		request.actionFlags["diff"] = actionParams.Bool("diff", false, "show only difference to library records, i.e. exclude unchanged and removed files")
+		actionDescription += "Display the library as a tree which represents the union of all\n" +
+			actionDescriptionIndent + "library records and the files currently present in the library folder."
+		request.actionFlags["diff"] = actionParams.Bool("diff", false, "show only difference to library records, i.e. exclude\nunchanged tracked and tracked-as-removed files")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -137,6 +155,9 @@ Usage of %s action:
 		}
 	case "init":
 		argumentSpecification = " DIRECTORY"
+		actionDescription += "Initialize a new library in the given root DIRECTORY. Everything below\n" +
+			actionDescriptionIndent + "the root is considered to be located 'inside' the library. All files\n" +
+			actionDescriptionIndent + "inside can be recorded for the purpose of change detection."
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() != 1 {

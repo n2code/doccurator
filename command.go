@@ -109,7 +109,7 @@ func (d *doccinator) CommandTree(excludeUnchanged bool) error {
 
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
 func (d *doccinator) CommandStatus(paths []string) error {
-	var buckets map[PathStatus][]string = make(map[PathStatus][]string)
+	buckets := make(map[PathStatus][]string)
 
 	if len(paths) > 0 {
 		fmt.Fprintf(d.extraOut, "Status of %d specified path%s:\n", len(paths), output.PluralS(paths))
