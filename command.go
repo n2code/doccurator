@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	document "github.com/n2code/doccinator/internal/document"
+	"github.com/n2code/doccinator/internal/document"
 	. "github.com/n2code/doccinator/internal/library"
-	output "github.com/n2code/doccinator/internal/output"
+	"github.com/n2code/doccinator/internal/output"
 )
 
 // Records a new document in the library
@@ -33,20 +33,39 @@ func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
 func (d *doccinator) CommandUpdateByPath(filePath string) error {
 	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(filePath))
 	if !exists {
-		return newCommandError(fmt.Sprintf("path not on record: %s", filePath), nil)
+		return newCommandError(fmt.Sprintf("path to update not on record: %s", filePath), nil)
 	}
 	changed, err := d.appLib.UpdateDocumentFromFile(doc)
 	if !changed {
-		fmt.Fprintf(d.extraOut, "No changes detected in %s\n", doc.PathRelativeToLibraryRoot())
+		fmt.Fprintf(d.extraOut, "No changes detected: %s\n", doc.PathRelativeToLibraryRoot())
 	}
 	return err
 }
 
-// Removes an existing document from the library
-func (d *doccinator) CommandRemoveByPath(fileAbsolutePath string) error {
-	doc, exists := d.appLib.GetDocumentByPath(fileAbsolutePath)
+// Marks an existing document as obsolete
+func (d *doccinator) CommandRetireByPath(path string) error {
+	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(path))
 	if !exists {
-		return newCommandError(fmt.Sprintf("path not on record: %s", fileAbsolutePath), nil)
+		return newCommandError(fmt.Sprintf("path to retire not on record: %s", path), nil)
+	}
+	if doc.IsRemoved() {
+		fmt.Fprintf(d.extraOut, "Already retired: %s\n", doc.PathRelativeToLibraryRoot())
+	}
+	d.appLib.MarkDocumentAsRemoved(doc)
+	return nil
+}
+
+// Removes an existing document from the library completely
+func (d *doccinator) CommandForgetByPath(path string, ignoreRetire bool) error {
+	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(path))
+	if !exists {
+		return newCommandError(fmt.Sprintf("path to forget not on record: %s", path), nil)
+	}
+	if !doc.IsRemoved() {
+		if !ignoreRetire {
+			return newCommandError(fmt.Sprintf("path to forget not retired, override not requested: %s", path), nil)
+		}
+		fmt.Fprintf(d.extraOut, "Override effective, forgetting non-retired: %s\n", doc.PathRelativeToLibraryRoot())
 	}
 	d.appLib.ForgetDocument(doc)
 	return nil

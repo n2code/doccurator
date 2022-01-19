@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	document "github.com/n2code/doccinator/internal/document"
+	"github.com/n2code/doccinator/internal/document"
 	. "github.com/n2code/doccinator/internal/library"
 )
 
@@ -26,7 +26,8 @@ type CreateConfig struct {
 type Doccinator interface {
 	CommandAdd(id document.DocumentId, path string) error
 	CommandUpdateByPath(path string) error
-	CommandRemoveByPath(fileAbsolutePath string) error //TODO: de-absolutize
+	CommandRetireByPath(path string) error
+	CommandForgetByPath(path string, ignoreRetire bool) error
 	CommandDump()
 	CommandTree(excludeUnchanged bool) error
 	CommandStatus(paths []string) error

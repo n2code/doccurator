@@ -35,7 +35,7 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 Usage:
    doccinator [-v|-q|-h] <ACTION> [FLAG] [TARGET]
 
- ACTIONs:  init  status  add  update  tree  dump
+ ACTIONs:  init  status  add  update  retire  forget  tree  dump
 
 `))
 		flags.PrintDefaults()
@@ -98,7 +98,7 @@ Usage of %s action:
 `, request.action, request.action, flagSpecification, argumentSpecification, actionDescription)
 		if len(flagSpecification) > 0 {
 			fmt.Fprint(actionParams.Output(), `
- Available FLAGs:
+ Available flags:
 `)
 		}
 		actionParams.PrintDefaults()
@@ -119,7 +119,7 @@ Usage of %s action:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		//beyond flags all arguments are optional
-	case "add", "update":
+	case "add", "update", "retire", "forget":
 		argumentSpecification = " FILEPATH..."
 		switch request.action {
 		case "add":
@@ -127,6 +127,16 @@ Usage of %s action:
 		case "update":
 			actionDescription += "Update the library records to match the current state of the file(s)\n" +
 				actionDescriptionIndent + "at the given FILEPATH(s)."
+		case "retire":
+			actionDescription += "Mark the library records corresponding to the given FILEPATH(s) as\n" +
+				actionDescriptionIndent + "obsolete. The real file is expected to be removed manually.\n" +
+				actionDescriptionIndent + "If an identical file appears at a later point in time the library is\n" +
+				actionDescriptionIndent + "thereby able to recognize it as an obsolete duplicate (\"zombie\")."
+		case "forget":
+			flagSpecification = " [-no-require-retire]"
+			actionDescription += "Delete the library records corresponding to the given FILEPATH(s).\n" +
+				actionDescriptionIndent + "The paths have to be retired unless the flag to ignore this is set."
+			request.actionFlags["no-require-retire"] = actionParams.Bool("no-require-retire", false, "ignore if a document is retired or not, force forget regardless")
 		}
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
@@ -223,6 +233,28 @@ func (rq *CliRequest) execute() error {
 		case "update":
 			for _, target := range rq.actionArgs {
 				err = api.CommandUpdateByPath(target)
+				if err != nil {
+					return err
+				}
+			}
+			err = api.PersistChanges()
+			if err != nil {
+				return err
+			}
+		case "retire":
+			for _, target := range rq.actionArgs {
+				err = api.CommandRetireByPath(target)
+				if err != nil {
+					return err
+				}
+			}
+			err = api.PersistChanges()
+			if err != nil {
+				return err
+			}
+		case "forget":
+			for _, target := range rq.actionArgs {
+				err = api.CommandForgetByPath(target, *(rq.actionFlags["no-require-retire"].(*bool)))
 				if err != nil {
 					return err
 				}
