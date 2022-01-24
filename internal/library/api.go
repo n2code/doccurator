@@ -12,15 +12,18 @@ type LibraryDocument struct {
 type PathStatus rune
 
 const (
-	Error     PathStatus = 'E'
-	Tracked   PathStatus = '=' //no change
-	Removed   PathStatus = 'X' //no change
-	Duplicate PathStatus = '2' //uncritical, automatically resolvable
-	Touched   PathStatus = '~' //uncritical, automatically resolvable
-	Moved     PathStatus = '>' //uncritical, automatically resolvable
-	Untracked PathStatus = '+' //action required
-	Modified  PathStatus = '!' //action required
-	Missing   PathStatus = '?' //action required
+	Tracked   PathStatus = '=' //path on record, content matches record => okay
+	Touched   PathStatus = '~' //path on record, content matches record, time does not => uncritical, auto mode updates time
+	Modified  PathStatus = '!' //path on record but content differs => decision required, auto mode may record changes
+	Missing   PathStatus = '?' //path on record, no file present => action required, not automatically resolvable
+	Removed   PathStatus = '-' //path on record, obsolete, no file present => okay
+	Duplicate PathStatus = '2' //path not on record, content already on record & present elsewhere => decision required, auto mode may delete file
+	Moved     PathStatus = '>' //path not on record but content matches other missing path on record => uncritical, auto mode updates path
+	Untracked PathStatus = '+' //path not on record, content not on record => uncritical, auto mode records file
+	Error     PathStatus = 'E' //path not accessible as needed => action required, not automatically resolvable
+	//Obsolete signifies either path on record and marked as obsolete with matching content
+	//or path not on record and content is obsolete everywhere => decision required, auto mode may delete file
+	Obsolete PathStatus = 'X'
 )
 
 type CheckedPath struct {
@@ -34,9 +37,10 @@ type CheckedPath struct {
 type LibraryApi interface {
 	CreateDocument(DocumentId) (LibraryDocument, error)
 	SetDocumentPath(doc LibraryDocument, absolutePath string) error
-	GetDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
+	GetActiveDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
 	UpdateDocumentFromFile(LibraryDocument) (changed bool, err error)
-	MarkDocumentAsRemoved(LibraryDocument)
+	MarkDocumentAsObsolete(LibraryDocument)
+	ObsoleteDocumentExistsForPath(absolutePath string) bool
 	ForgetDocument(LibraryDocument)
 	CheckFilePath(absolutePath string) CheckedPath
 	Scan(skip func(absoluteFilePath string) bool) (paths []CheckedPath, hasNoErrors bool)
@@ -49,6 +53,6 @@ type LibraryApi interface {
 
 func MakeRuntimeLibrary() LibraryApi {
 	return &library{
-		documents:    make(map[DocumentId]DocumentApi),
-		relPathIndex: make(map[string]DocumentApi)}
+		documents:          make(map[DocumentId]DocumentApi),
+		relPathActiveIndex: make(map[string]DocumentApi)}
 }

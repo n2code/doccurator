@@ -58,7 +58,7 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	Lib.UpdateDocumentFromFile(docA)
 	Lib.UpdateDocumentFromFile(docB)
 	Lib.UpdateDocumentFromFile(docC)
-	Lib.MarkDocumentAsRemoved(docC)
+	Lib.MarkDocumentAsObsolete(docC)
 
 	Lib.SaveToLocalFile(libraryFilePath, false)
 

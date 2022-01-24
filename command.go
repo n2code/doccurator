@@ -31,9 +31,9 @@ func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
 
 // Updates an existing document in the library
 func (d *doccinator) CommandUpdateByPath(filePath string) error {
-	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(filePath))
+	doc, exists := d.appLib.GetActiveDocumentByPath(mustAbsFilepath(filePath))
 	if !exists {
-		return newCommandError(fmt.Sprintf("path to update not on record: %s", filePath), nil)
+		return newCommandError(fmt.Sprintf("path to update not on record or retired: %s", filePath), nil)
 	}
 	changed, err := d.appLib.UpdateDocumentFromFile(doc)
 	if !changed {
@@ -44,24 +44,27 @@ func (d *doccinator) CommandUpdateByPath(filePath string) error {
 
 // Marks an existing document as obsolete
 func (d *doccinator) CommandRetireByPath(path string) error {
-	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(path))
+	absPath := mustAbsFilepath(path)
+	doc, exists := d.appLib.GetActiveDocumentByPath(absPath)
 	if !exists {
+		if d.appLib.ObsoleteDocumentExistsForPath(absPath) {
+			fmt.Fprintf(d.extraOut, "Already retired: %s\n", doc.PathRelativeToLibraryRoot())
+			return nil //i.e. command was a no-op
+		}
 		return newCommandError(fmt.Sprintf("path to retire not on record: %s", path), nil)
 	}
-	if doc.IsRemoved() {
-		fmt.Fprintf(d.extraOut, "Already retired: %s\n", doc.PathRelativeToLibraryRoot())
-	}
-	d.appLib.MarkDocumentAsRemoved(doc)
+	d.appLib.MarkDocumentAsObsolete(doc)
 	return nil
 }
 
 // Removes an existing document from the library completely
 func (d *doccinator) CommandForgetByPath(path string, ignoreRetire bool) error {
-	doc, exists := d.appLib.GetDocumentByPath(mustAbsFilepath(path))
+	panic("concept trouble")
+	doc, exists := d.appLib.GetActiveDocumentByPath(mustAbsFilepath(path))
 	if !exists {
 		return newCommandError(fmt.Sprintf("path to forget not on record: %s", path), nil)
 	}
-	if !doc.IsRemoved() {
+	if !doc.IsObsolete() {
 		if !ignoreRetire {
 			return newCommandError(fmt.Sprintf("path to forget not retired, override not requested: %s", path), nil)
 		}

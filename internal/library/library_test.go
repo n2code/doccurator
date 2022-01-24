@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -52,12 +53,12 @@ func TestLibraryApi(t *testing.T) {
 	defer func() {
 		os.RemoveAll(libRootDir)
 	}()
-	fileNameA := "file_a"
-	fileNameB := "file_b"
-	fileNameC := "file_c" //copy of A
-	filePathA := filepath.Join(libRootDir, fileNameA)
-	filePathB := filepath.Join(libRootDir, fileNameB)
-	filePathC := filepath.Join(libRootDir, fileNameC)
+	fileNameSubject := "file_a1"
+	fileNameAlternative := "file_b"
+	fileNameCloneSubject := "file_a2" //copy of A
+	filePathOfSubject := filepath.Join(libRootDir, fileNameSubject)
+	filePathOfUntrackedOther := filepath.Join(libRootDir, fileNameAlternative)
+	filePathOfCloneSubject := filepath.Join(libRootDir, fileNameCloneSubject)
 
 	Lib := MakeRuntimeLibrary()
 	Lib.SetRoot(libRootDir)
@@ -65,23 +66,28 @@ func TestLibraryApi(t *testing.T) {
 	assertPathCheck := func(actPath string, expPathStatus PathStatus) {
 		checkResult := Lib.CheckFilePath(actPath)
 		if checkResult.err != nil && expPathStatus != Error {
-			t.Fatalf("got error for path check of %s instead of expected %s: %s", actPath, string(expPathStatus), err)
+			t.Log(string(debug.Stack()))
+			t.Errorf("got error for path check of %s instead of expected %s: %s", actPath, string(expPathStatus), err)
+			return
 		}
 		if expPathStatus == Error && checkResult.err == nil {
-			t.Fatalf("did not get error for path check of %s", actPath)
+			t.Log(string(debug.Stack()))
+			t.Errorf("did not get error for path check of %s", actPath)
+			return
 		}
 		if checkResult.status != expPathStatus {
-			t.Fatalf("status of %s is not %s as expected, got %s", actPath, string(expPathStatus), string(checkResult.status))
+			t.Log(string(debug.Stack()))
+			t.Errorf("status of %s is not %s as expected, got %s", actPath, string(expPathStatus), string(checkResult.status))
 		}
 	}
 
-	docB, err := Lib.CreateDocument(2)
-	if err != nil || docB == (LibraryDocument{}) {
-		t.Fatal("creation of B failed")
+	docSecondary, err := Lib.CreateDocument(2)
+	if err != nil || docSecondary == (LibraryDocument{}) {
+		t.Fatal("creation of secondary failed")
 	}
-	docA, err := Lib.CreateDocument(1)
-	if err != nil || docA == (LibraryDocument{}) {
-		t.Fatal("creation of A failed")
+	docPrimary, err := Lib.CreateDocument(1)
+	if err != nil || docPrimary == (LibraryDocument{}) {
+		t.Fatal("creation of primary failed")
 	}
 
 	docNone, err := Lib.CreateDocument(2)
@@ -89,23 +95,25 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("creation not rejected as expected")
 	}
 
-	assertPathCheck(filePathA, Error) //does not exist yet
+	assertPathCheck(filePathOfSubject, Error) //real file does not exist yet
 	assertPathCheck("/tmp/file_outside_library", Error)
 
-	os.WriteFile(filePathA, []byte("AAA"), fs.ModePerm)
-	os.WriteFile(filePathB, []byte("BB"), fs.ModePerm)
-	os.WriteFile(filePathC, []byte("AAA"), fs.ModePerm)
+	os.WriteFile(filePathOfSubject, []byte("AAA"), fs.ModePerm)
+	os.WriteFile(filePathOfCloneSubject, []byte("AAA"), fs.ModePerm) //same content as A
+	os.WriteFile(filePathOfUntrackedOther, []byte("BB"), fs.ModePerm)
 
-	assertPathCheck(filePathA, Untracked)
-	assertPathCheck(filePathC, Untracked)
+	assertPathCheck(filePathOfSubject, Untracked)
+	assertPathCheck(filePathOfUntrackedOther, Untracked)
+	assertPathCheck(filePathOfCloneSubject, Untracked)
 
-	Lib.SetDocumentPath(docA, filePathA)
-	Lib.SetDocumentPath(docB, filePathB)
+	Lib.SetDocumentPath(docPrimary, filePathOfSubject)
+	Lib.SetDocumentPath(docSecondary, filePathOfUntrackedOther)
 
-	assertPathCheck(filePathA, Modified)
-	assertPathCheck(filePathC, Untracked)
+	assertPathCheck(filePathOfSubject, Modified)
+	assertPathCheck(filePathOfUntrackedOther, Modified)
+	assertPathCheck(filePathOfCloneSubject, Untracked)
 
-	changed, err := Lib.UpdateDocumentFromFile(docA)
+	changed, err := Lib.UpdateDocumentFromFile(docPrimary)
 	if err != nil {
 		t.Fatal("update reported error")
 	}
@@ -113,7 +121,7 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("update did not report change")
 	}
 
-	changed, err = Lib.UpdateDocumentFromFile(docA)
+	changed, err = Lib.UpdateDocumentFromFile(docPrimary)
 	if err != nil {
 		t.Fatal("repeated update reported error")
 	}
@@ -121,11 +129,11 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("repeated update reported change")
 	}
 
-	os.Chmod(filePathA, 0o333)
+	os.Chmod(filePathOfSubject, 0o333)
 
-	assertPathCheck(filePathA, Error) //read forbidden
+	assertPathCheck(filePathOfSubject, Error) //read forbidden
 
-	changed, err = Lib.UpdateDocumentFromFile(docA)
+	changed, err = Lib.UpdateDocumentFromFile(docPrimary)
 	if err == nil {
 		t.Fatal("update did not report error")
 	}
@@ -133,85 +141,125 @@ func TestLibraryApi(t *testing.T) {
 		t.Fatal("update reported change although error occurred")
 	}
 
-	os.Chmod(filePathA, 0o777)
+	os.Chmod(filePathOfSubject, 0o777)
 
-	assertPathCheck(filePathA, Tracked)
+	assertPathCheck(filePathOfSubject, Tracked)
 	assertPathCheck(filepath.Join(libRootDir, "file_which_should_not_exist"), Error)
-	assertPathCheck(filePathC, Duplicate)
+	assertPathCheck(filePathOfCloneSubject, Duplicate)
 
 	inTheFuture := time.Now().Add(time.Second)
-	os.Chtimes(filePathA, inTheFuture, inTheFuture)
+	os.Chtimes(filePathOfSubject, inTheFuture, inTheFuture)
 
-	assertPathCheck(filePathA, Touched)
-	assertPathCheck(filePathC, Duplicate)
+	assertPathCheck(filePathOfSubject, Touched)
+	assertPathCheck(filePathOfCloneSubject, Duplicate)
 
-	Lib.UpdateDocumentFromFile(docA)
+	Lib.UpdateDocumentFromFile(docPrimary)
 
-	assertPathCheck(filePathA, Tracked)
+	assertPathCheck(filePathOfSubject, Tracked)
 
-	os.Rename(filePathA, filePathA+".hidden")
+	os.Rename(filePathOfSubject, filePathOfSubject+".hidden")
 
-	assertPathCheck(filePathA, Missing)
+	assertPathCheck(filePathOfSubject, Missing)
 
-	os.Rename(filePathA+".hidden", filePathA)
+	os.Rename(filePathOfSubject+".hidden", filePathOfSubject)
 
-	unrecordedDoc, exists := Lib.GetDocumentByPath(filepath.Join(libRootDir, "file_not_on_record"))
+	assertPathCheck(filePathOfSubject, Tracked)
+
+	unrecordedDoc, exists := Lib.GetActiveDocumentByPath(filepath.Join(libRootDir, "file_not_on_record"))
 	if unrecordedDoc != (LibraryDocument{}) || exists {
 		t.Fatal("unrecorded document not rejected")
 	}
-	outsideDoc, exists := Lib.GetDocumentByPath(filepath.Join(os.TempDir(), "doccinator-test-dummy"))
+	outsideDoc, exists := Lib.GetActiveDocumentByPath(filepath.Join(os.TempDir(), "doccinator-test-dummy"))
 	if outsideDoc != (LibraryDocument{}) || exists {
 		t.Fatal("document outside library path not rejected")
 	}
-	secondDocA, exists := Lib.GetDocumentByPath(filePathA)
-	if secondDocA != docA || !exists {
+	copyOfDocPrimary, exists := Lib.GetActiveDocumentByPath(filePathOfSubject)
+	if copyOfDocPrimary != docPrimary || !exists {
 		t.Fatal("retrieval of A failed")
 	}
 
-	os.Rename(filePathA, filePathA+".renamed")
+	os.Rename(filePathOfSubject, filePathOfSubject+".renamed")
 
-	assertPathCheck(filePathA+".renamed", Moved)
+	assertPathCheck(filePathOfSubject, Missing)
+	assertPathCheck(filePathOfSubject+".renamed", Moved)
 
-	os.WriteFile(filePathA, []byte("A+"), fs.ModePerm)
+	docPrimaryClone, _ := Lib.CreateDocument(3)
+	Lib.SetDocumentPath(docPrimaryClone, filePathOfCloneSubject)
+	Lib.UpdateDocumentFromFile(docPrimaryClone)
 
-	assertPathCheck(filePathA+".renamed", Untracked)
+	assertPathCheck(filePathOfCloneSubject, Tracked)
+	assertPathCheck(filePathOfSubject, Missing)
+	assertPathCheck(filePathOfSubject+".renamed", Moved)
 
-	os.Rename(filePathA+".renamed", filePathA)
+	os.WriteFile(filePathOfSubject, []byte("A+"), fs.ModePerm)
 
-	if docA.IsRemoved() {
-		t.Fatal("A is already removed")
+	assertPathCheck(filePathOfSubject, Modified)
+	assertPathCheck(filePathOfSubject+".renamed", Duplicate) //duplicate with respect to clone!
+	assertPathCheck(filePathOfCloneSubject, Tracked)
+
+	os.Rename(filePathOfSubject+".renamed", filePathOfSubject)
+
+	assertPathCheck(filePathOfSubject, Tracked)
+	assertPathCheck(filePathOfCloneSubject, Tracked)
+
+	if docPrimary.IsObsolete() {
+		t.Fatal("primary subject is already obsolete")
 	}
 
-	Lib.MarkDocumentAsRemoved(docA)
+	Lib.MarkDocumentAsObsolete(docPrimary)
+	os.WriteFile(filePathOfSubject+".backup", []byte("A+"), fs.ModePerm)
 
-	assertPathCheck(filePathA, Untracked) //zombie file status (real file not removed yet)
+	assertPathCheck(filePathOfCloneSubject, Tracked)        //still alive
+	assertPathCheck(filePathOfSubject, Obsolete)            //this path is supposed to be deleted and has not changed
+	assertPathCheck(filePathOfSubject+".backup", Untracked) //because it neither matches any record nor any path
 
-	os.Remove(filePathA)
+	os.WriteFile(filePathOfSubject, []byte("NEW"), fs.ModePerm)
 
-	assertPathCheck(filePathA, Removed)
+	assertPathCheck(filePathOfSubject, Untracked)           //different content at obsoleted path
+	assertPathCheck(filePathOfSubject+".backup", Untracked) //because it neither matches any record nor any path
 
-	if _, exists := Lib.GetDocumentByPath(filePathA); !exists {
-		t.Fatal("removal mark on A went too far")
+	os.Remove(filePathOfSubject)
+
+	assertPathCheck(filePathOfSubject, Removed)
+	assertPathCheck(filePathOfSubject+".backup", Untracked) //because it neither matches any record nor any path
+
+	Lib.MarkDocumentAsObsolete(docPrimaryClone)
+
+	assertPathCheck(filePathOfSubject+".backup", Untracked) //because it neither matches any record nor any path
+	assertPathCheck(filePathOfCloneSubject, Obsolete)
+
+	os.Remove(filePathOfCloneSubject)
+
+	assertPathCheck(filePathOfCloneSubject, Removed)
+
+	if _, exists := Lib.GetActiveDocumentByPath(filePathOfSubject); exists {
+		t.Fatal("still reported as existing although it has been obsoleted")
 	}
-	if !docA.IsRemoved() {
-		t.Fatal("A was not marked as removed")
+	if !Lib.ObsoleteDocumentExistsForPath(filePathOfSubject) {
+		t.Fatal("not reported as known path of some obsolete document")
+	}
+	if !docPrimary.IsObsolete() {
+		t.Fatal("not marked as obsolete")
 	}
 
-	Lib.ForgetDocument(docA)
-	if _, exists := Lib.GetDocumentByPath(filePathA); exists {
-		t.Fatal("A not forgotten")
+	Lib.ForgetDocument(docPrimary)
+	if _, exists := Lib.GetActiveDocumentByPath(filePathOfSubject); exists {
+		t.Fatal("forgotten document still known as active")
+	}
+	if Lib.ObsoleteDocumentExistsForPath(filePathOfSubject) {
+		t.Fatal("forgotten document still known as obsolete")
 	}
 
-	os.WriteFile(filePathA, []byte("reborn A"), fs.ModePerm)
+	os.WriteFile(filePathOfSubject, []byte("reborn A"), fs.ModePerm)
 
-	assertPathCheck(filePathA, Untracked)
+	assertPathCheck(filePathOfSubject, Untracked)
 
 	var recordPrintout strings.Builder
 	Lib.VisitAllRecords(func(doc document.DocumentApi) {
 		recordPrintout.WriteString(doc.String())
 		recordPrintout.WriteRune('\n')
 	})
-	if !strings.Contains(recordPrintout.String(), fileNameB) || strings.Contains(recordPrintout.String(), fileNameA) {
+	if !strings.Contains(recordPrintout.String(), fileNameAlternative) || strings.Contains(recordPrintout.String(), fileNameSubject) {
 		t.Fatal("record printout unexpected:\n" + recordPrintout.String())
 	}
 }

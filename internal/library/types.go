@@ -5,9 +5,9 @@ import (
 )
 
 type library struct {
-	documents    map[DocumentId]DocumentApi
-	relPathIndex map[string]DocumentApi
-	rootPath     string //absolute, system-native path
+	documents          map[DocumentId]DocumentApi
+	relPathActiveIndex map[string]DocumentApi //active paths represent non-obsolete documents
+	rootPath           string //absolute, system-native path
 }
 
 type orderedDocuments []DocumentApi

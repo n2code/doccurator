@@ -71,14 +71,7 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 		if !errors.Is(err, fs.ErrNotExist) {
 			return AccessError
 		}
-		if doc.removed {
-			return RemovedFile
-		}
-		return MissingFile
-	}
-
-	if doc.removed {
-		return ZombieFile
+		return NoFileFound
 	}
 
 	if stat.Size() != doc.contentMetadata.size {
@@ -92,10 +85,12 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	if checksum.Sum256(content) != doc.contentMetadata.sha256Hash {
 		return ModifiedFile
 	}
+
 	if unixTimestamp(stat.ModTime().Unix()) != doc.localStorage.lastModified {
 		//TODO [FEATURE]: on performance optimization do a full read if last modified differs
 		return TouchedFile
 	}
+
 	return UnmodifiedFile
 }
 

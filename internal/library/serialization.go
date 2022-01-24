@@ -28,7 +28,9 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 	lib.rootPath = loadedLib.LocalRoot
 	lib.documents = loadedLib.Documents
 	for _, doc := range lib.documents {
-		lib.relPathIndex[doc.Path()] = doc
+		if !doc.Removed() {
+			lib.relPathActiveIndex[doc.Path()] = doc
+		}
 	}
 	return nil
 }

@@ -13,9 +13,7 @@ const (
 	UnmodifiedFile TrackedFileStatus = iota //file found at expected location and content matches records
 	TouchedFile                             //file found at expected location and content matches records but timestamp differs
 	ModifiedFile                            //file found at expected location but content differs
-	RemovedFile                             //file marked as removed and consequently not found at last known location
-	MissingFile                             //file not found at the expected location
-	ZombieFile                              //something is present at the file's last known location although file is marked as removed (so it should have been deleted)
+	NoFileFound                             //no file at the probed location
 	AccessError                             //error accessing probed location
 )
 
