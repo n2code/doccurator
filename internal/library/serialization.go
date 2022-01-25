@@ -45,6 +45,7 @@ var pathStatusText = map[PathStatus]string{
 	Removed:   "Removed",
 	Missing:   "Missing",
 	Duplicate: "Duplicate",
+	Obsolete:  "Obsolete",
 }
 
 func (status PathStatus) String() string {
