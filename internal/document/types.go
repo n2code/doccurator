@@ -12,7 +12,7 @@ type document struct {
 	changed         unixTimestamp   //when the library record was last changed (change to any field)
 	localStorage    storedFile      //last known physical location
 	contentMetadata contentMetadata //last known content information
-	removed         bool            //tombstone marker to record removal from library
+	obsolete        bool            //tombstone marker to record removal from library
 }
 
 type SemanticPath string //slash-separated regardless of OS

@@ -28,7 +28,7 @@ func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath strin
 		return fmt.Errorf("path outside library: %s", absolutePath)
 	}
 	doc := lib.documents[document.id] //caller error if nil
-	if !doc.Removed() {
+	if !doc.IsObsolete() {
 		delete(lib.relPathActiveIndex, doc.Path())
 		lib.relPathActiveIndex[newRelativePath] = doc
 	}
@@ -56,7 +56,7 @@ func (lib *library) ObsoleteDocumentExistsForPath(absolutePath string) bool {
 	}
 	//linear scan, could be improved
 	for _, doc := range lib.documents {
-		if doc.Removed() && doc.Path() == relativePath {
+		if doc.IsObsolete() && doc.Path() == relativePath {
 			return true
 		}
 	}
@@ -70,15 +70,15 @@ func (lib *library) UpdateDocumentFromFile(document LibraryDocument) (changed bo
 
 func (lib *library) MarkDocumentAsObsolete(document LibraryDocument) {
 	doc := lib.documents[document.id] //caller error if nil
-	if !doc.Removed() {
-		doc.SetRemoved()
+	if !doc.IsObsolete() {
+		doc.DeclareObsolete()
 		delete(lib.relPathActiveIndex, doc.Path())
 	}
 }
 
 func (lib *library) ForgetDocument(document LibraryDocument) {
 	doc := lib.documents[document.id] //caller error if nil
-	if !doc.Removed() {
+	if !doc.IsObsolete() {
 		relativePath := doc.Path()
 		delete(lib.relPathActiveIndex, relativePath)
 	}
@@ -152,7 +152,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
-			if doc.Removed() {
+			if doc.IsObsolete() {
 				foundMatchingObsolete = true
 				continue
 			}
@@ -294,7 +294,7 @@ func (lib *library) VisitAllRecords(visitor func(DocumentApi)) {
 
 func (libDoc *LibraryDocument) IsObsolete() bool {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
-	return doc.Removed()
+	return doc.IsObsolete()
 }
 
 func (libDoc *LibraryDocument) PathRelativeToLibraryRoot() string {

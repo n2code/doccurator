@@ -18,7 +18,7 @@ func (doc *document) String() string {
 		return time.Unix(int64(ts), 0).Local().Format(time.RFC1123)
 	}
 	retiredDateLine := ""
-	if doc.removed {
+	if doc.obsolete {
 		retiredDateLine = fmt.Sprintf("\n  Retired:  %s", formatTime(doc.changed))
 	}
 	return fmt.Sprintf(`Document %s
@@ -44,7 +44,7 @@ type jsonDoc struct {
 	Recorded     unixTimestamp
 	Changed      unixTimestamp
 	FileModified unixTimestamp
-	FileRemoved  bool
+	FileObsolete bool
 }
 
 func (doc *document) MarshalJSON() ([]byte, error) {
@@ -56,7 +56,7 @@ func (doc *document) MarshalJSON() ([]byte, error) {
 		Recorded:     doc.recorded,
 		Changed:      doc.changed,
 		FileModified: doc.localStorage.lastModified,
-		FileRemoved:  doc.removed,
+		FileObsolete: doc.obsolete,
 	}
 	return json.Marshal(persistedDoc)
 }
@@ -87,7 +87,7 @@ func (doc *document) UnmarshalJSON(blob []byte) error {
 	doc.localStorage.directory = loadedDoc.Dir
 	doc.localStorage.name = loadedDoc.File
 	doc.localStorage.lastModified = loadedDoc.FileModified
-	doc.removed = loadedDoc.FileRemoved
+	doc.obsolete = loadedDoc.FileObsolete
 	doc.contentMetadata.size = loadedDoc.Size
 	shaBytes, err := hex.DecodeString(loadedDoc.Sha256)
 	if err != nil {

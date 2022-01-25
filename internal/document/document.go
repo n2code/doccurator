@@ -21,13 +21,13 @@ func (doc *document) Changed() unixTimestamp {
 	return doc.changed
 }
 
-func (doc *document) Removed() bool {
-	return doc.removed
+func (doc *document) IsObsolete() bool {
+	return doc.obsolete
 }
 
-func (doc *document) SetRemoved() {
-	if !doc.removed {
-		doc.removed = true
+func (doc *document) DeclareObsolete() {
+	if !doc.obsolete {
+		doc.obsolete = true
 		doc.updateRecordChangeDate()
 	}
 }

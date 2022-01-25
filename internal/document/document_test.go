@@ -84,7 +84,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 	}
 
 	doc.(*document).changed = unchangedPlaceholder
-	doc.SetRemoved()
+	doc.DeclareObsolete()
 
 	if doc.Changed() == unchangedPlaceholder {
 		t.Fatal("change timestamp not updated by obsolete marker")
@@ -173,7 +173,7 @@ func TestFileStatusVerification(t *testing.T) {
 		t.Fatal("deleted file not considered not-found")
 	}
 
-	doc.SetRemoved()
+	doc.DeclareObsolete()
 
 	if doc.CompareToFileOnStorage(libRootDir) != NoFileFound {
 		t.Fatal("obsolete file not considered not-found")

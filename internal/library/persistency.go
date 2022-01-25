@@ -16,7 +16,7 @@ import (
 const workInProgressFileSuffix = ".wip"
 const databaseContentOpener = "LIBRARY>>>"
 const databaseContentTerminator = "<<<LIBRARY"
-const databaseSemanticVersion = "0.2.0"
+const databaseSemanticVersion = "0.3.0"
 const semVerPattern = `^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
 
 var semanticVersionRegex = regexp.MustCompile(semVerPattern)

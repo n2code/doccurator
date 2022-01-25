@@ -21,8 +21,8 @@ type DocumentApi interface {
 	Id() DocumentId
 	Recorded() unixTimestamp
 	Changed() unixTimestamp
-	Removed() bool
-	SetRemoved()
+	IsObsolete() bool
+	DeclareObsolete()
 	Path() string
 	SetPath(relativePath string)
 	UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error)

@@ -79,7 +79,7 @@ func (d *doccinator) CommandDump(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
 	d.appLib.VisitAllRecords(func(doc document.DocumentApi) {
-		if doc.Removed() && excludeRetired {
+		if doc.IsObsolete() && excludeRetired {
 			return
 		}
 		fmt.Fprintf(d.out, "%s\n", doc)
