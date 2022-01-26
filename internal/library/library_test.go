@@ -480,6 +480,16 @@ func TestPathChecking(t *testing.T) {
 	testStatusCombination("ObsoleteMatchesPastRecord",
 		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed},
 		f{path: "UNWANTED", contentOnRecord: noRecord, fileContent: "1", expected: Obsolete}) //path is new but content is obsolete
+
+	testStatusCombination("ObsoleteContentRecreatedNextToActiveModifiedWithObsoleteContentOnRecord",
+		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expected: Obsolete},
+		f{path: "A_PAST", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed},
+		f{path: "B", contentOnRecord: "1", fileContent: "2", expected: Modified})
+
+	testStatusCombination("ObsoleteHasPriorityOverDuplicate",
+		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expected: Obsolete}, //because the content is present and matching
+		f{path: "B", contentOnRecord: "1", fileContent: "1", expected: Tracked},
+		f{path: "C", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed})
 }
 
 func TestVisitRecordsAndPrint(t *testing.T) {
