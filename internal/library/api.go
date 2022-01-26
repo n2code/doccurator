@@ -49,7 +49,7 @@ type LibraryApi interface {
 	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)
 	GetRoot() string
-	VisitAllRecords(func(DocumentApi))
+	VisitAllRecords(func(LibraryDocument)) //the list of visited documents is stable and isolated from changes during the visits
 }
 
 func MakeRuntimeLibrary() LibraryApi {

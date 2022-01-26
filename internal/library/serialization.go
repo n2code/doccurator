@@ -51,3 +51,8 @@ var pathStatusText = map[PathStatus]string{
 func (status PathStatus) String() string {
 	return pathStatusText[status]
 }
+
+func (libDoc LibraryDocument) String() string {
+	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
+	return doc.String()
+}

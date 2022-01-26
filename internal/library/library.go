@@ -288,7 +288,7 @@ func (l docsByRecordedAndId) Less(i, j int) bool {
 	return l[i].Recorded() < l[j].Recorded() || (l[i].Recorded() == l[j].Recorded() && l[i].Id() < l[j].Id())
 }
 
-func (lib *library) VisitAllRecords(visitor func(DocumentApi)) {
+func (lib *library) VisitAllRecords(visitor func(LibraryDocument)) {
 	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
 		docList = append(docList, doc)
@@ -296,7 +296,7 @@ func (lib *library) VisitAllRecords(visitor func(DocumentApi)) {
 	sort.Sort(docList)
 
 	for _, doc := range docList {
-		visitor(doc)
+		visitor(LibraryDocument{id: doc.Id(), library: lib})
 	}
 }
 

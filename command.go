@@ -57,6 +57,15 @@ func (d *doccinator) CommandRetireByPath(path string) error {
 	return nil
 }
 
+// Removes all retired documents from the library completely
+func (d *doccinator) CommandForgetAllObsolete() {
+	d.appLib.VisitAllRecords(func(doc LibraryDocument) {
+		if doc.IsObsolete() {
+			d.appLib.ForgetDocument(doc)
+		}
+	})
+}
+
 // Removes a retired document from the library completely
 func (d *doccinator) CommandForgetById(id document.DocumentId) error {
 	doc, exists := d.appLib.GetDocumentById(id)
@@ -74,7 +83,7 @@ func (d *doccinator) CommandForgetById(id document.DocumentId) error {
 func (d *doccinator) CommandDump(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
-	d.appLib.VisitAllRecords(func(doc document.DocumentApi) {
+	d.appLib.VisitAllRecords(func(doc LibraryDocument) {
 		if doc.IsObsolete() && excludeRetired {
 			return
 		}

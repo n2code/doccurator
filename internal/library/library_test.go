@@ -513,7 +513,7 @@ func TestVisitRecordsAndPrint(t *testing.T) {
 
 	//THEN
 	var recordPrintout strings.Builder
-	lib.VisitAllRecords(func(doc document.DocumentApi) {
+	lib.VisitAllRecords(func(doc LibraryDocument) {
 		recordPrintout.WriteString(doc.String())
 		recordPrintout.WriteRune('\n')
 	})

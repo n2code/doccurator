@@ -264,7 +264,7 @@ func (rq *CliRequest) execute() error {
 			}
 		case "forget":
 			if *(rq.actionFlags["all-retired"].(*bool)) {
-				panic("not yet implemented")
+				api.CommandForgetAllObsolete()
 			} else {
 				for _, target := range rq.actionArgs {
 					numId, err, complete := ndocid.Decode(target)

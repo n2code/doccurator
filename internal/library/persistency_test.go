@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/n2code/doccinator/internal/document"
 )
 
 func TestLibrarySaveAndReload(t *testing.T) {
@@ -67,11 +65,11 @@ func TestLibrarySaveAndReload(t *testing.T) {
 
 	var originalLibRecords strings.Builder
 	var loadedLibRecords strings.Builder
-	Lib.VisitAllRecords(func(doc document.DocumentApi) {
+	Lib.VisitAllRecords(func(doc LibraryDocument) {
 		originalLibRecords.WriteString(doc.String())
 		originalLibRecords.WriteRune('\n')
 	})
-	LoadedLib.VisitAllRecords(func(doc document.DocumentApi) {
+	LoadedLib.VisitAllRecords(func(doc LibraryDocument) {
 		loadedLibRecords.WriteString(doc.String())
 		loadedLibRecords.WriteRune('\n')
 	})
