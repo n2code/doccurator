@@ -133,16 +133,25 @@ Usage of %s action:
 				actionDescriptionIndent + "If an identical file appears at a later point in time the library is\n" +
 				actionDescriptionIndent + "thereby able to recognize it as an obsolete duplicate (\"zombie\")."
 		case "forget":
-			flagSpecification = " [-no-require-retired]"
-			actionDescription += "Delete the library records corresponding to the given FILEPATH(s).\n" +
-				actionDescriptionIndent + "The paths have to be retired unless the flag to ignore this is set."
-			request.actionFlags["no-require-retired"] = actionParams.Bool("no-require-retired", false, "ignore if a document is retired or not, force forget regardless")
+			flagSpecification = " [-all-retired |"
+			argumentSpecification = " ID...]"
+			actionDescription += "Delete the library records corresponding to the given ID(s).\n" +
+				actionDescriptionIndent + "Only retired documents can be forgotten."
+			request.actionFlags["all-retired"] = actionParams.Bool("all-retired", false, "forget all retired documents")
 		}
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
-		if actionParams.NArg() < 1 {
-			err = errors.New("no targets given")
-			return
+		switch {
+		case request.action == "forget" && *(request.actionFlags["all-retired"].(*bool)):
+			if actionParams.NArg() != 0 {
+				err = errors.New(`no IDs must be given when using flag "-all-retired"`)
+				return
+			}
+		default:
+			if actionParams.NArg() < 1 {
+				err = errors.New("no targets given")
+				return
+			}
 		}
 	case "dump":
 		flagSpecification = " [-exclude-retired]"
@@ -218,8 +227,7 @@ func (rq *CliRequest) execute() error {
 					return fmt.Errorf(`ID missing in path %s`, target)
 				}
 				textId := matches[1]
-				var numId uint64
-				numId, err, _ = ndocid.Decode(textId)
+				numId, err, _ := ndocid.Decode(textId)
 				if err != nil {
 					return fmt.Errorf(`bad ID in path %s (%w)`, target, err)
 				}
@@ -255,10 +263,21 @@ func (rq *CliRequest) execute() error {
 				return err
 			}
 		case "forget":
-			for _, target := range rq.actionArgs {
-				err = api.CommandForgetByPath(target, *(rq.actionFlags["no-require-retired"].(*bool)))
-				if err != nil {
-					return err
+			if *(rq.actionFlags["all-retired"].(*bool)) {
+				panic("not yet implemented")
+			} else {
+				for _, target := range rq.actionArgs {
+					numId, err, complete := ndocid.Decode(target)
+					if err != nil {
+						return fmt.Errorf(`error in ID "%s" (%w)`, target, err)
+					}
+					if !complete {
+						return fmt.Errorf(`incomplete ID "%s"`, target)
+					}
+					err = api.CommandForgetById(document.DocumentId(numId))
+					if err != nil {
+						return err
+					}
 				}
 			}
 			err = api.PersistChanges()

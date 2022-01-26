@@ -57,18 +57,14 @@ func (d *doccinator) CommandRetireByPath(path string) error {
 	return nil
 }
 
-// Removes an existing document from the library completely
-func (d *doccinator) CommandForgetByPath(path string, ignoreRetire bool) error {
-	panic("concept trouble")
-	doc, exists := d.appLib.GetActiveDocumentByPath(mustAbsFilepath(path))
+// Removes a retired document from the library completely
+func (d *doccinator) CommandForgetById(id document.DocumentId) error {
+	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
-		return newCommandError(fmt.Sprintf("path to forget not on record: %s", path), nil)
+		return newCommandError(fmt.Sprintf("document with ID %s not found", id), nil)
 	}
 	if !doc.IsObsolete() {
-		if !ignoreRetire {
-			return newCommandError(fmt.Sprintf("path to forget not retired, override not requested: %s", path), nil)
-		}
-		fmt.Fprintf(d.extraOut, "Override effective, forgetting non-retired: %s\n", doc.PathRelativeToLibraryRoot())
+		return newCommandError(fmt.Sprintf("document to forget (ID %s) not retired", id), nil)
 	}
 	d.appLib.ForgetDocument(doc)
 	return nil
@@ -134,6 +130,7 @@ func (d *doccinator) CommandTree(excludeUnchanged bool) error {
 
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
 func (d *doccinator) CommandStatus(paths []string) error {
+	//TODO [FEATURE]: pair up missing+moved and hide missing
 	buckets := make(map[PathStatus][]string)
 
 	if len(paths) > 0 {

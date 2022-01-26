@@ -36,6 +36,14 @@ func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath strin
 	return nil
 }
 
+func (lib *library) GetDocumentById(id DocumentId) (doc LibraryDocument, exists bool) {
+	_, exists = lib.documents[id]
+	if !exists {
+		return LibraryDocument{}, false
+	}
+	return LibraryDocument{id: id, library: lib}, true
+}
+
 func (lib *library) GetActiveDocumentByPath(absolutePath string) (document LibraryDocument, exists bool) {
 	relativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {

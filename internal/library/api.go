@@ -37,6 +37,7 @@ type CheckedPath struct {
 type LibraryApi interface {
 	CreateDocument(DocumentId) (LibraryDocument, error)
 	SetDocumentPath(doc LibraryDocument, absolutePath string) error
+	GetDocumentById(DocumentId) (doc LibraryDocument, exists bool)
 	GetActiveDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
 	UpdateDocumentFromFile(LibraryDocument) (changed bool, err error)
 	MarkDocumentAsObsolete(LibraryDocument)

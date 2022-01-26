@@ -27,7 +27,7 @@ type Doccinator interface {
 	CommandAdd(id document.DocumentId, path string) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
-	CommandForgetByPath(path string, ignoreRetire bool) error
+	CommandForgetById(id document.DocumentId) error
 	CommandDump(excludeRetired bool)
 	CommandTree(excludeUnchanged bool) error
 	CommandStatus(paths []string) error
