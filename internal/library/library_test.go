@@ -88,7 +88,7 @@ func writeFile(path string, content string) {
 	os.WriteFile(path, []byte(content), fs.ModePerm)
 }
 
-func TestDocumentUpdating(t *testing.T) {
+func TestDocumentModification(t *testing.T) {
 	//GIVEN
 	tempDir, lib := setupLibraryInTemp(t)
 	doc, _ := lib.CreateDocument(42)
@@ -147,6 +147,18 @@ func TestDocumentUpdating(t *testing.T) {
 		}
 		if changed == true {
 			t.Fatal("update reported change although error occurred")
+		}
+	})
+
+	//GIVEN
+	replacement, _ := lib.CreateDocument(99)
+
+	t.Run("ConflictingDocumentPath", func(Test *testing.T) {
+		//WHEN
+		err := lib.SetDocumentPath(replacement, filePath) //same as for other document
+		//THEN
+		if err == nil {
+			t.Fatal("path setting not refused because of known active path")
 		}
 	})
 }
@@ -468,7 +480,7 @@ func TestPathChecking(t *testing.T) {
 
 	testStatusCombination("NewContentAtObsoletedPath",
 		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "2", expected: Untracked}, //different content at obsoleted path
-		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked})                 //because it neither matches any record nor any path
+		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked}) //because it neither matches any record nor any path
 
 	testStatusCombination("Removed",
 		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed})

@@ -18,7 +18,6 @@ func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool
 
 // Records a new document in the library
 func (d *doccinator) CommandAddSingle(id document.DocumentId, filePath string) error {
-	//TODO [FEATURE]: detect and prevent adding existing paths
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation blocked", err)

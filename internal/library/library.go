@@ -28,6 +28,9 @@ func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath strin
 		return fmt.Errorf("path outside library: %s", absolutePath)
 	}
 	doc := lib.documents[document.id] //caller error if nil
+	if conflicting, pathAlreadyKnown := lib.relPathActiveIndex[newRelativePath]; pathAlreadyKnown && conflicting.Id() != document.id {
+		return fmt.Errorf("document %s already exists for path %s", conflicting.Id(), absolutePath)
+	}
 	if !doc.IsObsolete() {
 		delete(lib.relPathActiveIndex, doc.Path())
 		lib.relPathActiveIndex[newRelativePath] = doc
