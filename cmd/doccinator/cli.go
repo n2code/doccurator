@@ -4,14 +4,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"regexp"
-
 	"github.com/n2code/doccinator"
 	"github.com/n2code/doccinator/internal/document"
 	"github.com/n2code/ndocid"
+	"io"
+	"os"
+	"path/filepath"
 )
 
 type CliRequest struct {
@@ -22,11 +20,7 @@ type CliRequest struct {
 	actionArgs  []string
 }
 
-const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
 const defaultDbFileName = string(`doccinator.db`)
-
-//represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
-var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + idPattern + `)\.ndoc(?:\.[^.]+)?$`)
 
 func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliRequest, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
@@ -123,7 +117,10 @@ Usage of %s action:
 		argumentSpecification = " FILEPATH..."
 		switch request.action {
 		case "add":
-			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records."
+			flagSpecification = " -all-untracked |"
+			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
+				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
+			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library")
 		case "update":
 			actionDescription += "Update the library records to match the current state of the file(s)\n" +
 				actionDescriptionIndent + "at the given FILEPATH(s)."
@@ -142,6 +139,11 @@ Usage of %s action:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		switch {
+		case request.action == "add" && *(request.actionFlags["all-untracked"].(*bool)):
+			if actionParams.NArg() != 0 {
+				err = errors.New(`no FILEPATHs must be given when using flag "-all-untracked"`)
+				return
+			}
 		case request.action == "forget" && *(request.actionFlags["all-retired"].(*bool)):
 			if actionParams.NArg() != 0 {
 				err = errors.New(`no IDs must be given when using flag "-all-retired"`)
@@ -220,20 +222,21 @@ func (rq *CliRequest) execute() error {
 				return err
 			}
 		case "add":
-			for _, target := range rq.actionArgs {
-				filename := filepath.Base(target)
-				matches := ndocFileNameRegex.FindStringSubmatch(filename)
-				if matches == nil {
-					return fmt.Errorf(`ID missing in path %s`, target)
-				}
-				textId := matches[1]
-				numId, err, _ := ndocid.Decode(textId)
-				if err != nil {
-					return fmt.Errorf(`bad ID in path %s (%w)`, target, err)
-				}
-				err = api.CommandAdd(document.DocumentId(numId), target)
+			if *(rq.actionFlags["all-untracked"].(*bool)) {
+				err := api.CommandAddAllUntracked()
 				if err != nil {
 					return err
+				}
+			} else {
+				for _, target := range rq.actionArgs {
+					id, err := doccinator.ExtractIdFromStandardizedFilename(target)
+					if err != nil {
+						return fmt.Errorf(`bad path %s: (%w)`, target, err)
+					}
+					err = api.CommandAddSingle(id, target)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			err = api.PersistChanges()

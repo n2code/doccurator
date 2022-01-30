@@ -2,9 +2,11 @@ package doccinator
 
 import (
 	"fmt"
+	"github.com/n2code/ndocid"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/n2code/doccinator/internal/document"
 	. "github.com/n2code/doccinator/internal/library"
@@ -17,6 +19,7 @@ const (
 	VerboseMode
 	QuietMode
 )
+const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
 
 // zero value is a sensible default
 type CreateConfig struct {
@@ -24,7 +27,8 @@ type CreateConfig struct {
 }
 
 type Doccinator interface {
-	CommandAdd(id document.DocumentId, path string) error
+	CommandAddSingle(id document.DocumentId, path string) error
+	CommandAddAllUntracked() error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
 	CommandForgetById(id document.DocumentId) error
@@ -43,6 +47,9 @@ type doccinator struct {
 	extraOut   io.Writer //more output for convenience (repeats context)
 	verboseOut io.Writer //most output, talkative
 }
+
+//represents file.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
+var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + idPattern + `)\.ndoc(?:\.[^.]+)?$`)
 
 func New(root string, database string, config CreateConfig) (Doccinator, error) {
 	handle := makeDoccinator(config)
@@ -68,6 +75,20 @@ func (d *doccinator) PersistChanges() error {
 	}
 	return nil
 
+}
+
+func ExtractIdFromStandardizedFilename(path string) (document.DocumentId, error) {
+	filename := filepath.Base(path)
+	matches := ndocFileNameRegex.FindStringSubmatch(filename)
+	if matches == nil {
+		return 0, fmt.Errorf("ID missing in filename %s (expected format <name>.<ID>.ndoc.<ext>, e.g. notes.23352M4R96Z.ndoc.txt)", filename)
+	}
+	textId := matches[1]
+	numId, err, _ := ndocid.Decode(textId)
+	if err != nil {
+		return 0, fmt.Errorf(`bad ID in filename %s (%w)`, filename, err)
+	}
+	return document.DocumentId(numId), nil
 }
 
 func makeDoccinator(config CreateConfig) (docc *doccinator) {

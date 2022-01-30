@@ -10,8 +10,14 @@ import (
 	"github.com/n2code/doccinator/internal/output"
 )
 
+func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool) {
+	return func(path string) bool {
+		return path == libFilePath || filepath.Base(path) == libraryLocatorFileName
+	}
+}
+
 // Records a new document in the library
-func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
+func (d *doccinator) CommandAddSingle(id document.DocumentId, filePath string) error {
 	//TODO [FEATURE]: detect and prevent adding existing paths
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
@@ -26,6 +32,35 @@ func (d *doccinator) CommandAdd(id document.DocumentId, filePath string) error {
 		return newCommandError("document creation failed", err)
 	}
 	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
+	return nil
+}
+
+func (d *doccinator) CommandAddAllUntracked() error {
+	results, noScanErrors := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
+	if !noScanErrors {
+		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
+	}
+
+	var untrackedRootRelativePaths []string
+	for _, checked := range results {
+		switch checked.Status() {
+		case Untracked:
+			untrackedRootRelativePaths = append(untrackedRootRelativePaths, checked.PathRelativeToLibraryRoot())
+		case Error:
+			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
+		}
+	}
+
+	for _, untracked := range untrackedRootRelativePaths {
+		id, err := ExtractIdFromStandardizedFilename(untracked)
+		if err != nil {
+			return err
+		}
+		err = d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -100,13 +135,10 @@ func (d *doccinator) CommandDump(excludeRetired bool) {
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths are listed depending on the flag.
 func (d *doccinator) CommandTree(excludeUnchanged bool) error {
-	skipDbAndPointers := func(path string) bool {
-		return path == d.libFile || filepath.Base(path) == libraryLocatorFileName
-	}
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	var pathsWithErrors []*CheckedPath
-	paths, ok := d.appLib.Scan(skipDbAndPointers)
+	paths, ok := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
@@ -171,10 +203,7 @@ func (d *doccinator) CommandStatus(paths []string) error {
 			processResult(&result, abs)
 		}
 	} else {
-		skipDbAndPointers := func(path string) bool {
-			return path == d.libFile || filepath.Base(path) == libraryLocatorFileName
-		}
-		results, _ := d.appLib.Scan(skipDbAndPointers)
+		results, _ := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
 		for _, result := range results {
 			processResult(&result, filepath.Join(d.appLib.GetRoot(), result.PathRelativeToLibraryRoot()))
 		}
