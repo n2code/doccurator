@@ -114,13 +114,18 @@ Usage of %s action:
 		request.actionArgs = actionParams.Args()
 		//beyond flags all arguments are optional
 	case "add", "update", "retire", "forget":
-		argumentSpecification = " FILEPATH..."
+		argumentSpecification = " [-id=ID] FILEPATH..."
 		switch request.action {
 		case "add":
 			flagSpecification = " -all-untracked |"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
-			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library")
+			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
+				"(requires *standardized* filenames)")
+			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
+				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
+				"FORMAT 1: doccinator add -id 63835AEV9E my_document.pdf\n"+
+				"FORMAT 2: doccinator add -id=55565IEV9E my_document.pdf")
 		case "update":
 			actionDescription += "Update the library records to match the current state of the file(s)\n" +
 				actionDescriptionIndent + "at the given FILEPATH(s)."
@@ -142,6 +147,15 @@ Usage of %s action:
 		case request.action == "add" && *(request.actionFlags["all-untracked"].(*bool)):
 			if actionParams.NArg() != 0 {
 				err = errors.New(`no FILEPATHs must be given when using flag "-all-untracked"`)
+				return
+			}
+			if *(request.actionFlags["id"].(*string)) != "" {
+				err = errors.New(`flag "-id" must not be used together with "-all-untracked"`)
+				return
+			}
+		case request.action == "add" && *(request.actionFlags["id"].(*string)) != "":
+			if actionParams.NArg() != 1 {
+				err = errors.New(`exactly one FILEPATH must be given when using flag "-id"`)
 				return
 			}
 		case request.action == "forget" && *(request.actionFlags["all-retired"].(*bool)):
@@ -228,14 +242,28 @@ func (rq *CliRequest) execute() error {
 					return err
 				}
 			} else {
-				for _, target := range rq.actionArgs {
-					id, err := doccinator.ExtractIdFromStandardizedFilename(target)
+				if explicitId := *(rq.actionFlags["id"].(*string)); explicitId != "" {
+					numId, err, complete := ndocid.Decode(explicitId)
 					if err != nil {
-						return fmt.Errorf(`bad path %s: (%w)`, target, err)
+						return fmt.Errorf(`error in ID "%s" (%w)`, explicitId, err)
 					}
-					err = api.CommandAddSingle(id, target)
+					if !complete {
+						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
+					}
+					err = api.CommandAddSingle(document.DocumentId(numId), rq.actionArgs[0])
 					if err != nil {
 						return err
+					}
+				} else {
+					for _, target := range rq.actionArgs {
+						id, err := doccinator.ExtractIdFromStandardizedFilename(target)
+						if err != nil {
+							return fmt.Errorf(`bad path %s: (%w)`, target, err)
+						}
+						err = api.CommandAddSingle(id, target)
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}

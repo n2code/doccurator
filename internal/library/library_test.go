@@ -77,6 +77,57 @@ func TestDocumentCreation(t *testing.T) {
 	}
 }
 
+func TestGetDocumentById(t *testing.T) {
+	//GIVEN
+	lib := MakeRuntimeLibrary()
+	const mainDocumentId document.DocumentId = 42
+
+	t.Run("UnrecordedDocument", func(Test *testing.T) {
+		//WHEN
+		unrecordedDoc, exists := lib.GetDocumentById(mainDocumentId)
+		//THEN
+		if exists || unrecordedDoc != (LibraryDocument{}) {
+			Test.Fatal("unrecorded document found somehow")
+		}
+	})
+
+	//GIVEN
+	recordedDoc, _ := lib.CreateDocument(mainDocumentId)
+
+	t.Run("QueryActiveDocument", func(Test *testing.T) {
+		//WHEN
+		queriedDoc, exists := lib.GetDocumentById(mainDocumentId)
+		//THEN
+		if !exists || queriedDoc != recordedDoc {
+			Test.Fatal("retrieval of active failed")
+		}
+	})
+
+	//GIVEN
+	lib.MarkDocumentAsObsolete(recordedDoc)
+
+	t.Run("QueryObsoleteDocument", func(Test *testing.T) {
+		//WHEN
+		queriedDoc, stillExists := lib.GetDocumentById(mainDocumentId)
+		//THEN
+		if !stillExists || queriedDoc != recordedDoc {
+			Test.Fatal("retrieval of obsolete failed")
+		}
+	})
+
+	//GIVEN
+	lib.ForgetDocument(recordedDoc)
+
+	t.Run("QueryForgottenDocument", func(Test *testing.T) {
+		//WHEN
+		queriedDocument, stillExists := lib.GetDocumentById(mainDocumentId)
+		//THEN
+		if stillExists || queriedDocument != (LibraryDocument{}) {
+			Test.Fatal("forgotten document still accessible")
+		}
+	})
+}
+
 func setupLibraryInTemp(t *testing.T) (tempRootDir string, library LibraryApi) {
 	tempRootDir = t.TempDir()
 	library = MakeRuntimeLibrary()
@@ -168,6 +219,7 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 	tempRootDir, lib := setupLibraryInTemp(t)
 	filePath := filepath.Join(tempRootDir, "file_for_lifecycle")
 	writeFile(filePath, "content")
+	const mainDocumentId document.DocumentId = 42
 
 	t.Run("UnrecordedDocument", func(Test *testing.T) {
 		//WHEN
@@ -188,7 +240,7 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 	})
 
 	//GIVEN
-	recordedDoc, _ := lib.CreateDocument(42)
+	recordedDoc, _ := lib.CreateDocument(mainDocumentId)
 	lib.SetDocumentPath(recordedDoc, filePath)
 	//note: real file not yet read!
 
@@ -480,7 +532,7 @@ func TestPathChecking(t *testing.T) {
 
 	testStatusCombination("NewContentAtObsoletedPath",
 		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "2", expected: Untracked}, //different content at obsoleted path
-		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked}) //because it neither matches any record nor any path
+		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked})                 //because it neither matches any record nor any path
 
 	testStatusCombination("Removed",
 		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed})
