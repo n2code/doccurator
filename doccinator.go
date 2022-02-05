@@ -19,7 +19,6 @@ const (
 	VerboseMode
 	QuietMode
 )
-const idPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
 
 // zero value is a sensible default
 type CreateConfig struct {
@@ -29,6 +28,7 @@ type CreateConfig struct {
 type Doccinator interface {
 	CommandAddSingle(id document.DocumentId, path string) error
 	CommandAddAllUntracked() error
+	CommandStandardizeLocation(id document.DocumentId) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
 	CommandForgetById(id document.DocumentId) error
@@ -49,7 +49,7 @@ type doccinator struct {
 }
 
 //represents file.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
-var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + idPattern + `)\.ndoc(?:\.[^.]+)?$`)
+var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + document.IdPattern + `)\.ndoc(?:\.[^.]*)?$`)
 
 func New(root string, database string, config CreateConfig) (Doccinator, error) {
 	handle := makeDoccinator(config)
@@ -81,7 +81,7 @@ func ExtractIdFromStandardizedFilename(path string) (document.DocumentId, error)
 	filename := filepath.Base(path)
 	matches := ndocFileNameRegex.FindStringSubmatch(filename)
 	if matches == nil {
-		return 0, fmt.Errorf("ID missing in filename %s (expected format <name>.<ID>.ndoc.<ext>, e.g. notes.23352M4R96Z.ndoc.txt)", filename)
+		return 0, fmt.Errorf("ID missing in filename %s (expected format <name>.<ID>.ndoc.<ext>, e.g. notes.txt.23352M4R96Z.ndoc.txt)", filename)
 	}
 	textId := matches[1]
 	numId, err, _ := ndocid.Decode(textId)

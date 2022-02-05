@@ -313,6 +313,27 @@ func (libDoc *LibraryDocument) PathRelativeToLibraryRoot() string {
 	return doc.Path()
 }
 
+func (libDoc *LibraryDocument) RenameToStandardNameFormat() (newNameIfDifferent string, err error) {
+	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
+	standardName, err := doc.StandardizedFilename()
+	if err != nil {
+		return
+	}
+	oldPath := doc.Path()
+	standardPath := filepath.Join(filepath.Dir(oldPath), standardName)
+	if standardPath == oldPath {
+		return
+	}
+	newNameIfDifferent = standardName
+	absoluteOldPath := filepath.Join(libDoc.library.GetRoot(), oldPath)
+	absoluteNewPath := filepath.Join(libDoc.library.GetRoot(), standardPath)
+	err = os.Rename(absoluteOldPath, absoluteNewPath)
+	if err == nil {
+		libDoc.library.SetDocumentPath(*libDoc, absoluteNewPath)
+	}
+	return
+}
+
 func (p CheckedPath) Status() PathStatus {
 	return p.status
 }

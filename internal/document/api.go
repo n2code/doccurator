@@ -25,6 +25,7 @@ type DocumentApi interface {
 	DeclareObsolete()
 	Path() string
 	SetPath(relativePath string)
+	StandardizedFilename() (string, error)
 	UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error)
 	CompareToFileOnStorage(libraryRoot string) TrackedFileStatus
 	MatchesChecksum(sha256 [checksum.Size]byte) bool

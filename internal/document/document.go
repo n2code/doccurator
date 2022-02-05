@@ -3,11 +3,15 @@ package document
 import (
 	checksum "crypto/sha256"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 )
+
+const IdPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
 
 func (doc *document) Id() DocumentId {
 	return doc.id
@@ -96,6 +100,24 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 
 func (doc *document) MatchesChecksum(sha256 [checksum.Size]byte) bool {
 	return doc.contentMetadata.sha256Hash == sha256
+}
+
+var ndocFileNameRegex = regexp.MustCompile(`^(.*)\.(` + IdPattern + `)\.ndoc(\.[^.]*)?$`)
+
+func (doc *document) StandardizedFilename() (string, error) {
+	original, id, extension := "", "", ""
+	//represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .ext_only.23456X777.ndoc.ext_only
+	matches := ndocFileNameRegex.FindStringSubmatch(doc.localStorage.name)
+	if matches == nil {
+		original = doc.localStorage.name
+		extension = filepath.Ext(doc.localStorage.name)
+	} else {
+		original, id, extension = matches[1], matches[2], matches[3]
+		if id != doc.id.String() {
+			return "", fmt.Errorf("ID in filename %s does not match document ID %s on record", doc.localStorage.name, doc.id)
+		}
+	}
+	return fmt.Sprintf("%s.%s.ndoc%s", original, doc.id, extension), nil
 }
 
 func (doc *document) updateRecordChangeDate() {

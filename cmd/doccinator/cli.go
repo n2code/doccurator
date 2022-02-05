@@ -117,11 +117,13 @@ Usage of %s action:
 		argumentSpecification = " [-id=ID] FILEPATH..."
 		switch request.action {
 		case "add":
-			flagSpecification = " -all-untracked |"
+			flagSpecification = " [-rename]   -all-untracked |"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
 			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
-				"(requires *standardized* filenames)")
+				"(requires *standardized* filenames to extract IDs)")
+			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename\n"+
+				"(failure will be reported but does not stop processing)")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
 				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
 				"FORMAT 1: doccinator add -id 63835AEV9E my_document.pdf\n"+
@@ -135,8 +137,8 @@ Usage of %s action:
 				actionDescriptionIndent + "If an identical file appears at a later point in time the library is\n" +
 				actionDescriptionIndent + "thereby able to recognize it as an obsolete duplicate (\"zombie\")."
 		case "forget":
-			flagSpecification = " [-all-retired |"
-			argumentSpecification = " ID...]"
+			flagSpecification = " -all-retired |"
+			argumentSpecification = " ID..."
 			actionDescription += "Delete the library records corresponding to the given ID(s).\n" +
 				actionDescriptionIndent + "Only retired documents can be forgotten."
 			request.actionFlags["all-retired"] = actionParams.Bool("all-retired", false, "forget all retired documents")
@@ -236,12 +238,14 @@ func (rq *CliRequest) execute() error {
 				return err
 			}
 		case "add":
+			tryRename := *(rq.actionFlags["rename"].(*bool))
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
 				err := api.CommandAddAllUntracked()
 				if err != nil {
 					return err
 				}
 			} else {
+				var addedIds []document.DocumentId
 				if explicitId := *(rq.actionFlags["id"].(*string)); explicitId != "" {
 					numId, err, complete := ndocid.Decode(explicitId)
 					if err != nil {
@@ -250,19 +254,30 @@ func (rq *CliRequest) execute() error {
 					if !complete {
 						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
 					}
-					err = api.CommandAddSingle(document.DocumentId(numId), rq.actionArgs[0])
+					newId := document.DocumentId(numId)
+					err = api.CommandAddSingle(newId, rq.actionArgs[0])
 					if err != nil {
 						return err
 					}
+					addedIds = append(addedIds, newId)
 				} else {
 					for _, target := range rq.actionArgs {
-						id, err := doccinator.ExtractIdFromStandardizedFilename(target)
+						newId, err := doccinator.ExtractIdFromStandardizedFilename(target)
 						if err != nil {
 							return fmt.Errorf(`bad path %s: (%w)`, target, err)
 						}
-						err = api.CommandAddSingle(id, target)
+						err = api.CommandAddSingle(newId, target)
 						if err != nil {
 							return err
+						}
+						addedIds = append(addedIds, newId)
+					}
+				}
+				if tryRename {
+					for _, addedId := range addedIds {
+						err := api.CommandStandardizeLocation(addedId)
+						if err != nil {
+							fmt.Fprintln(os.Stderr, err)
 						}
 					}
 				}

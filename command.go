@@ -104,7 +104,7 @@ func (d *doccinator) CommandForgetAllObsolete() {
 func (d *doccinator) CommandForgetById(id document.DocumentId) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
-		return newCommandError(fmt.Sprintf("document with ID %s not found", id), nil)
+		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
 	}
 	if !doc.IsObsolete() {
 		return newCommandError(fmt.Sprintf("document to forget (ID %s) not retired", id), nil)
@@ -227,10 +227,23 @@ func (d *doccinator) CommandStatus(paths []string) error {
 	return nil
 }
 
+func (d *doccinator) CommandStandardizeLocation(id document.DocumentId) error {
+	doc, exists := d.appLib.GetDocumentById(id)
+	if !exists {
+		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
+	}
+	changedName, err := doc.RenameToStandardNameFormat()
+	if changedName != "" && err == nil {
+		fmt.Fprintf(d.extraOut, "Renamed document %s to %s\n", id, changedName)
+	}
+	return err
+}
+
 // Auto pilot adds untracked paths, updates touched & moved paths, and removes duplicates.
 //  Modified and missing are not changed but reported.
 //  If additional flags are passed modified paths are updated and/or missing paths removed.
 //  Unknown paths are reported.
 func (d *doccinator) CommandAuto() error {
+
 	return nil
 }

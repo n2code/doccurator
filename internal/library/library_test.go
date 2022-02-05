@@ -2,6 +2,7 @@ package library
 
 import (
 	"fmt"
+	"github.com/n2code/ndocid"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -585,5 +586,41 @@ func TestVisitRecordsAndPrint(t *testing.T) {
 		!strings.Contains(recordPrintout.String(), relativePathB) ||
 		strings.Contains(recordPrintout.String(), relativePathC) { //C must not be contained because it should have been forgotten
 		t.Fatal("record printout unexpected:\n" + recordPrintout.String())
+	}
+}
+
+func TestNameStandardization(t *testing.T) {
+	//GIVEN
+	const mainDocumentId = 42
+	ndocid.EncodeUint64(mainDocumentId)
+	tempDir, lib := setupLibraryInTemp(t)
+	doc, _ := lib.CreateDocument(mainDocumentId)
+	filePath := filepath.Join(tempDir, "archive.tar.gz")
+	writeFile(filePath, "dummy")
+	lib.SetDocumentPath(doc, filePath)
+	lib.UpdateDocumentFromFile(doc)
+
+	//WHEN
+	newFilename, err := doc.RenameToStandardNameFormat()
+
+	//THEN
+	if err != nil {
+		t.Fatal("got unexpected error: ", err)
+	}
+	if newFilename != "archive.tar.gz.94722N.ndoc.gz" {
+		t.Fatal("got unexpected new filename: ", newFilename)
+	}
+	if _, err := os.Stat(filePath); err == nil || !os.IsNotExist(err) {
+		t.Fatal("file still has old name or is inaccessible")
+	}
+	newPath := filepath.Join(tempDir, newFilename)
+	if _, err := os.Stat(newPath); err != nil {
+		t.Fatal("file not found at expected new path", newPath)
+	}
+	if doc.PathRelativeToLibraryRoot() != newFilename {
+		t.Fatal("document not renamed in library database")
+	}
+	if lib.CheckFilePath(newPath).Status() != Tracked {
+		t.Fatal("status of new path not as expected")
 	}
 }

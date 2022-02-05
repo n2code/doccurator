@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -195,5 +196,54 @@ func TestFileStatusVerification(t *testing.T) {
 
 	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
 		t.Fatal("unexpected equal-length file not considered modified")
+	}
+}
+
+func TestStandardizingFilenames(t *testing.T) {
+	someId := DocumentId(42)
+	assertRepeatedlyStandardizableAndReversible := func(filename string, expectedAfterStandardization string) {
+		cut := NewDocument(someId)
+		cut.SetPath("fake_dir/" + filename)
+		act, err := cut.StandardizedFilename()
+
+		//single standardization
+		switch {
+		case err != nil:
+			t.Error("standardization of", filename, "yields unexpected error: ", err)
+			return
+		case act != expectedAfterStandardization:
+			t.Error("standardization of", filename, "yields", act, "but expectation is", expectedAfterStandardization)
+			return
+		}
+
+		//repeated standardization
+		actRepeated, err := cut.StandardizedFilename()
+		switch {
+		case err != nil:
+			t.Error("repeated standardization of standardized name ", act, "yields unexpected error: ", err)
+		case actRepeated != act:
+			t.Error("repeated standardization of standardized name ", act, "yields", actRepeated, "but expectation is no change")
+		}
+
+		//reverse
+		originalExtractor := regexp.MustCompile(`(.*)\.[^.]+\.ndoc(?:\.[^.]*)?`)
+		if matches := originalExtractor.FindStringSubmatch(act); matches[1] != filename {
+			t.Error("standardized name ", act, "could not be reversed to", filename, "(got", matches[1], "instead)")
+		}
+	}
+
+	assertRepeatedlyStandardizableAndReversible("name.ext", "name.ext."+someId.String()+".ndoc.ext")
+	assertRepeatedlyStandardizableAndReversible("name_only", "name_only."+someId.String()+".ndoc")
+	assertRepeatedlyStandardizableAndReversible(".ext_only", ".ext_only."+someId.String()+".ndoc.ext_only")
+	assertRepeatedlyStandardizableAndReversible("name.ext1.ext2", "name.ext1.ext2."+someId.String()+".ndoc.ext2")
+	assertRepeatedlyStandardizableAndReversible("name.", "name.."+someId.String()+".ndoc.")
+
+	//verify detection of non-matching IDs in filenames
+	correctID := DocumentId(777)
+	differentID := DocumentId(13)
+	irregularDoc := NewDocument(correctID)
+	irregularDoc.SetPath("fake_dir/problematic.ext." + differentID.String() + ".ndoc.ext")
+	if _, err := irregularDoc.StandardizedFilename(); err == nil {
+		t.Error("already-standardized filename not recognized to have unexpected ID: ", err)
 	}
 }
