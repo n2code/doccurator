@@ -1,13 +1,13 @@
-package doccinator
+package doccurator
 
 import (
 	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/n2code/doccinator/internal/document"
-	. "github.com/n2code/doccinator/internal/library"
-	"github.com/n2code/doccinator/internal/output"
+	"github.com/n2code/doccurator/internal/document"
+	. "github.com/n2code/doccurator/internal/library"
+	"github.com/n2code/doccurator/internal/output"
 )
 
 func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool) {
@@ -17,7 +17,7 @@ func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool
 }
 
 // Records a new document in the library
-func (d *doccinator) CommandAddSingle(id document.DocumentId, filePath string) error {
+func (d *doccurator) CommandAddSingle(id document.DocumentId, filePath string) error {
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation blocked", err)
@@ -34,7 +34,7 @@ func (d *doccinator) CommandAddSingle(id document.DocumentId, filePath string) e
 	return nil
 }
 
-func (d *doccinator) CommandAddAllUntracked() error {
+func (d *doccurator) CommandAddAllUntracked() error {
 	results, noScanErrors := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
@@ -64,7 +64,7 @@ func (d *doccinator) CommandAddAllUntracked() error {
 }
 
 // Updates an existing document in the library
-func (d *doccinator) CommandUpdateByPath(filePath string) error {
+func (d *doccurator) CommandUpdateByPath(filePath string) error {
 	doc, exists := d.appLib.GetActiveDocumentByPath(mustAbsFilepath(filePath))
 	if !exists {
 		return newCommandError(fmt.Sprintf("path to update not on record or retired: %s", filePath), nil)
@@ -77,7 +77,7 @@ func (d *doccinator) CommandUpdateByPath(filePath string) error {
 }
 
 // Marks an existing document as obsolete
-func (d *doccinator) CommandRetireByPath(path string) error {
+func (d *doccurator) CommandRetireByPath(path string) error {
 	absPath := mustAbsFilepath(path)
 	doc, exists := d.appLib.GetActiveDocumentByPath(absPath)
 	if !exists {
@@ -92,7 +92,7 @@ func (d *doccinator) CommandRetireByPath(path string) error {
 }
 
 // Removes all retired documents from the library completely
-func (d *doccinator) CommandForgetAllObsolete() {
+func (d *doccurator) CommandForgetAllObsolete() {
 	d.appLib.VisitAllRecords(func(doc LibraryDocument) {
 		if doc.IsObsolete() {
 			d.appLib.ForgetDocument(doc)
@@ -101,7 +101,7 @@ func (d *doccinator) CommandForgetAllObsolete() {
 }
 
 // Removes a retired document from the library completely
-func (d *doccinator) CommandForgetById(id document.DocumentId) error {
+func (d *doccurator) CommandForgetById(id document.DocumentId) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
@@ -114,7 +114,7 @@ func (d *doccinator) CommandForgetById(id document.DocumentId) error {
 }
 
 // Outputs all library records
-func (d *doccinator) CommandDump(excludeRetired bool) {
+func (d *doccurator) CommandDump(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
 	d.appLib.VisitAllRecords(func(doc LibraryDocument) {
@@ -133,7 +133,7 @@ func (d *doccinator) CommandDump(excludeRetired bool) {
 
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths are listed depending on the flag.
-func (d *doccinator) CommandTree(excludeUnchanged bool) error {
+func (d *doccurator) CommandTree(excludeUnchanged bool) error {
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	var pathsWithErrors []*CheckedPath
@@ -169,7 +169,7 @@ func (d *doccinator) CommandTree(excludeUnchanged bool) error {
 }
 
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
-func (d *doccinator) CommandStatus(paths []string) error {
+func (d *doccurator) CommandStatus(paths []string) error {
 	//TODO [FEATURE]: pair up missing+moved and hide missing
 	buckets := make(map[PathStatus][]string)
 
@@ -227,7 +227,7 @@ func (d *doccinator) CommandStatus(paths []string) error {
 	return nil
 }
 
-func (d *doccinator) CommandStandardizeLocation(id document.DocumentId) error {
+func (d *doccurator) CommandStandardizeLocation(id document.DocumentId) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
@@ -243,7 +243,7 @@ func (d *doccinator) CommandStandardizeLocation(id document.DocumentId) error {
 //  Modified and missing are not changed but reported.
 //  If additional flags are passed modified paths are updated and/or missing paths removed.
 //  Unknown paths are reported.
-func (d *doccinator) CommandAuto() error {
+func (d *doccurator) CommandAuto() error {
 
 	return nil
 }

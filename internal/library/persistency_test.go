@@ -9,7 +9,7 @@ import (
 )
 
 func TestLibrarySaveAndReload(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "doccinator-test-*")
+	tmpDir, err := os.MkdirTemp("", "doccurator-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}

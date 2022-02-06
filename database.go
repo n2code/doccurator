@@ -1,4 +1,4 @@
-package doccinator
+package doccurator
 
 import (
 	"errors"
@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/n2code/doccinator/internal/library"
+	. "github.com/n2code/doccurator/internal/library"
 )
 
-const libraryLocatorFileName = ".doccinator"
+const libraryLocatorFileName = ".doccurator"
 const libraryLocatorPermissions = 0o440 //owner and group can read
 
-func (d *doccinator) createLibrary(absoluteRoot string, absoluteDbFilePath string) error {
+func (d *doccurator) createLibrary(absoluteRoot string, absoluteDbFilePath string) error {
 	d.appLib = MakeRuntimeLibrary()
 
 	d.appLib.SetRoot(absoluteRoot)
@@ -32,7 +32,7 @@ func (d *doccinator) createLibrary(absoluteRoot string, absoluteDbFilePath strin
 	return nil
 }
 
-func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
+func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("library not found: %w", err)
@@ -62,7 +62,7 @@ func (d *doccinator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	}
 }
 
-func (d *doccinator) createLocatorFile(directory string) error {
+func (d *doccurator) createLocatorFile(directory string) error {
 	path := filepath.Join(directory, libraryLocatorFileName)
 	locationUri := url.URL{Scheme: "file", Path: d.libFile}
 	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
@@ -72,7 +72,7 @@ func (d *doccinator) createLocatorFile(directory string) error {
 	return nil
 }
 
-func (d *doccinator) loadLibFilePathFromLocatorFile(path string) error {
+func (d *doccurator) loadLibFilePathFromLocatorFile(path string) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return err

@@ -1,4 +1,4 @@
-package doccinator
+package doccurator
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/n2code/doccinator/internal/document"
-	. "github.com/n2code/doccinator/internal/library"
+	"github.com/n2code/doccurator/internal/document"
+	. "github.com/n2code/doccurator/internal/library"
 )
 
 type VerbosityLevel int
@@ -25,7 +25,7 @@ type CreateConfig struct {
 	Verbosity VerbosityLevel
 }
 
-type Doccinator interface {
+type Doccurator interface {
 	CommandAddSingle(id document.DocumentId, path string) error
 	CommandAddAllUntracked() error
 	CommandStandardizeLocation(id document.DocumentId) error
@@ -40,7 +40,7 @@ type Doccinator interface {
 	PersistChanges() error
 }
 
-type doccinator struct {
+type doccurator struct {
 	appLib     LibraryApi
 	libFile    string    //absolute, system-native path
 	out        io.Writer //essential output (i.e. requested information)
@@ -51,8 +51,8 @@ type doccinator struct {
 //represents file.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
 var ndocFileNameRegex = regexp.MustCompile(`^.*\.(` + document.IdPattern + `)\.ndoc(?:\.[^.]*)?$`)
 
-func New(root string, database string, config CreateConfig) (Doccinator, error) {
-	handle := makeDoccinator(config)
+func New(root string, database string, config CreateConfig) (Doccurator, error) {
+	handle := makeDoccurator(config)
 	err := handle.createLibrary(mustAbsFilepath(root), mustAbsFilepath(database))
 	if err != nil {
 		return nil, fmt.Errorf("library create error: %w", err)
@@ -60,8 +60,8 @@ func New(root string, database string, config CreateConfig) (Doccinator, error) 
 	return handle, nil
 }
 
-func Open(directory string, config CreateConfig) (Doccinator, error) {
-	handle := makeDoccinator(config)
+func Open(directory string, config CreateConfig) (Doccurator, error) {
+	handle := makeDoccurator(config)
 	err := handle.loadLibrary(mustAbsFilepath(directory))
 	if err != nil {
 		return nil, fmt.Errorf("library load error: %w", err)
@@ -69,7 +69,7 @@ func Open(directory string, config CreateConfig) (Doccinator, error) {
 	return handle, nil
 }
 
-func (d *doccinator) PersistChanges() error {
+func (d *doccurator) PersistChanges() error {
 	if err := d.appLib.SaveToLocalFile(d.libFile, true); err != nil {
 		return fmt.Errorf("library save error: %w", err)
 	}
@@ -91,8 +91,8 @@ func ExtractIdFromStandardizedFilename(path string) (document.DocumentId, error)
 	return document.DocumentId(numId), nil
 }
 
-func makeDoccinator(config CreateConfig) (docc *doccinator) {
-	docc = &doccinator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard}
+func makeDoccurator(config CreateConfig) (docc *doccurator) {
+	docc = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard}
 	switch config.Verbosity {
 	case VerboseMode:
 		docc.verboseOut = os.Stdout

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/n2code/doccinator/internal/document"
+	"github.com/n2code/doccurator/internal/document"
 )
 
 func TestGetPathRelativeToLibraryRoot(t *testing.T) {

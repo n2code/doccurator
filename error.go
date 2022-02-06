@@ -1,4 +1,4 @@
-package doccinator
+package doccurator
 
 import (
 	"fmt"

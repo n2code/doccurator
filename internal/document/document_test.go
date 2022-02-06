@@ -37,7 +37,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 		t.Fatal("recorded timestamp changed later")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "doccinator-test-*")
+	tmpDir, err := os.MkdirTemp("", "doccurator-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestChangeTimestampUpdating(t *testing.T) {
 }
 
 func TestFileStatusVerification(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "doccinator-test-*")
+	tmpDir, err := os.MkdirTemp("", "doccurator-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}

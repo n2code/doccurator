@@ -3,7 +3,7 @@ package library
 import (
 	"encoding/json"
 
-	. "github.com/n2code/doccinator/internal/document"
+	. "github.com/n2code/doccurator/internal/document"
 )
 
 type jsonLib struct {

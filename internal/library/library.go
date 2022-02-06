@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	. "github.com/n2code/doccinator/internal/document"
+	. "github.com/n2code/doccurator/internal/document"
 )
 
 func (lib *library) CreateDocument(id DocumentId) (document LibraryDocument, err error) {

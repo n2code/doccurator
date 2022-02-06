@@ -1,4 +1,4 @@
-module github.com/n2code/doccinator
+module github.com/n2code/doccurator
 
 go 1.16
 

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/n2code/doccinator"
-	"github.com/n2code/doccinator/internal/document"
+	"github.com/n2code/doccurator"
+	"github.com/n2code/doccurator/internal/document"
 	"github.com/n2code/ndocid"
 	"io"
 	"os"
@@ -20,14 +20,14 @@ type CliRequest struct {
 	actionArgs  []string
 }
 
-const defaultDbFileName = string(`doccinator.db`)
+const defaultDbFileName = `doccurator.db`
 
 func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliRequest, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
 Usage:
-   doccinator [-v|-q|-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-v|-q|-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  retire  forget  tree  dump
 
@@ -36,7 +36,7 @@ Usage:
 		flags.Output().Write([]byte(`
  FLAG(s) and TARGET(s) are action-specific.
  You can read the help on any action:
-    doccinator <ACTION> -h
+    doccurator <ACTION> -h
 
 `))
 
@@ -51,7 +51,7 @@ Usage:
 	var err error
 	defer func() {
 		if err != nil {
-			fmt.Fprintf(errOut, "%s\nUsage help: doccinator -h\n", err)
+			fmt.Fprintf(errOut, "%s\nUsage help: doccurator -h\n", err)
 			exitCode = 2
 			request = nil
 		}
@@ -86,7 +86,7 @@ Usage:
 	actionParams.Usage = func() {
 		fmt.Fprintf(actionParams.Output(), `
 Usage of %s action:
-   doccinator [MODE] %s%s%s
+   doccurator [MODE] %s%s%s
 
 %s
 `, request.action, request.action, flagSpecification, argumentSpecification, actionDescription)
@@ -98,7 +98,7 @@ Usage of %s action:
 		actionParams.PrintDefaults()
 		fmt.Fprintf(actionParams.Output(), `
  Global MODE documentation can be shown by:
-    doccinator -h
+    doccurator -h
 
 `)
 	}
@@ -126,8 +126,8 @@ Usage of %s action:
 				"(failure will be reported but does not stop processing)")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
 				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
-				"FORMAT 1: doccinator add -id 63835AEV9E my_document.pdf\n"+
-				"FORMAT 2: doccinator add -id=55565IEV9E my_document.pdf")
+				"FORMAT 1: doccurator add -id 63835AEV9E my_document.pdf\n"+
+				"FORMAT 2: doccurator add -id=55565IEV9E my_document.pdf")
 		case "update":
 			actionDescription += "Update the library records to match the current state of the file(s)\n" +
 				actionDescriptionIndent + "at the given FILEPATH(s)."
@@ -211,21 +211,21 @@ Usage of %s action:
 }
 
 func (rq *CliRequest) execute() error {
-	var config doccinator.CreateConfig
+	var config doccurator.CreateConfig
 	if rq.verbose {
-		config.Verbosity = doccinator.VerboseMode
+		config.Verbosity = doccurator.VerboseMode
 	}
 	if rq.quiet {
-		config.Verbosity = doccinator.QuietMode
+		config.Verbosity = doccurator.QuietMode
 	}
 
 	if rq.action == "init" {
-		if _, err := doccinator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config); err != nil {
+		if _, err := doccurator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config); err != nil {
 			return err
 		}
 	} else {
 		workingDir, _ := os.Getwd()
-		api, err := doccinator.Open(workingDir, config)
+		api, err := doccurator.Open(workingDir, config)
 		if err != nil {
 			return err
 		}
@@ -262,7 +262,7 @@ func (rq *CliRequest) execute() error {
 					addedIds = append(addedIds, newId)
 				} else {
 					for _, target := range rq.actionArgs {
-						newId, err := doccinator.ExtractIdFromStandardizedFilename(target)
+						newId, err := doccurator.ExtractIdFromStandardizedFilename(target)
 						if err != nil {
 							return fmt.Errorf(`bad path %s: (%w)`, target, err)
 						}

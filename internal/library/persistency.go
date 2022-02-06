@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	. "github.com/n2code/doccinator/internal/document"
+	. "github.com/n2code/doccurator/internal/document"
 )
 
 const workInProgressFileSuffix = ".wip"
