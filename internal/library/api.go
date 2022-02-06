@@ -1,11 +1,11 @@
 package library
 
 import (
-	. "github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/document"
 )
 
 type LibraryDocument struct {
-	id      DocumentId
+	id      document.DocumentId
 	library *library
 }
 
@@ -31,15 +31,15 @@ const (
 type CheckedPath struct {
 	libraryPath string //relative to library root, system-native
 	status      PathStatus
-	matchingId  DocumentId
+	matchingId  document.DocumentId
 	err         error
 }
 
 // LibraryApi expects absolute system-native paths (with respect to the directory separator)
 type LibraryApi interface {
-	CreateDocument(DocumentId) (LibraryDocument, error)
+	CreateDocument(document.DocumentId) (LibraryDocument, error)
 	SetDocumentPath(doc LibraryDocument, absolutePath string) error
-	GetDocumentById(DocumentId) (doc LibraryDocument, exists bool)
+	GetDocumentById(document.DocumentId) (doc LibraryDocument, exists bool)
 	GetActiveDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
 	UpdateDocumentFromFile(LibraryDocument) (changed bool, err error)
 	MarkDocumentAsObsolete(LibraryDocument)
@@ -56,6 +56,6 @@ type LibraryApi interface {
 
 func MakeRuntimeLibrary() LibraryApi {
 	return &library{
-		documents:          make(map[DocumentId]DocumentApi),
-		relPathActiveIndex: make(map[string]DocumentApi)}
+		documents:          make(map[document.DocumentId]document.DocumentApi),
+		relPathActiveIndex: make(map[string]document.DocumentApi)}
 }

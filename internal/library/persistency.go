@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	. "github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/document"
 )
 
 const workInProgressFileSuffix = ".wip"
@@ -146,8 +146,8 @@ func (lib *library) LoadFromLocalFile(path string) {
 	decoder := json.NewDecoder(decompressor)
 	decoder.DisallowUnknownFields()
 
-	lib.documents = make(map[DocumentId]DocumentApi)
-	lib.relPathActiveIndex = make(map[string]DocumentApi)
+	lib.documents = make(map[document.DocumentId]document.DocumentApi)
+	lib.relPathActiveIndex = make(map[string]document.DocumentApi)
 
 	err = decoder.Decode(&lib)
 	if err != nil {

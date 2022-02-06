@@ -3,12 +3,12 @@ package library
 import (
 	"encoding/json"
 
-	. "github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/document"
 )
 
 type jsonLib struct {
 	LocalRoot string
-	Documents DocumentIndex
+	Documents document.DocumentIndex
 }
 
 func (lib *library) MarshalJSON() ([]byte, error) {

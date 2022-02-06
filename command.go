@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/n2code/doccurator/internal/document"
-	. "github.com/n2code/doccurator/internal/library"
+	"github.com/n2code/doccurator/internal/library"
 	"github.com/n2code/doccurator/internal/output"
 )
 
 func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool) {
 	return func(path string) bool {
-		return path == libFilePath || filepath.Base(path) == LibraryLocatorFileName
+		return path == libFilePath || filepath.Base(path) == library.LibraryLocatorFileName
 	}
 }
 
@@ -43,9 +43,9 @@ func (d *doccurator) CommandAddAllUntracked() error {
 	var untrackedRootRelativePaths []string
 	for _, checked := range results {
 		switch checked.Status() {
-		case Untracked:
+		case library.Untracked:
 			untrackedRootRelativePaths = append(untrackedRootRelativePaths, checked.PathRelativeToLibraryRoot())
-		case Error:
+		case library.Error:
 			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
 		}
 	}
@@ -93,7 +93,7 @@ func (d *doccurator) CommandRetireByPath(path string) error {
 
 // Removes all retired documents from the library completely
 func (d *doccurator) CommandForgetAllObsolete() {
-	d.appLib.VisitAllRecords(func(doc LibraryDocument) {
+	d.appLib.VisitAllRecords(func(doc library.LibraryDocument) {
 		if doc.IsObsolete() {
 			d.appLib.ForgetDocument(doc)
 		}
@@ -117,7 +117,7 @@ func (d *doccurator) CommandForgetById(id document.DocumentId) error {
 func (d *doccurator) CommandDump(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
-	d.appLib.VisitAllRecords(func(doc LibraryDocument) {
+	d.appLib.VisitAllRecords(func(doc library.LibraryDocument) {
 		if doc.IsObsolete() && excludeRetired {
 			return
 		}
@@ -136,19 +136,19 @@ func (d *doccurator) CommandDump(excludeRetired bool) {
 func (d *doccurator) CommandTree(excludeUnchanged bool) error {
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
-	var pathsWithErrors []*CheckedPath
+	var pathsWithErrors []*library.CheckedPath
 	paths, ok := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
-		if excludeUnchanged && (status == Tracked || status == Removed) {
+		if excludeUnchanged && (status == library.Tracked || status == library.Removed) {
 			continue
 		}
-		if status != Tracked {
+		if status != library.Tracked {
 			prefix = fmt.Sprintf("[%s] ", string(status))
 		}
 		tree.InsertPath(checkedPath.PathRelativeToLibraryRoot(), prefix)
-		if status == Error {
+		if status == library.Error {
 			pathsWithErrors = append(pathsWithErrors, &paths[index])
 		}
 	}
@@ -171,7 +171,7 @@ func (d *doccurator) CommandTree(excludeUnchanged bool) error {
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
 func (d *doccurator) CommandStatus(paths []string) error {
 	//TODO [FEATURE]: pair up missing+moved and hide missing
-	buckets := make(map[PathStatus][]string)
+	buckets := make(map[library.PathStatus][]string)
 
 	if len(paths) > 0 {
 		fmt.Fprintf(d.extraOut, "Status of %d specified path%s:\n", len(paths), output.PluralS(paths))
@@ -182,9 +182,9 @@ func (d *doccurator) CommandStatus(paths []string) error {
 	errorCount := 0
 	hasChanges := false
 
-	processResult := func(result *CheckedPath, absolutePath string) {
+	processResult := func(result *library.CheckedPath, absolutePath string) {
 		switch status := result.Status(); status {
-		case Error:
+		case library.Error:
 			fmt.Fprintf(&errorMessages, "  [E] @%s\n      %s\n", absolutePath, result.GetError())
 			errorCount++
 		default:

@@ -9,7 +9,7 @@ import (
 	"regexp"
 
 	"github.com/n2code/doccurator/internal/document"
-	. "github.com/n2code/doccurator/internal/library"
+	"github.com/n2code/doccurator/internal/library"
 )
 
 type VerbosityLevel int
@@ -41,7 +41,7 @@ type Doccurator interface {
 }
 
 type doccurator struct {
-	appLib     LibraryApi
+	appLib     library.LibraryApi
 	libFile    string    //absolute, system-native path
 	out        io.Writer //essential output (i.e. requested information)
 	extraOut   io.Writer //more output for convenience (repeats context)

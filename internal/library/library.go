@@ -10,15 +10,14 @@ import (
 	"sort"
 	"strings"
 
-	. "github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/document"
 )
 
-func (lib *library) CreateDocument(id DocumentId) (document LibraryDocument, err error) {
+func (lib *library) CreateDocument(id document.DocumentId) (LibraryDocument, error) {
 	if _, exists := lib.documents[id]; exists {
-		err = fmt.Errorf("document ID %s already exists", id)
-		return
+		return LibraryDocument{}, fmt.Errorf("document ID %s already exists", id)
 	}
-	lib.documents[id] = NewDocument(id)
+	lib.documents[id] = document.NewDocument(id)
 	return LibraryDocument{id: id, library: lib}, nil
 }
 
@@ -42,7 +41,7 @@ func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath strin
 	return nil
 }
 
-func (lib *library) GetDocumentById(id DocumentId) (doc LibraryDocument, exists bool) {
+func (lib *library) GetDocumentById(id document.DocumentId) (doc LibraryDocument, exists bool) {
 	_, exists = lib.documents[id]
 	if !exists {
 		return LibraryDocument{}, false
@@ -119,15 +118,15 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	if doc, isOnActiveRecord := lib.relPathActiveIndex[result.libraryPath]; isOnActiveRecord {
 		// result.matchingId = doc.Id() //TODO: justify and activate
 		switch status := doc.CompareToFileOnStorage(lib.rootPath); status {
-		case UnmodifiedFile:
+		case document.UnmodifiedFile:
 			result.status = Tracked
-		case TouchedFile:
+		case document.TouchedFile:
 			result.status = Touched
-		case ModifiedFile:
+		case document.ModifiedFile:
 			result.status = Modified
-		case NoFileFound:
+		case document.NoFileFound:
 			result.status = Missing
-		case AccessError:
+		case document.AccessError:
 			result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
 		}
 		return
@@ -172,13 +171,13 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 			}
 			statusOfContentMatch := doc.CompareToFileOnStorage(lib.rootPath)
 			switch statusOfContentMatch {
-			case UnmodifiedFile, TouchedFile:
+			case document.UnmodifiedFile, document.TouchedFile:
 				foundMatchingActive = true
-			case ModifiedFile:
+			case document.ModifiedFile:
 				foundModifiedActive = true
-			case NoFileFound:
+			case document.NoFileFound:
 				foundMissingActive = true
-			case AccessError:
+			case document.AccessError:
 				result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
 				return
 			}
@@ -220,7 +219,7 @@ func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPa
 	hasNoErrors = true
 
 	coveredLibraryPaths := make(map[string]bool)
-	movedIds := make(map[DocumentId]bool)
+	movedIds := make(map[document.DocumentId]bool)
 
 	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
 		if skip(absolutePath) {
@@ -271,7 +270,7 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 	return
 }
 
-func (lib *library) getAbsolutePathOfDocument(doc DocumentApi) string {
+func (lib *library) getAbsolutePathOfDocument(doc document.DocumentApi) string {
 	return filepath.Join(lib.rootPath, doc.Path())
 }
 
