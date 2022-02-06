@@ -624,3 +624,20 @@ func TestNameStandardization(t *testing.T) {
 		t.Fatal("status of new path not as expected")
 	}
 }
+
+func TestBlockAddingSystemFiles(t *testing.T) {
+	//GIVEN
+	tempDir, lib := setupLibraryInTemp(t)
+	doc, _ := lib.CreateDocument(42)
+	//databasePath := filepath.Join(tempDir, "doccurator.db")
+	locatorPath := filepath.Join(tempDir, "fake_dir", LibraryLocatorFileName)
+
+	t.Run("AddLocatorFile", func(Test *testing.T) {
+		//WHEN
+		err := lib.SetDocumentPath(doc, locatorPath)
+		//THEN
+		if err == nil {
+			Test.Fatal("adding locator not prevented")
+		}
+	})
+}

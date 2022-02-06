@@ -10,7 +10,6 @@ import (
 	. "github.com/n2code/doccurator/internal/library"
 )
 
-const libraryLocatorFileName = ".doccurator"
 const libraryLocatorPermissions = 0o440 //owner and group can read
 
 func (d *doccurator) createLibrary(absoluteRoot string, absoluteDbFilePath string) error {
@@ -40,7 +39,7 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	}()
 	currentDir := startingDirectoryAbsolute
 	for {
-		locatorPath := filepath.Join(currentDir, libraryLocatorFileName)
+		locatorPath := filepath.Join(currentDir, LibraryLocatorFileName)
 		stat, statErr := os.Stat(locatorPath)
 		if statErr == nil && stat.Mode().IsRegular() {
 			err = d.loadLibFilePathFromLocatorFile(locatorPath)
@@ -63,7 +62,7 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 }
 
 func (d *doccurator) createLocatorFile(directory string) error {
-	path := filepath.Join(directory, libraryLocatorFileName)
+	path := filepath.Join(directory, LibraryLocatorFileName)
 	locationUri := url.URL{Scheme: "file", Path: d.libFile}
 	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
 		return fmt.Errorf("writing library locator (%s) failed: %w", path, err)

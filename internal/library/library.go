@@ -35,6 +35,9 @@ func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath strin
 		delete(lib.relPathActiveIndex, doc.Path())
 		lib.relPathActiveIndex[newRelativePath] = doc
 	}
+	if filepath.Base(absolutePath) == LibraryLocatorFileName {
+		return fmt.Errorf("locator files must not be added to the library")
+	}
 	doc.SetPath(newRelativePath)
 	return nil
 }

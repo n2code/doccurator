@@ -12,7 +12,7 @@ import (
 
 func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool) {
 	return func(path string) bool {
-		return path == libFilePath || filepath.Base(path) == libraryLocatorFileName
+		return path == libFilePath || filepath.Base(path) == LibraryLocatorFileName
 	}
 }
 

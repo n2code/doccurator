@@ -9,6 +9,8 @@ type LibraryDocument struct {
 	library *library
 }
 
+const LibraryLocatorFileName = ".doccurator"
+
 type PathStatus rune
 
 const (
