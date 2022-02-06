@@ -26,12 +26,12 @@ type CreateConfig struct {
 }
 
 type Doccurator interface {
-	CommandAddSingle(id document.DocumentId, path string) error
+	CommandAddSingle(id document.Id, path string) error
 	CommandAddAllUntracked() error
-	CommandStandardizeLocation(id document.DocumentId) error
+	CommandStandardizeLocation(id document.Id) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
-	CommandForgetById(id document.DocumentId) error
+	CommandForgetById(id document.Id) error
 	CommandForgetAllObsolete()
 	CommandDump(excludeRetired bool)
 	CommandTree(excludeUnchanged bool) error
@@ -41,7 +41,7 @@ type Doccurator interface {
 }
 
 type doccurator struct {
-	appLib     library.LibraryApi
+	appLib     library.Api
 	libFile    string    //absolute, system-native path
 	out        io.Writer //essential output (i.e. requested information)
 	extraOut   io.Writer //more output for convenience (repeats context)
@@ -77,7 +77,7 @@ func (d *doccurator) PersistChanges() error {
 
 }
 
-func ExtractIdFromStandardizedFilename(path string) (document.DocumentId, error) {
+func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {
 	filename := filepath.Base(path)
 	matches := ndocFileNameRegex.FindStringSubmatch(filename)
 	if matches == nil {
@@ -88,7 +88,7 @@ func ExtractIdFromStandardizedFilename(path string) (document.DocumentId, error)
 	if err != nil {
 		return 0, fmt.Errorf(`bad ID in filename %s (%w)`, filename, err)
 	}
-	return document.DocumentId(numId), nil
+	return document.Id(numId), nil
 }
 
 func makeDoccurator(config CreateConfig) (docc *doccurator) {

@@ -4,12 +4,12 @@ import (
 	"github.com/n2code/doccurator/internal/document"
 )
 
-type LibraryDocument struct {
-	id      document.DocumentId
+type Document struct {
+	id      document.Id
 	library *library
 }
 
-const LibraryLocatorFileName = ".doccurator"
+const LocatorFileName = ".doccurator"
 
 type PathStatus rune
 
@@ -31,31 +31,31 @@ const (
 type CheckedPath struct {
 	libraryPath string //relative to library root, system-native
 	status      PathStatus
-	matchingId  document.DocumentId
+	matchingId  document.Id
 	err         error
 }
 
-// LibraryApi expects absolute system-native paths (with respect to the directory separator)
-type LibraryApi interface {
-	CreateDocument(document.DocumentId) (LibraryDocument, error)
-	SetDocumentPath(doc LibraryDocument, absolutePath string) error
-	GetDocumentById(document.DocumentId) (doc LibraryDocument, exists bool)
-	GetActiveDocumentByPath(absolutePath string) (doc LibraryDocument, exists bool)
-	UpdateDocumentFromFile(LibraryDocument) (changed bool, err error)
-	MarkDocumentAsObsolete(LibraryDocument)
+// Api expects absolute system-native paths (with respect to the directory separator)
+type Api interface {
+	CreateDocument(document.Id) (Document, error)
+	SetDocumentPath(doc Document, absolutePath string) error
+	GetDocumentById(document.Id) (doc Document, exists bool)
+	GetActiveDocumentByPath(absolutePath string) (doc Document, exists bool)
+	UpdateDocumentFromFile(Document) (changed bool, err error)
+	MarkDocumentAsObsolete(Document)
 	ObsoleteDocumentExistsForPath(absolutePath string) bool
-	ForgetDocument(LibraryDocument)
+	ForgetDocument(Document)
 	CheckFilePath(absolutePath string) CheckedPath
 	Scan(skip func(absoluteFilePath string) bool) (paths []CheckedPath, hasNoErrors bool)
 	SaveToLocalFile(path string, overwrite bool) error
 	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)
 	GetRoot() string
-	VisitAllRecords(func(LibraryDocument)) //the list of visited documents is stable and isolated from changes during the visits
+	VisitAllRecords(func(Document)) //the list of visited documents is stable and isolated from changes during the visits
 }
 
-func MakeRuntimeLibrary() LibraryApi {
+func NewLibrary() Api {
 	return &library{
-		documents:          make(map[document.DocumentId]document.DocumentApi),
-		relPathActiveIndex: make(map[string]document.DocumentApi)}
+		documents:          make(map[document.Id]document.Api),
+		relPathActiveIndex: make(map[string]document.Api)}
 }

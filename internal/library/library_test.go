@@ -44,50 +44,50 @@ func TestGetPathRelativeToLibraryRoot(t *testing.T) {
 
 func TestDocumentCreation(t *testing.T) {
 	//GIVEN
-	lib := MakeRuntimeLibrary()
-	maxId := document.DocumentId(1<<64 - 1)
-	regularId := document.DocumentId(1)
-	minId := document.DocumentId(0)
+	lib := NewLibrary()
+	maxId := document.Id(1<<64 - 1)
+	regularId := document.Id(1)
+	minId := document.Id(0)
 
 	//WHEN
 	regularDoc, err := lib.CreateDocument(regularId)
 	//THEN
-	if err != nil || regularDoc == (LibraryDocument{}) {
+	if err != nil || regularDoc == (Document{}) {
 		t.Fatal("creation with regular ID failed")
 	}
 
 	//WHEN
 	minDoc, err := lib.CreateDocument(minId)
 	//THEN
-	if err != nil || minDoc == (LibraryDocument{}) {
+	if err != nil || minDoc == (Document{}) {
 		t.Fatal("creation with min. ID failed")
 	}
 
 	//WHEN
 	maxDoc, err := lib.CreateDocument(maxId)
 	//THEN
-	if err != nil || maxDoc == (LibraryDocument{}) {
+	if err != nil || maxDoc == (Document{}) {
 		t.Fatal("creation with max. ID failed")
 	}
 
 	//WHEN
 	docNone, err := lib.CreateDocument(regularId)
 	//THEN
-	if err == nil || docNone != (LibraryDocument{}) {
+	if err == nil || docNone != (Document{}) {
 		t.Fatal("creation not rejected as expected")
 	}
 }
 
 func TestGetDocumentById(t *testing.T) {
 	//GIVEN
-	lib := MakeRuntimeLibrary()
-	const mainDocumentId document.DocumentId = 42
+	lib := NewLibrary()
+	const mainDocumentId document.Id = 42
 
 	t.Run("UnrecordedDocument", func(Test *testing.T) {
 		//WHEN
 		unrecordedDoc, exists := lib.GetDocumentById(mainDocumentId)
 		//THEN
-		if exists || unrecordedDoc != (LibraryDocument{}) {
+		if exists || unrecordedDoc != (Document{}) {
 			Test.Fatal("unrecorded document found somehow")
 		}
 	})
@@ -123,15 +123,15 @@ func TestGetDocumentById(t *testing.T) {
 		//WHEN
 		queriedDocument, stillExists := lib.GetDocumentById(mainDocumentId)
 		//THEN
-		if stillExists || queriedDocument != (LibraryDocument{}) {
+		if stillExists || queriedDocument != (Document{}) {
 			Test.Fatal("forgotten document still accessible")
 		}
 	})
 }
 
-func setupLibraryInTemp(t *testing.T) (tempRootDir string, library LibraryApi) {
+func setupLibraryInTemp(t *testing.T) (tempRootDir string, library Api) {
 	tempRootDir = t.TempDir()
-	library = MakeRuntimeLibrary()
+	library = NewLibrary()
 	library.SetRoot(tempRootDir)
 	return
 }
@@ -220,13 +220,13 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 	tempRootDir, lib := setupLibraryInTemp(t)
 	filePath := filepath.Join(tempRootDir, "file_for_lifecycle")
 	writeFile(filePath, "content")
-	const mainDocumentId document.DocumentId = 42
+	const mainDocumentId document.Id = 42
 
 	t.Run("UnrecordedDocument", func(Test *testing.T) {
 		//WHEN
 		unrecordedDoc, exists := lib.GetActiveDocumentByPath(filePath)
 		//THEN
-		if unrecordedDoc != (LibraryDocument{}) || exists {
+		if unrecordedDoc != (Document{}) || exists {
 			Test.Fatal("unrecorded document not rejected")
 		}
 	})
@@ -235,7 +235,7 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 		//WHEN
 		outsideDoc, exists := lib.GetActiveDocumentByPath(filepath.Join(tempRootDir, "../file_outside"))
 		//THEN
-		if outsideDoc != (LibraryDocument{}) || exists {
+		if outsideDoc != (Document{}) || exists {
 			t.Fatal("document outside library path not rejected")
 		}
 	})
@@ -296,7 +296,7 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 		if !isObsolete {
 			Test.Fatal("not obsolete")
 		}
-		if existsAsActive || queriedObsoleteDocument != (LibraryDocument{}) {
+		if existsAsActive || queriedObsoleteDocument != (Document{}) {
 			Test.Fatal("still reported as existing / found although obsoleted")
 		}
 		if !obsoleteExists {
@@ -316,7 +316,7 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 		if !isObsolete {
 			Test.Fatal("removed document is not obsolete")
 		}
-		if existsAsActive || queriedObsoleteDocument != (LibraryDocument{}) {
+		if existsAsActive || queriedObsoleteDocument != (Document{}) {
 			Test.Fatal("still reported as existing / found although obsoleted and removed")
 		}
 		if !obsoleteExists {
@@ -399,11 +399,11 @@ func TestPathChecking(t *testing.T) {
 			fullFilePath := func(file f) string {
 				return filepath.Join(libRootDir, filepath.FromSlash(file.path))
 			}
-			docs := make([]LibraryDocument, len(files), len(files))
+			docs := make([]Document, len(files), len(files))
 
 			for i, subject := range files {
 				if subject.contentOnRecord != "" {
-					doc, err := lib.CreateDocument(document.DocumentId(i))
+					doc, err := lib.CreateDocument(document.Id(i))
 					if err != nil {
 						Test.Fatalf("creation of document for %s failed", subject.path)
 					}
@@ -559,12 +559,12 @@ func TestPathChecking(t *testing.T) {
 
 func TestVisitRecordsAndPrint(t *testing.T) {
 	//GIVEN
-	lib := MakeRuntimeLibrary()
+	lib := NewLibrary()
 	imaginaryRoot := "/imaginary"
 	lib.SetRoot(imaginaryRoot)
-	id22222X, relativePathA := document.DocumentId(0), "A.22222X.ndoc"
-	id97322X, relativePathB := document.DocumentId(13), "B.97322X.ndoc"
-	id94722N, relativePathC := document.DocumentId(42), "C.94722N.ndoc"
+	id22222X, relativePathA := document.Id(0), "A.22222X.ndoc"
+	id97322X, relativePathB := document.Id(13), "B.97322X.ndoc"
+	id94722N, relativePathC := document.Id(42), "C.94722N.ndoc"
 
 	//WHEN
 	docA, _ := lib.CreateDocument(id22222X)
@@ -578,7 +578,7 @@ func TestVisitRecordsAndPrint(t *testing.T) {
 
 	//THEN
 	var recordPrintout strings.Builder
-	lib.VisitAllRecords(func(doc LibraryDocument) {
+	lib.VisitAllRecords(func(doc Document) {
 		recordPrintout.WriteString(doc.String())
 		recordPrintout.WriteRune('\n')
 	})
@@ -630,7 +630,7 @@ func TestBlockAddingSystemFiles(t *testing.T) {
 	tempDir, lib := setupLibraryInTemp(t)
 	doc, _ := lib.CreateDocument(42)
 	//databasePath := filepath.Join(tempDir, "doccurator.db")
-	locatorPath := filepath.Join(tempDir, "fake_dir", LibraryLocatorFileName)
+	locatorPath := filepath.Join(tempDir, "fake_dir", LocatorFileName)
 
 	t.Run("AddLocatorFile", func(Test *testing.T) {
 		//WHEN

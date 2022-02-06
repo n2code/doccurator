@@ -13,7 +13,7 @@ import (
 
 const IdPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
 
-func (doc *document) Id() DocumentId {
+func (doc *document) Id() Id {
 	return doc.id
 }
 
@@ -73,7 +73,7 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	stat, err := os.Stat(path)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
-			return AccessError
+			return FileAccessError
 		}
 		return NoFileFound
 	}
@@ -84,7 +84,7 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	//TODO [FEATURE]: introduce switch which skips the full read at this point for better performance
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return AccessError
+		return FileAccessError
 	}
 	if checksum.Sum256(content) != doc.contentMetadata.sha256Hash {
 		return ModifiedFile

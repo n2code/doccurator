@@ -135,14 +135,14 @@ func TestFileStatusVerification(t *testing.T) {
 
 	os.Chmod(sourceFilePath, 0o333)
 
-	if doc.CompareToFileOnStorage(libRootDir) != AccessError { //because file cannot be read
+	if doc.CompareToFileOnStorage(libRootDir) != FileAccessError { //because file cannot be read
 		t.Fatal("error expected if file unreadable")
 	}
 
 	os.Chmod(sourceFilePath, 0o777)
 	os.Chmod(libRootDir, 0o666)
 
-	if doc.CompareToFileOnStorage(libRootDir) != AccessError { //because stat does not work due to directory permissions
+	if doc.CompareToFileOnStorage(libRootDir) != FileAccessError { //because stat does not work due to directory permissions
 		t.Fatal("error expected if file un-stat-able")
 	}
 
@@ -200,7 +200,7 @@ func TestFileStatusVerification(t *testing.T) {
 }
 
 func TestStandardizingFilenames(t *testing.T) {
-	someId := DocumentId(42)
+	someId := Id(42)
 	assertRepeatedlyStandardizableAndReversible := func(filename string, expectedAfterStandardization string) {
 		cut := NewDocument(someId)
 		cut.SetPath("fake_dir/" + filename)
@@ -239,8 +239,8 @@ func TestStandardizingFilenames(t *testing.T) {
 	assertRepeatedlyStandardizableAndReversible("name.", "name.."+someId.String()+".ndoc.")
 
 	//verify detection of non-matching IDs in filenames
-	correctID := DocumentId(777)
-	differentID := DocumentId(13)
+	correctID := Id(777)
+	differentID := Id(13)
 	irregularDoc := NewDocument(correctID)
 	irregularDoc.SetPath("fake_dir/problematic.ext." + differentID.String() + ".ndoc.ext")
 	if _, err := irregularDoc.StandardizedFilename(); err == nil {

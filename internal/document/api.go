@@ -5,20 +5,20 @@ import (
 	"time"
 )
 
-type DocumentId uint64
+type Id uint64
 
 type TrackedFileStatus rune
 
 const (
-	UnmodifiedFile TrackedFileStatus = iota //file found at expected location and content matches records
-	TouchedFile                             //file found at expected location and content matches records but timestamp differs
-	ModifiedFile                            //file found at expected location but content differs
-	NoFileFound                             //no file at the probed location
-	AccessError                             //error accessing probed location
+	UnmodifiedFile  TrackedFileStatus = iota //file found at expected location and content matches records
+	TouchedFile                              //file found at expected location and content matches records but timestamp differs
+	ModifiedFile                             //file found at expected location but content differs
+	NoFileFound                              //no file at the probed location
+	FileAccessError                          //error accessing probed location
 )
 
-type DocumentApi interface {
-	Id() DocumentId
+type Api interface {
+	Id() Id
 	Recorded() unixTimestamp
 	Changed() unixTimestamp
 	IsObsolete() bool
@@ -32,9 +32,9 @@ type DocumentApi interface {
 	String() string
 }
 
-type DocumentIndex map[DocumentId]DocumentApi
+type Index map[Id]Api
 
-func NewDocument(id DocumentId) DocumentApi {
+func NewDocument(id Id) Api {
 	now := unixTimestamp(time.Now().Unix())
 	return &document{
 		id:       id,

@@ -13,43 +13,43 @@ import (
 	"github.com/n2code/doccurator/internal/document"
 )
 
-func (lib *library) CreateDocument(id document.DocumentId) (LibraryDocument, error) {
+func (lib *library) CreateDocument(id document.Id) (Document, error) {
 	if _, exists := lib.documents[id]; exists {
-		return LibraryDocument{}, fmt.Errorf("document ID %s already exists", id)
+		return Document{}, fmt.Errorf("document ID %s already exists", id)
 	}
 	lib.documents[id] = document.NewDocument(id)
-	return LibraryDocument{id: id, library: lib}, nil
+	return Document{id: id, library: lib}, nil
 }
 
-func (lib *library) SetDocumentPath(document LibraryDocument, absolutePath string) error {
+func (lib *library) SetDocumentPath(ref Document, absolutePath string) error {
 	newRelativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
 		return fmt.Errorf("path outside library: %s", absolutePath)
 	}
-	doc := lib.documents[document.id] //caller error if nil
-	if conflicting, pathAlreadyKnown := lib.relPathActiveIndex[newRelativePath]; pathAlreadyKnown && conflicting.Id() != document.id {
+	doc := lib.documents[ref.id] //caller error if nil
+	if conflicting, pathAlreadyKnown := lib.relPathActiveIndex[newRelativePath]; pathAlreadyKnown && conflicting.Id() != doc.Id() {
 		return fmt.Errorf("document %s already exists for path %s", conflicting.Id(), absolutePath)
 	}
 	if !doc.IsObsolete() {
 		delete(lib.relPathActiveIndex, doc.Path())
 		lib.relPathActiveIndex[newRelativePath] = doc
 	}
-	if filepath.Base(absolutePath) == LibraryLocatorFileName {
+	if filepath.Base(absolutePath) == LocatorFileName {
 		return fmt.Errorf("locator files must not be added to the library")
 	}
 	doc.SetPath(newRelativePath)
 	return nil
 }
 
-func (lib *library) GetDocumentById(id document.DocumentId) (doc LibraryDocument, exists bool) {
+func (lib *library) GetDocumentById(id document.Id) (doc Document, exists bool) {
 	_, exists = lib.documents[id]
 	if !exists {
-		return LibraryDocument{}, false
+		return Document{}, false
 	}
-	return LibraryDocument{id: id, library: lib}, true
+	return Document{id: id, library: lib}, true
 }
 
-func (lib *library) GetActiveDocumentByPath(absolutePath string) (document LibraryDocument, exists bool) {
+func (lib *library) GetActiveDocumentByPath(absolutePath string) (ref Document, exists bool) {
 	relativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
 	if !inLibrary {
 		exists = false
@@ -57,7 +57,7 @@ func (lib *library) GetActiveDocumentByPath(absolutePath string) (document Libra
 	}
 	doc, exists := lib.relPathActiveIndex[relativePath]
 	if exists {
-		document = LibraryDocument{id: doc.Id(), library: lib}
+		ref = Document{id: doc.Id(), library: lib}
 	}
 	return
 }
@@ -76,21 +76,21 @@ func (lib *library) ObsoleteDocumentExistsForPath(absolutePath string) bool {
 	return false
 }
 
-func (lib *library) UpdateDocumentFromFile(document LibraryDocument) (changed bool, err error) {
-	doc := lib.documents[document.id] //caller error if nil
+func (lib *library) UpdateDocumentFromFile(ref Document) (changed bool, err error) {
+	doc := lib.documents[ref.id] //caller error if nil
 	return doc.UpdateFromFileOnStorage(lib.rootPath)
 }
 
-func (lib *library) MarkDocumentAsObsolete(document LibraryDocument) {
-	doc := lib.documents[document.id] //caller error if nil
+func (lib *library) MarkDocumentAsObsolete(ref Document) {
+	doc := lib.documents[ref.id] //caller error if nil
 	if !doc.IsObsolete() {
 		doc.DeclareObsolete()
 		delete(lib.relPathActiveIndex, doc.Path())
 	}
 }
 
-func (lib *library) ForgetDocument(document LibraryDocument) {
-	doc := lib.documents[document.id] //caller error if nil
+func (lib *library) ForgetDocument(ref Document) {
+	doc := lib.documents[ref.id] //caller error if nil
 	if !doc.IsObsolete() {
 		relativePath := doc.Path()
 		delete(lib.relPathActiveIndex, relativePath)
@@ -126,7 +126,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 			result.status = Modified
 		case document.NoFileFound:
 			result.status = Missing
-		case document.AccessError:
+		case document.FileAccessError:
 			result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
 		}
 		return
@@ -177,7 +177,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 				foundModifiedActive = true
 			case document.NoFileFound:
 				foundMissingActive = true
-			case document.AccessError:
+			case document.FileAccessError:
 				result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
 				return
 			}
@@ -219,7 +219,7 @@ func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPa
 	hasNoErrors = true
 
 	coveredLibraryPaths := make(map[string]bool)
-	movedIds := make(map[document.DocumentId]bool)
+	movedIds := make(map[document.Id]bool)
 
 	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
 		if skip(absolutePath) {
@@ -270,7 +270,7 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 	return
 }
 
-func (lib *library) getAbsolutePathOfDocument(doc document.DocumentApi) string {
+func (lib *library) getAbsolutePathOfDocument(doc document.Api) string {
 	return filepath.Join(lib.rootPath, doc.Path())
 }
 
@@ -293,7 +293,7 @@ func (l docsByRecordedAndId) Less(i, j int) bool {
 	return l[i].Recorded() < l[j].Recorded() || (l[i].Recorded() == l[j].Recorded() && l[i].Id() < l[j].Id())
 }
 
-func (lib *library) VisitAllRecords(visitor func(LibraryDocument)) {
+func (lib *library) VisitAllRecords(visitor func(Document)) {
 	docList := make(docsByRecordedAndId, 0, len(lib.documents))
 	for _, doc := range lib.documents {
 		docList = append(docList, doc)
@@ -301,21 +301,21 @@ func (lib *library) VisitAllRecords(visitor func(LibraryDocument)) {
 	sort.Sort(docList)
 
 	for _, doc := range docList {
-		visitor(LibraryDocument{id: doc.Id(), library: lib})
+		visitor(Document{id: doc.Id(), library: lib})
 	}
 }
 
-func (libDoc *LibraryDocument) IsObsolete() bool {
+func (libDoc *Document) IsObsolete() bool {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	return doc.IsObsolete()
 }
 
-func (libDoc *LibraryDocument) PathRelativeToLibraryRoot() string {
+func (libDoc *Document) PathRelativeToLibraryRoot() string {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	return doc.Path()
 }
 
-func (libDoc *LibraryDocument) RenameToStandardNameFormat() (newNameIfDifferent string, err error) {
+func (libDoc *Document) RenameToStandardNameFormat() (newNameIfDifferent string, err error) {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	standardName, err := doc.StandardizedFilename()
 	if err != nil {

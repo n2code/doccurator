@@ -12,12 +12,12 @@ import (
 
 func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool) {
 	return func(path string) bool {
-		return path == libFilePath || filepath.Base(path) == library.LibraryLocatorFileName
+		return path == libFilePath || filepath.Base(path) == library.LocatorFileName
 	}
 }
 
 // Records a new document in the library
-func (d *doccurator) CommandAddSingle(id document.DocumentId, filePath string) error {
+func (d *doccurator) CommandAddSingle(id document.Id, filePath string) error {
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation blocked", err)
@@ -93,7 +93,7 @@ func (d *doccurator) CommandRetireByPath(path string) error {
 
 // Removes all retired documents from the library completely
 func (d *doccurator) CommandForgetAllObsolete() {
-	d.appLib.VisitAllRecords(func(doc library.LibraryDocument) {
+	d.appLib.VisitAllRecords(func(doc library.Document) {
 		if doc.IsObsolete() {
 			d.appLib.ForgetDocument(doc)
 		}
@@ -101,7 +101,7 @@ func (d *doccurator) CommandForgetAllObsolete() {
 }
 
 // Removes a retired document from the library completely
-func (d *doccurator) CommandForgetById(id document.DocumentId) error {
+func (d *doccurator) CommandForgetById(id document.Id) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
@@ -117,7 +117,7 @@ func (d *doccurator) CommandForgetById(id document.DocumentId) error {
 func (d *doccurator) CommandDump(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
-	d.appLib.VisitAllRecords(func(doc library.LibraryDocument) {
+	d.appLib.VisitAllRecords(func(doc library.Document) {
 		if doc.IsObsolete() && excludeRetired {
 			return
 		}
@@ -227,7 +227,7 @@ func (d *doccurator) CommandStatus(paths []string) error {
 	return nil
 }
 
-func (d *doccurator) CommandStandardizeLocation(id document.DocumentId) error {
+func (d *doccurator) CommandStandardizeLocation(id document.Id) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)

@@ -146,8 +146,8 @@ func (lib *library) LoadFromLocalFile(path string) {
 	decoder := json.NewDecoder(decompressor)
 	decoder.DisallowUnknownFields()
 
-	lib.documents = make(map[document.DocumentId]document.DocumentApi)
-	lib.relPathActiveIndex = make(map[string]document.DocumentApi)
+	lib.documents = make(map[document.Id]document.Api)
+	lib.relPathActiveIndex = make(map[string]document.Api)
 
 	err = decoder.Decode(&lib)
 	if err != nil {

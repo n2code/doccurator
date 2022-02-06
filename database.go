@@ -13,7 +13,7 @@ import (
 const libraryLocatorPermissions = 0o440 //owner and group can read
 
 func (d *doccurator) createLibrary(absoluteRoot string, absoluteDbFilePath string) error {
-	d.appLib = library.MakeRuntimeLibrary()
+	d.appLib = library.NewLibrary()
 
 	d.appLib.SetRoot(absoluteRoot)
 
@@ -39,14 +39,14 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	}()
 	currentDir := startingDirectoryAbsolute
 	for {
-		locatorPath := filepath.Join(currentDir, library.LibraryLocatorFileName)
+		locatorPath := filepath.Join(currentDir, library.LocatorFileName)
 		stat, statErr := os.Stat(locatorPath)
 		if statErr == nil && stat.Mode().IsRegular() {
 			err = d.loadLibFilePathFromLocatorFile(locatorPath)
 			if err != nil {
 				return
 			}
-			d.appLib = library.MakeRuntimeLibrary()
+			d.appLib = library.NewLibrary()
 			d.appLib.LoadFromLocalFile(d.libFile)
 			fmt.Fprintf(d.verboseOut, "Loaded library rooted at %s from %s\n", d.appLib.GetRoot(), d.libFile)
 			return nil
@@ -62,7 +62,7 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 }
 
 func (d *doccurator) createLocatorFile(directory string) error {
-	path := filepath.Join(directory, library.LibraryLocatorFileName)
+	path := filepath.Join(directory, library.LocatorFileName)
 	locationUri := url.URL{Scheme: "file", Path: d.libFile}
 	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
 		return fmt.Errorf("writing library locator (%s) failed: %w", path, err)

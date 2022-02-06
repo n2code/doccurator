@@ -29,19 +29,19 @@ func TestLibrarySaveAndReload(t *testing.T) {
 	filePathC := filepath.Join(libRootDir, fileNameC)
 	libraryFilePath := filepath.Join(libRootDir, libraryFileName)
 
-	Lib := MakeRuntimeLibrary()
+	Lib := NewLibrary()
 	Lib.SetRoot(libRootDir)
 
 	docB, err := Lib.CreateDocument(2)
-	if err != nil || docB == (LibraryDocument{}) {
+	if err != nil || docB == (Document{}) {
 		t.Fatal("creation of B failed")
 	}
 	docA, err := Lib.CreateDocument(1)
-	if err != nil || docA == (LibraryDocument{}) {
+	if err != nil || docA == (Document{}) {
 		t.Fatal("creation of A failed")
 	}
 	docC, err := Lib.CreateDocument(3)
-	if err != nil || docC == (LibraryDocument{}) {
+	if err != nil || docC == (Document{}) {
 		t.Fatal("creation of C failed")
 	}
 
@@ -60,16 +60,16 @@ func TestLibrarySaveAndReload(t *testing.T) {
 
 	Lib.SaveToLocalFile(libraryFilePath, false)
 
-	LoadedLib := MakeRuntimeLibrary()
+	LoadedLib := NewLibrary()
 	LoadedLib.LoadFromLocalFile(libraryFilePath)
 
 	var originalLibRecords strings.Builder
 	var loadedLibRecords strings.Builder
-	Lib.VisitAllRecords(func(doc LibraryDocument) {
+	Lib.VisitAllRecords(func(doc Document) {
 		originalLibRecords.WriteString(doc.String())
 		originalLibRecords.WriteRune('\n')
 	})
-	LoadedLib.VisitAllRecords(func(doc LibraryDocument) {
+	LoadedLib.VisitAllRecords(func(doc Document) {
 		loadedLibRecords.WriteString(doc.String())
 		loadedLibRecords.WriteRune('\n')
 	})

@@ -4,10 +4,10 @@ import "path/filepath"
 
 type unixTimestamp int64
 
-const missingId DocumentId = 0
+const missingId Id = 0
 
 type document struct {
-	id              DocumentId
+	id              Id
 	recorded        unixTimestamp   //when the first record of the document entered the system
 	changed         unixTimestamp   //when the library record was last changed (change to any field)
 	localStorage    storedFile      //last known physical location

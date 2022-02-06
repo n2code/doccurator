@@ -245,7 +245,7 @@ func (rq *CliRequest) execute() error {
 					return err
 				}
 			} else {
-				var addedIds []document.DocumentId
+				var addedIds []document.Id
 				if explicitId := *(rq.actionFlags["id"].(*string)); explicitId != "" {
 					numId, err, complete := ndocid.Decode(explicitId)
 					if err != nil {
@@ -254,7 +254,7 @@ func (rq *CliRequest) execute() error {
 					if !complete {
 						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
 					}
-					newId := document.DocumentId(numId)
+					newId := document.Id(numId)
 					err = api.CommandAddSingle(newId, rq.actionArgs[0])
 					if err != nil {
 						return err
@@ -320,7 +320,7 @@ func (rq *CliRequest) execute() error {
 					if !complete {
 						return fmt.Errorf(`incomplete ID "%s"`, target)
 					}
-					err = api.CommandForgetById(document.DocumentId(numId))
+					err = api.CommandForgetById(document.Id(numId))
 					if err != nil {
 						return err
 					}

@@ -9,7 +9,7 @@ import (
 	"github.com/n2code/ndocid"
 )
 
-func (id DocumentId) String() string {
+func (id Id) String() string {
 	return fmt.Sprintf("%s", ndocid.EncodeUint64(uint64(id)))
 }
 
@@ -61,14 +61,14 @@ func (doc *document) MarshalJSON() ([]byte, error) {
 	return json.Marshal(persistedDoc)
 }
 
-func (docMap *DocumentIndex) UnmarshalJSON(blob []byte) error {
-	var loadedMap map[DocumentId]*document
+func (docMap *Index) UnmarshalJSON(blob []byte) error {
+	var loadedMap map[Id]*document
 	err := json.Unmarshal(blob, &loadedMap)
 	if err != nil {
 		panic(err) //must not occur because persisted library's format is versioned
 	}
 	if *docMap == nil {
-		*docMap = make(DocumentIndex, len(loadedMap))
+		*docMap = make(Index, len(loadedMap))
 	}
 	for id, doc := range loadedMap {
 		doc.id = id

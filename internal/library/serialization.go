@@ -8,7 +8,7 @@ import (
 
 type jsonLib struct {
 	LocalRoot string
-	Documents document.DocumentIndex
+	Documents document.Index
 }
 
 func (lib *library) MarshalJSON() ([]byte, error) {
@@ -52,7 +52,7 @@ func (status PathStatus) String() string {
 	return pathStatusText[status]
 }
 
-func (libDoc LibraryDocument) String() string {
+func (libDoc Document) String() string {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	return doc.String()
 }
