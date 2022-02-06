@@ -24,7 +24,8 @@ $ doccurator status
 
 Right now the feature scope is rather minimal. It focuses on redundantly storing the file metadata 
 and hence detecting and displaying changes in a given directory tree. Duplicates (with respect to 
-file content) can be detected and therefore safely discarded. A robust alphanumeric identifier is 
+file content) can be detected and therefore safely discarded. 
+A [robust alphanumeric identifier](https://github.com/n2code/ndocid) is 
 assigned to each recorded file which can be mirrored in the file name for global identification.
 
 Doccurator operates just like git in the sense that a *library* denotes a certain directory whose 
