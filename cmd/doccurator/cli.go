@@ -129,8 +129,8 @@ Usage of %s action:
 				"FORMAT 1: doccurator add -id 63835AEV9E my_document.pdf\n"+
 				"FORMAT 2: doccurator add -id=55565IEV9E my_document.pdf")
 		case "update":
-			actionDescription += "Update the library records to match the current state of the file(s)\n" +
-				actionDescriptionIndent + "at the given FILEPATH(s)."
+			actionDescription += "Update the existing library records to match the current state of\n" +
+				actionDescriptionIndent + "the file(s) at the given FILEPATH(s)."
 		case "retire":
 			actionDescription += "Mark the library records corresponding to the given FILEPATH(s) as\n" +
 				actionDescriptionIndent + "obsolete. The real file is expected to be removed manually.\n" +

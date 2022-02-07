@@ -4,7 +4,7 @@ import "path/filepath"
 
 type unixTimestamp int64
 
-const missingId Id = 0
+const MissingId Id = 0
 
 type document struct {
 	id              Id

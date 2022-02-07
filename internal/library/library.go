@@ -14,6 +14,9 @@ import (
 )
 
 func (lib *library) CreateDocument(id document.Id) (Document, error) {
+	if id == document.MissingId {
+		return Document{}, fmt.Errorf("document ID %s must not be used", id)
+	}
 	if _, exists := lib.documents[id]; exists {
 		return Document{}, fmt.Errorf("document ID %s already exists", id)
 	}
@@ -116,14 +119,15 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	}
 
 	if doc, isOnActiveRecord := lib.relPathActiveIndex[result.libraryPath]; isOnActiveRecord {
-		// result.matchingId = doc.Id() //TODO: justify and activate
 		switch status := doc.CompareToFileOnStorage(lib.rootPath); status {
 		case document.UnmodifiedFile:
 			result.status = Tracked
 		case document.TouchedFile:
 			result.status = Touched
+			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.ModifiedFile:
 			result.status = Modified
+			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.NoFileFound:
 			result.status = Missing
 		case document.FileAccessError:
@@ -163,6 +167,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	foundMissingActive := false
 	foundMatchingObsolete := false
 
+	var match document.Api
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
 			if doc.IsObsolete() {
@@ -177,6 +182,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 				foundModifiedActive = true
 			case document.NoFileFound:
 				foundMissingActive = true
+				match = doc
 			case document.FileAccessError:
 				result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
 				return
@@ -188,6 +194,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	switch {
 	case foundMissingActive:
 		result.status = Moved
+		result.referencing = Document{id: match.Id(), library: lib}
 	case foundMatchingActive:
 		if foundMatchingObsolete {
 			result.status = Obsolete
@@ -237,7 +244,7 @@ func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPa
 			coveredLibraryPaths[libPath.libraryPath] = true
 			switch libPath.status {
 			case Moved:
-				movedIds[libPath.matchingId] = true
+				movedIds[libPath.referencing.id] = true
 			case Error:
 				hasNoErrors = false
 			}
@@ -346,6 +353,10 @@ func (p CheckedPath) PathRelativeToLibraryRoot() string {
 
 func (p CheckedPath) GetError() error {
 	return p.err
+}
+
+func (p CheckedPath) ReferencedDocument() Document {
+	return p.referencing
 }
 
 func (s PathStatus) RepresentsChange() bool {

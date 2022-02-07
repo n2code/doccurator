@@ -83,7 +83,7 @@ func (doc *document) UnmarshalJSON(blob []byte) error {
 	if err != nil {
 		panic(err) //must not occur because persisted library's format is versioned
 	}
-	doc.id = missingId
+	doc.id = MissingId
 	doc.localStorage.directory = loadedDoc.Dir
 	doc.localStorage.name = loadedDoc.File
 	doc.localStorage.lastModified = loadedDoc.FileModified

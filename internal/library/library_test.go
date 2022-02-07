@@ -46,8 +46,9 @@ func TestDocumentCreation(t *testing.T) {
 	//GIVEN
 	lib := NewLibrary()
 	maxId := document.Id(1<<64 - 1)
-	regularId := document.Id(1)
-	minId := document.Id(0)
+	regularId := document.Id(42)
+	minId := document.Id(1)
+	illegalZeroId := document.Id(0)
 
 	//WHEN
 	regularDoc, err := lib.CreateDocument(regularId)
@@ -75,6 +76,13 @@ func TestDocumentCreation(t *testing.T) {
 	//THEN
 	if err == nil || docNone != (Document{}) {
 		t.Fatal("creation not rejected as expected")
+	}
+
+	//WHEN
+	forbiddenDoc, err := lib.CreateDocument(illegalZeroId)
+	//THEN
+	if err == nil || forbiddenDoc != (Document{}) {
+		t.Fatal("creation with illegal ID (0) not blocked")
 	}
 }
 
@@ -370,12 +378,13 @@ func TestActiveVersusObsoleteOrchestration(t *testing.T) {
 
 func TestPathChecking(t *testing.T) {
 	type f struct {
-		path              string
-		contentOnRecord   string //if empty no record will be created
-		contentIsObsolete bool   //if set obsolete document will refer to content on record + path
-		fileContent       string //if empty file will not exist
-		fileTimeOffset    int    //optional
-		expected          PathStatus
+		path               string
+		contentOnRecord    string //if empty no record will be created
+		contentIsObsolete  bool   //if set obsolete document will refer to content on record + path
+		fileContent        string //if empty file will not exist
+		fileTimeOffset     int    //optional
+		expectedStatus     PathStatus
+		expectedRefToDocOf uint //1-based index of test configuration
 	}
 
 	noFile := ""
@@ -389,7 +398,7 @@ func TestPathChecking(t *testing.T) {
 					dbText := map[bool]string{true: fmt.Sprintf(`"%s"`, file.contentOnRecord), false: "<no rec>"}[file.contentOnRecord != ""]
 					fileText := map[bool]string{true: fmt.Sprintf(`"%s"`, file.fileContent), false: "<none>"}[file.fileContent != ""]
 					fileRepresentations = append(fileRepresentations,
-						fmt.Sprintf(`%s%s (DB: %s, file: %s) -> expect %s`, file.path, obsoleteMarker, dbText, fileText, file.expected))
+						fmt.Sprintf(`%s%s (DB: %s, file: %s) -> expect %s`, file.path, obsoleteMarker, dbText, fileText, file.expectedStatus))
 				}
 				Test.Logf("Tested combination of %d path(s):\n   %s", len(files), strings.Join(fileRepresentations, "\n & "))
 			}
@@ -403,7 +412,7 @@ func TestPathChecking(t *testing.T) {
 
 			for i, subject := range files {
 				if subject.contentOnRecord != "" {
-					doc, err := lib.CreateDocument(document.Id(i))
+					doc, err := lib.CreateDocument(document.Id(i + 1)) //first test config entry has ID (1), second has (2), etc.
 					if err != nil {
 						Test.Fatalf("creation of document for %s failed", subject.path)
 					}
@@ -442,14 +451,29 @@ func TestPathChecking(t *testing.T) {
 			for _, subject := range files {
 				checkResult := lib.CheckFilePath(fullFilePath(subject))
 				//THEN
-				if checkResult.status != subject.expected {
-					Test.Errorf("expected status %s for %s but got %s", subject.expected, subject.path, checkResult.status)
+				if checkResult.status != subject.expectedStatus {
+					Test.Errorf("expected status %s for %s but got %s", subject.expectedStatus, subject.path, checkResult.status)
 				}
-				if checkResult.err != nil && subject.expected != Error {
+				if checkResult.err != nil && subject.expectedStatus != Error {
 					Test.Errorf("got unexpected error for %s: %s", subject.path, checkResult.err)
 				}
-				if subject.expected == Error && checkResult.err == nil {
+				if subject.expectedStatus == Error && checkResult.err == nil {
 					Test.Errorf("did not get error for %s", subject.path)
+				}
+				if subject.expectedRefToDocOf != 0 {
+					if checkResult.referencing.id == document.MissingId || checkResult.referencing.library == nil {
+						Test.Errorf("did not get proper reference")
+					}
+					if document.Id(subject.expectedRefToDocOf) != checkResult.referencing.id {
+						Test.Errorf("expected reference to ID %s not received, got %s", document.Id(subject.expectedRefToDocOf), checkResult.referencing.id)
+					}
+				} else {
+					if checkResult.referencing.id != document.MissingId {
+						Test.Errorf("got reference to ID where none was expected")
+					}
+					if checkResult.referencing.library != nil {
+						Test.Errorf("expected reference to be empty but got library API handle")
+					}
 				}
 			}
 		}
@@ -457,104 +481,104 @@ func TestPathChecking(t *testing.T) {
 	}
 
 	testStatusCombination("OneTracked",
-		f{path: "A", contentOnRecord: "1", fileContent: "1", expected: Tracked})
+		f{path: "A", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked})
 
 	testStatusCombination("AllTracked",
-		f{path: "A", contentOnRecord: "1", fileContent: "1", expected: Tracked},
-		f{path: "B", contentOnRecord: "2", fileContent: "2", expected: Tracked},
-		f{path: "C", contentOnRecord: "3", fileContent: "3", expected: Tracked})
+		f{path: "A", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "B", contentOnRecord: "2", fileContent: "2", expectedStatus: Tracked},
+		f{path: "C", contentOnRecord: "3", fileContent: "3", expectedStatus: Tracked})
 
 	testStatusCombination("AllUntracked",
-		f{path: "A", fileContent: "1", expected: Untracked},
-		f{path: "B", fileContent: "2", expected: Untracked},
-		f{path: "C", fileContent: "3", expected: Untracked})
+		f{path: "A", fileContent: "1", expectedStatus: Untracked},
+		f{path: "B", fileContent: "2", expectedStatus: Untracked},
+		f{path: "C", fileContent: "3", expectedStatus: Untracked})
 
 	testStatusCombination("AllUntrackedWithClone",
-		f{path: "A      ", fileContent: "1", expected: Untracked},
-		f{path: "A_CLONE", fileContent: "1", expected: Untracked},
-		f{path: "B      ", fileContent: "2", expected: Untracked})
+		f{path: "A      ", fileContent: "1", expectedStatus: Untracked},
+		f{path: "A_CLONE", fileContent: "1", expectedStatus: Untracked},
+		f{path: "B      ", fileContent: "2", expectedStatus: Untracked})
 
 	testStatusCombination("SomeModifiedAndUntrackedClone",
-		f{path: "A", contentOnRecord: "_", fileContent: "1", expected: Modified},
-		f{path: "B", contentOnRecord: "__", fileContent: "2", expected: Modified},
-		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expected: Untracked})
+		f{path: "A", contentOnRecord: "_", fileContent: "1", expectedStatus: Modified, expectedRefToDocOf: 1},
+		f{path: "B", contentOnRecord: "__", fileContent: "2", expectedStatus: Modified, expectedRefToDocOf: 2},
+		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Untracked})
 
 	testStatusCombination("NonExistingFileInLibrary",
-		f{path: "A", contentOnRecord: noRecord, fileContent: noFile, expected: Error})
+		f{path: "A", contentOnRecord: noRecord, fileContent: noFile, expectedStatus: Error})
 
 	testStatusCombination("NonExistingFileOutsideOfLibrary",
-		f{path: "../outside", contentOnRecord: noRecord, fileContent: noFile, expected: Error})
+		f{path: "../outside", contentOnRecord: noRecord, fileContent: noFile, expectedStatus: Error})
 
 	testStatusCombination("DuplicateIsAnUntrackedClone",
-		f{path: "A", contentOnRecord: "1", fileContent: "1", expected: Tracked},
-		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expected: Duplicate})
+		f{path: "A", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Duplicate})
 
 	testStatusCombination("MixDuplicateAndInaccessible",
-		f{path: "A", contentOnRecord: "1", fileContent: "1", expected: Tracked},
-		f{path: "X", contentOnRecord: noRecord, fileContent: noFile, expected: Error},
-		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expected: Duplicate})
+		f{path: "A", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "X", contentOnRecord: noRecord, fileContent: noFile, expectedStatus: Error},
+		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Duplicate})
 
 	testStatusCombination("MixTouchedAndDuplicate",
-		f{path: "A", contentOnRecord: "1", fileContent: "1", fileTimeOffset: 42, expected: Touched},
-		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expected: Duplicate})
+		f{path: "A", contentOnRecord: "1", fileContent: "1", fileTimeOffset: 42, expectedStatus: Touched, expectedRefToDocOf: 1},
+		f{path: "A_CLONE", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Duplicate})
 
 	testStatusCombination("DuplicateOfModifiedIsUntracked", //because if content is changed the saviour of the old version shall be preserved
-		f{path: "A", contentOnRecord: "1", fileContent: "1+", fileTimeOffset: 42, expected: Modified},
-		f{path: "B", contentOnRecord: noRecord, fileContent: "1", expected: Untracked})
+		f{path: "A", contentOnRecord: "1", fileContent: "1+", fileTimeOffset: 42, expectedStatus: Modified, expectedRefToDocOf: 1},
+		f{path: "B", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Untracked})
 
 	testStatusCombination("Missing",
-		f{path: "A", contentOnRecord: "1", fileContent: noFile, expected: Missing})
+		f{path: "A", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing})
 
 	testStatusCombination("DuplicateOfMissingIsMoved", //because if original is absent it can be interpreted as a move
-		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expected: Missing},
-		f{path: "NEW", contentOnRecord: noRecord, fileContent: "1", expected: Moved})
+		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing},
+		f{path: "NEW", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Moved, expectedRefToDocOf: 1})
 
 	testStatusCombination("TrackedCloneBesidesMoved",
-		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expected: Missing},
-		f{path: "NEW", contentOnRecord: noRecord, fileContent: "1", expected: Moved},
-		f{path: "COPY", contentOnRecord: "1", fileContent: "1", expected: Tracked})
+		f{path: "COPY", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "NEW", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Moved, expectedRefToDocOf: 3},
+		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing})
 
 	testStatusCombination("MixModifiedAndDuplicate",
-		f{path: "A", contentOnRecord: "1", fileContent: "1+", expected: Modified},
-		f{path: "B", contentOnRecord: "1", fileContent: "1", expected: Tracked},
-		f{path: "C", contentOnRecord: noRecord, fileContent: "1", expected: Duplicate}) //duplicate with respect to B
+		f{path: "A", contentOnRecord: "1", fileContent: "1+", expectedStatus: Modified, expectedRefToDocOf: 1},
+		f{path: "B", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "C", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Duplicate}) //duplicate with respect to B
 
 	testStatusCombination("ObsoleteLeftover",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "1", expected: Obsolete})
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "1", expectedStatus: Obsolete})
 
 	testStatusCombination("ObsoleteLeftoverNextToTrackedClone",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "1", expected: Obsolete},
-		f{path: "A_CLONE", contentOnRecord: "1", fileContent: "1", expected: Tracked})
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "1", expectedStatus: Obsolete},
+		f{path: "A_CLONE", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked})
 
 	testStatusCombination("MixObsoleteAndTrackedCloneAndUntracked",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "1", expected: Obsolete}, //supposed to be deleted and has not changed
-		f{path: "A_CLONE", contentOnRecord: "1", fileContent: "1", expected: Tracked},
-		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked}) //because it neither matches any record nor any path
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "1", expectedStatus: Obsolete}, //supposed to be deleted and has not changed
+		f{path: "A_CLONE", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expectedStatus: Untracked}) //because it neither matches any record nor any path
 
 	testStatusCombination("NewContentAtObsoletedPath",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "2", expected: Untracked}, //different content at obsoleted path
-		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked})                 //because it neither matches any record nor any path
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: "2", expectedStatus: Untracked}, //different content at obsoleted path
+		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expectedStatus: Untracked})                 //because it neither matches any record nor any path
 
 	testStatusCombination("Removed",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed})
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed})
 
 	testStatusCombination("MixRemovedAndUntracked",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed},
-		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expected: Untracked}) //because it neither matches any record nor any path
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed},
+		f{path: "OTHER", contentOnRecord: noRecord, fileContent: "3", expectedStatus: Untracked}) //because it neither matches any record nor any path
 
 	testStatusCombination("ObsoleteMatchesPastRecord",
-		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed},
-		f{path: "UNWANTED", contentOnRecord: noRecord, fileContent: "1", expected: Obsolete}) //path is new but content is obsolete
+		f{path: "A", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed},
+		f{path: "UNWANTED", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Obsolete}) //path is new but content is obsolete
 
 	testStatusCombination("ObsoleteContentRecreatedNextToActiveModifiedWithObsoleteContentOnRecord",
-		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expected: Obsolete},
-		f{path: "A_PAST", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed},
-		f{path: "B", contentOnRecord: "1", fileContent: "2", expected: Modified})
+		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Obsolete},
+		f{path: "A_PAST", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed},
+		f{path: "B", contentOnRecord: "1", fileContent: "2", expectedStatus: Modified, expectedRefToDocOf: 3})
 
 	testStatusCombination("ObsoleteHasPriorityOverDuplicate",
-		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expected: Obsolete}, //because the content is present and matching
-		f{path: "B", contentOnRecord: "1", fileContent: "1", expected: Tracked},
-		f{path: "C", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expected: Removed})
+		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Obsolete}, //because the content is present and matching
+		f{path: "B", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
+		f{path: "C", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed})
 }
 
 func TestVisitRecordsAndPrint(t *testing.T) {
@@ -562,12 +586,12 @@ func TestVisitRecordsAndPrint(t *testing.T) {
 	lib := NewLibrary()
 	imaginaryRoot := "/imaginary"
 	lib.SetRoot(imaginaryRoot)
-	id22222X, relativePathA := document.Id(0), "A.22222X.ndoc"
+	id932229, relativePathA := document.Id(1), "A.932229.ndoc"
 	id97322X, relativePathB := document.Id(13), "B.97322X.ndoc"
 	id94722N, relativePathC := document.Id(42), "C.94722N.ndoc"
 
 	//WHEN
-	docA, _ := lib.CreateDocument(id22222X)
+	docA, _ := lib.CreateDocument(id932229)
 	docB, _ := lib.CreateDocument(id97322X)
 	docC, _ := lib.CreateDocument(id94722N)
 	lib.SetDocumentPath(docA, filepath.Join(imaginaryRoot, relativePathA))

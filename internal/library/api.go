@@ -31,7 +31,7 @@ const (
 type CheckedPath struct {
 	libraryPath string //relative to library root, system-native
 	status      PathStatus
-	matchingId  document.Id
+	referencing Document
 	err         error
 }
 

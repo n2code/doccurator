@@ -65,15 +65,28 @@ func (d *doccurator) CommandAddAllUntracked() error {
 
 // Updates an existing document in the library
 func (d *doccurator) CommandUpdateByPath(filePath string) error {
-	doc, exists := d.appLib.GetActiveDocumentByPath(mustAbsFilepath(filePath))
-	if !exists {
-		return newCommandError(fmt.Sprintf("path to update not on record or retired: %s", filePath), nil)
+	switch check := d.appLib.CheckFilePath(mustAbsFilepath(filePath)); check.Status() {
+	case library.Modified, library.Touched:
+		_, err := d.appLib.UpdateDocumentFromFile(check.ReferencedDocument())
+		if err != nil {
+			return newCommandError(fmt.Sprintf("update failed: %s", filePath), err)
+		}
+	case library.Tracked:
+		fmt.Fprintf(d.extraOut, "No changes detected: %s\n", filePath)
+	case library.Removed:
+		return newCommandError(fmt.Sprintf("no file found: %s", filePath), nil)
+	case library.Missing:
+		return newCommandError(fmt.Sprintf("use retire to accept missing file: %s", filePath), nil)
+	case library.Untracked:
+		return newCommandError(fmt.Sprintf("path not on record: %s", filePath), nil)
+	case library.Obsolete:
+		return newCommandError(fmt.Sprintf("path already retired: %s", filePath), nil)
+	case library.Error:
+		return newCommandError(fmt.Sprintf("path access failed: %s", filePath), check.GetError())
+	default:
+		panic("unsupported")
 	}
-	changed, err := d.appLib.UpdateDocumentFromFile(doc)
-	if !changed {
-		fmt.Fprintf(d.extraOut, "No changes detected: %s\n", doc.PathRelativeToLibraryRoot())
-	}
-	return err
+	return nil
 }
 
 // Marks an existing document as obsolete
