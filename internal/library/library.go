@@ -167,7 +167,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	foundMissingActive := false
 	foundMatchingObsolete := false
 
-	var match document.Api
+	var anyMissingMatchingActive document.Api
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
 			if doc.IsObsolete() {
@@ -182,7 +182,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 				foundModifiedActive = true
 			case document.NoFileFound:
 				foundMissingActive = true
-				match = doc
+				anyMissingMatchingActive = doc
 			case document.FileAccessError:
 				result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
 				return
@@ -194,7 +194,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	switch {
 	case foundMissingActive:
 		result.status = Moved
-		result.referencing = Document{id: match.Id(), library: lib}
+		result.referencing = Document{id: anyMissingMatchingActive.Id(), library: lib}
 	case foundMatchingActive:
 		if foundMatchingObsolete {
 			result.status = Obsolete

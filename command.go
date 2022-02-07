@@ -2,6 +2,7 @@ package doccurator
 
 import (
 	"fmt"
+	. "github.com/n2code/doccurator/internal"
 	"path/filepath"
 	"strings"
 
@@ -65,7 +66,12 @@ func (d *doccurator) CommandAddAllUntracked() error {
 
 // Updates an existing document in the library
 func (d *doccurator) CommandUpdateByPath(filePath string) error {
-	switch check := d.appLib.CheckFilePath(mustAbsFilepath(filePath)); check.Status() {
+	absoluteFilePath := mustAbsFilepath(filePath)
+	switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
+	case library.Moved:
+		err := d.appLib.SetDocumentPath(check.ReferencedDocument(), absoluteFilePath)
+		AssertNoError(err, "path already checked to be inside library and moved implies no conflicting record")
+		fallthrough
 	case library.Modified, library.Touched:
 		_, err := d.appLib.UpdateDocumentFromFile(check.ReferencedDocument())
 		if err != nil {
@@ -77,14 +83,12 @@ func (d *doccurator) CommandUpdateByPath(filePath string) error {
 		return newCommandError(fmt.Sprintf("no file found: %s", filePath), nil)
 	case library.Missing:
 		return newCommandError(fmt.Sprintf("use retire to accept missing file: %s", filePath), nil)
-	case library.Untracked:
+	case library.Untracked, library.Duplicate:
 		return newCommandError(fmt.Sprintf("path not on record: %s", filePath), nil)
 	case library.Obsolete:
 		return newCommandError(fmt.Sprintf("path already retired: %s", filePath), nil)
 	case library.Error:
 		return newCommandError(fmt.Sprintf("path access failed: %s", filePath), check.GetError())
-	default:
-		panic("unsupported")
 	}
 	return nil
 }
