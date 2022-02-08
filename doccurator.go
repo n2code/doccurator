@@ -26,8 +26,8 @@ type CreateConfig struct {
 }
 
 type Doccurator interface {
-	CommandAddSingle(id document.Id, path string) error
-	CommandAddAllUntracked() error
+	CommandAddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
+	CommandAddAllUntracked(allowDuplicates bool) error
 	CommandStandardizeLocation(id document.Id) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error

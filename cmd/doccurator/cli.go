@@ -114,14 +114,16 @@ Usage of %s action:
 		request.actionArgs = actionParams.Args()
 		//beyond flags all arguments are optional
 	case "add", "update", "retire", "forget":
-		argumentSpecification = " [-id=ID] FILEPATH..."
+		argumentSpecification = " [FILEPATH...]"
 		switch request.action {
 		case "add":
-			flagSpecification = " [-rename]   -all-untracked |"
+			flagSpecification = " [-all-untracked] [-rename] [-force]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
 			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
 				"(requires *standardized* filenames to extract IDs)")
+			request.actionFlags["force"] = actionParams.Bool("force", false, "allow adding even duplicates, moved, and obsolete files as new\n"+
+				"(because this is likely undesired and thus blocked by default)")
 			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename\n"+
 				"(failure will be reported but does not stop processing)")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
@@ -239,8 +241,9 @@ func (rq *CliRequest) execute() error {
 			}
 		case "add":
 			tryRename := *(rq.actionFlags["rename"].(*bool))
+			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags["force"].(*bool))
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
-				err := api.CommandAddAllUntracked()
+				err := api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete)
 				if err != nil {
 					return err
 				}
@@ -255,7 +258,7 @@ func (rq *CliRequest) execute() error {
 						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
 					}
 					newId := document.Id(numId)
-					err = api.CommandAddSingle(newId, rq.actionArgs[0])
+					err = api.CommandAddSingle(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete)
 					if err != nil {
 						return err
 					}
@@ -266,7 +269,7 @@ func (rq *CliRequest) execute() error {
 						if err != nil {
 							return fmt.Errorf(`bad path %s: (%w)`, target, err)
 						}
-						err = api.CommandAddSingle(newId, target)
+						err = api.CommandAddSingle(newId, target, forceIfDuplicateMovedOrObsolete)
 						if err != nil {
 							return err
 						}

@@ -18,12 +18,21 @@ func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool
 }
 
 // Records a new document in the library
-func (d *doccurator) CommandAddSingle(id document.Id, filePath string) error {
+func (d *doccurator) CommandAddSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
+	absoluteFilePath := mustAbsFilepath(filePath)
+	if !allowForDuplicateMovedAndObsolete {
+		switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
+		case library.Moved:
+			return newCommandError(fmt.Sprintf("document creation prevented: use update to accept move (%s)", filePath), nil)
+		case library.Duplicate, library.Obsolete:
+			return newCommandError(fmt.Sprintf("document creation prevented: override required to add duplicate/obsolete file (%s)", filePath), nil)
+		}
+	}
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
 		return newCommandError("document creation blocked", err)
 	}
-	err = d.appLib.SetDocumentPath(doc, mustAbsFilepath(filePath))
+	err = d.appLib.SetDocumentPath(doc, absoluteFilePath)
 	if err != nil {
 		return newCommandError("document creation impossible", err)
 	}
@@ -35,7 +44,7 @@ func (d *doccurator) CommandAddSingle(id document.Id, filePath string) error {
 	return nil
 }
 
-func (d *doccurator) CommandAddAllUntracked() error {
+func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool) error {
 	results, noScanErrors := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
@@ -56,7 +65,7 @@ func (d *doccurator) CommandAddAllUntracked() error {
 		if err != nil {
 			return err
 		}
-		err = d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked))
+		err = d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowDuplicates)
 		if err != nil {
 			return err
 		}
