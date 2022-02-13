@@ -27,7 +27,7 @@ type CreateConfig struct {
 
 type Doccurator interface {
 	CommandAddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
-	CommandAddAllUntracked(allowDuplicates bool) error
+	CommandAddAllUntracked(allowDuplicates bool) (added []document.Id, err error)
 	CommandStandardizeLocation(id document.Id) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
@@ -38,14 +38,16 @@ type Doccurator interface {
 	CommandStatus(paths []string) error
 	CommandAuto() error
 	PersistChanges() error
+	RollbackFilesystemChanges() error
 }
 
 type doccurator struct {
-	appLib     library.Api
-	libFile    string    //absolute, system-native path
-	out        io.Writer //essential output (i.e. requested information)
-	extraOut   io.Writer //more output for convenience (repeats context)
-	verboseOut io.Writer //most output, talkative
+	appLib      library.Api
+	rollbackLog []func() error
+	libFile     string    //absolute, system-native path
+	out         io.Writer //essential output (i.e. requested information)
+	extraOut    io.Writer //more output for convenience (repeats context)
+	verboseOut  io.Writer //most output, talkative
 }
 
 //represents file.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
@@ -73,8 +75,21 @@ func (d *doccurator) PersistChanges() error {
 	if err := d.appLib.SaveToLocalFile(d.libFile, true); err != nil {
 		return fmt.Errorf("library save error: %w", err)
 	}
+	d.rollbackLog = nil
 	return nil
 
+}
+
+func (d *doccurator) RollbackFilesystemChanges() error {
+	for i, rollbackStep := range d.rollbackLog {
+		err := rollbackStep()
+		if err != nil {
+			d.rollbackLog = d.rollbackLog[i:] //drop all up to failing
+			return fmt.Errorf("filesystem rollback incomplete: %w", err)
+		}
+	}
+	d.rollbackLog = nil
+	return nil
 }
 
 func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {

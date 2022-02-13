@@ -322,7 +322,8 @@ func (libDoc *Document) PathRelativeToLibraryRoot() string {
 	return doc.Path()
 }
 
-func (libDoc *Document) RenameToStandardNameFormat() (newNameIfDifferent string, err error) {
+func (libDoc *Document) RenameToStandardNameFormat() (newNameIfDifferent string, err error, fsRollback func() error) {
+	fsRollback = func() error { return nil }
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	standardName, err := doc.StandardizedFilename()
 	if err != nil {
@@ -336,9 +337,18 @@ func (libDoc *Document) RenameToStandardNameFormat() (newNameIfDifferent string,
 	newNameIfDifferent = standardName
 	absoluteOldPath := filepath.Join(libDoc.library.GetRoot(), oldPath)
 	absoluteNewPath := filepath.Join(libDoc.library.GetRoot(), standardPath)
+	if _, err = os.Stat(absoluteNewPath); err == nil {
+		err = fmt.Errorf("file with standardized name already exists: %s", absoluteNewPath)
+		return
+	}
 	err = os.Rename(absoluteOldPath, absoluteNewPath)
 	if err == nil {
 		libDoc.library.SetDocumentPath(*libDoc, absoluteNewPath)
+		fsRollback = func(source string, target string) func() error {
+			return func() error {
+				return os.Rename(source, target)
+			}
+		}(absoluteNewPath, absoluteOldPath)
 	}
 	return
 }

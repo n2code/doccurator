@@ -124,8 +124,7 @@ Usage of %s action:
 				"(requires *standardized* filenames to extract IDs)")
 			request.actionFlags["force"] = actionParams.Bool("force", false, "allow adding even duplicates, moved, and obsolete files as new\n"+
 				"(because this is likely undesired and thus blocked by default)")
-			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename\n"+
-				"(failure will be reported but does not stop processing)")
+			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
 				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
 				"FORMAT 1: doccurator add -id 63835AEV9E my_document.pdf\n"+
@@ -212,7 +211,7 @@ Usage of %s action:
 	return
 }
 
-func (rq *CliRequest) execute() error {
+func (rq *CliRequest) execute() (execErr error) {
 	var config doccurator.CreateConfig
 	if rq.verbose {
 		config.Verbosity = doccurator.VerboseMode
@@ -231,6 +230,14 @@ func (rq *CliRequest) execute() error {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if execErr != nil {
+				rollbackErr := api.RollbackFilesystemChanges()
+				if rollbackErr != nil {
+					execErr = fmt.Errorf("%w (rollback attempt failed: %s)", execErr, rollbackErr)
+				}
+			}
+		}()
 
 		switch rq.action {
 		case "dump":
@@ -242,13 +249,14 @@ func (rq *CliRequest) execute() error {
 		case "add":
 			tryRename := *(rq.actionFlags["rename"].(*bool))
 			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags["force"].(*bool))
+			var addedIds []document.Id
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
-				err := api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete)
-				if err != nil {
-					return err
+				var addErr error
+				addedIds, addErr = api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete)
+				if addErr != nil {
+					return addErr
 				}
 			} else {
-				var addedIds []document.Id
 				if explicitId := *(rq.actionFlags["id"].(*string)); explicitId != "" {
 					numId, err, complete := ndocid.Decode(explicitId)
 					if err != nil {
@@ -276,12 +284,12 @@ func (rq *CliRequest) execute() error {
 						addedIds = append(addedIds, newId)
 					}
 				}
-				if tryRename {
-					for _, addedId := range addedIds {
-						err := api.CommandStandardizeLocation(addedId)
-						if err != nil {
-							fmt.Fprintln(os.Stderr, err)
-						}
+			}
+			if tryRename {
+				for _, addedId := range addedIds {
+					err := api.CommandStandardizeLocation(addedId)
+					if err != nil {
+						return fmt.Errorf(`renaming file of document %s failed: %w`, addedId, err)
 					}
 				}
 			}
