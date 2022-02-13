@@ -103,6 +103,7 @@ Usage of %s action:
 `)
 	}
 
+ActionParamCheck:
 	switch request.action {
 	case "status":
 		argumentSpecification = " [FILEPATH...]"
@@ -117,13 +118,15 @@ Usage of %s action:
 		argumentSpecification = " [FILEPATH...]"
 		switch request.action {
 		case "add":
-			flagSpecification = " [-all-untracked] [-rename] [-force]"
+			flagSpecification = " [-all-untracked] [-rename] [-force] [-auto-id | -id=...]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
 			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
 				"(requires *standardized* filenames to extract IDs)")
 			request.actionFlags["force"] = actionParams.Bool("force", false, "allow adding even duplicates, moved, and obsolete files as new\n"+
 				"(because this is likely undesired and thus blocked by default)")
+			request.actionFlags["auto-id"] = actionParams.Bool("auto-id", false, "automatically choose free ID based on current time if filename\n"+
+				"is not *standardized* and hence ID cannot be extracted from it")
 			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
 				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
@@ -146,30 +149,47 @@ Usage of %s action:
 		}
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
-		switch {
-		case request.action == "add" && *(request.actionFlags["all-untracked"].(*bool)):
-			if actionParams.NArg() != 0 {
-				err = errors.New(`no FILEPATHs must be given when using flag "-all-untracked"`)
-				return
-			}
-			if *(request.actionFlags["id"].(*string)) != "" {
-				err = errors.New(`flag "-id" must not be used together with "-all-untracked"`)
-				return
-			}
-		case request.action == "add" && *(request.actionFlags["id"].(*string)) != "":
-			if actionParams.NArg() != 1 {
-				err = errors.New(`exactly one FILEPATH must be given when using flag "-id"`)
-				return
-			}
-		case request.action == "forget" && *(request.actionFlags["all-retired"].(*bool)):
-			if actionParams.NArg() != 0 {
-				err = errors.New(`no IDs must be given when using flag "-all-retired"`)
-				return
-			}
-		default:
+
+		verifyTargetsExist := func() {
 			if actionParams.NArg() < 1 {
 				err = errors.New("no targets given")
-				return
+			}
+		}
+
+		switch request.action {
+		case "add":
+			if *(request.actionFlags["all-untracked"].(*bool)) {
+				if actionParams.NArg() != 0 {
+					err = errors.New(`no FILEPATHs must be given when using flag "-all-untracked"`)
+					break ActionParamCheck
+				}
+				if *(request.actionFlags["id"].(*string)) != "" {
+					err = errors.New(`flag "-id" must not be used together with "-all-untracked"`)
+					break ActionParamCheck
+				}
+			} else {
+				verifyTargetsExist()
+			}
+			if *(request.actionFlags["id"].(*string)) != "" {
+				if *(request.actionFlags["auto-id"].(*bool)) {
+					err = errors.New(`flag "-auto-id" must not be used together with "-id"`)
+					break ActionParamCheck
+				}
+				if actionParams.NArg() != 1 {
+					err = errors.New(`exactly one FILEPATH must be given when using flag "-id"`)
+					break ActionParamCheck
+				}
+			}
+		case "update", "retire":
+			verifyTargetsExist()
+		case "forget":
+			if *(request.actionFlags["all-retired"].(*bool)) {
+				if actionParams.NArg() != 0 {
+					err = errors.New(`no IDs must be given when using flag "-all-retired"`)
+					break ActionParamCheck
+				}
+			} else {
+				verifyTargetsExist()
 			}
 		}
 	case "dump":
@@ -180,7 +200,7 @@ Usage of %s action:
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
 			err = errors.New("too many arguments")
-			return
+			break ActionParamCheck
 		}
 	case "tree":
 		flagSpecification = " [-diff]"
@@ -191,7 +211,7 @@ Usage of %s action:
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
 			err = errors.New("command accepts no arguments, only flags")
-			return
+			break ActionParamCheck
 		}
 	case "init":
 		argumentSpecification = " DIRECTORY"
@@ -202,11 +222,10 @@ Usage of %s action:
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() != 1 {
 			err = errors.New("bad number of arguments, exactly one expected")
-			return
+			break ActionParamCheck
 		}
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, request.action)
-		return
 	}
 	return
 }
@@ -248,11 +267,12 @@ func (rq *CliRequest) execute() (execErr error) {
 			}
 		case "add":
 			tryRename := *(rq.actionFlags["rename"].(*bool))
+			autoId := *(rq.actionFlags["auto-id"].(*bool))
 			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags["force"].(*bool))
 			var addedIds []document.Id
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
 				var addErr error
-				addedIds, addErr = api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete)
+				addedIds, addErr = api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId)
 				if addErr != nil {
 					return addErr
 				}
@@ -275,7 +295,10 @@ func (rq *CliRequest) execute() (execErr error) {
 					for _, target := range rq.actionArgs {
 						newId, err := doccurator.ExtractIdFromStandardizedFilename(target)
 						if err != nil {
-							return fmt.Errorf(`bad path %s: (%w)`, target, err)
+							if !autoId {
+								return fmt.Errorf(`bad path %s: (%w)`, target, err)
+							}
+							newId = api.GetFreeId()
 						}
 						err = api.CommandAddSingle(newId, target, forceIfDuplicateMovedOrObsolete)
 						if err != nil {

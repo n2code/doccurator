@@ -2,7 +2,7 @@ package document
 
 import (
 	checksum "crypto/sha256"
-	"time"
+	"github.com/n2code/doccurator/internal"
 )
 
 type Id uint64
@@ -35,7 +35,7 @@ type Api interface {
 type Index map[Id]Api
 
 func NewDocument(id Id) Api {
-	now := unixTimestamp(time.Now().Unix())
+	now := unixTimestamp(internal.UnixTimestampNow())
 	return &document{
 		id:       id,
 		recorded: now,

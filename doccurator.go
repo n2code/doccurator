@@ -2,14 +2,14 @@ package doccurator
 
 import (
 	"fmt"
+	"github.com/n2code/doccurator/internal"
+	"github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/library"
 	"github.com/n2code/ndocid"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
-
-	"github.com/n2code/doccurator/internal/document"
-	"github.com/n2code/doccurator/internal/library"
 )
 
 type VerbosityLevel int
@@ -26,8 +26,9 @@ type CreateConfig struct {
 }
 
 type Doccurator interface {
+	GetFreeId() document.Id
 	CommandAddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
-	CommandAddAllUntracked(allowDuplicates bool) (added []document.Id, err error)
+	CommandAddAllUntracked(allowDuplicates bool, generateMissingIds bool) (added []document.Id, err error)
 	CommandStandardizeLocation(id document.Id) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
@@ -88,8 +89,23 @@ func (d *doccurator) RollbackFilesystemChanges() error {
 			return fmt.Errorf("filesystem rollback incomplete: %w", err)
 		}
 	}
+	if len(d.rollbackLog) > 0 { //do not print if rollback is no-op
+		fmt.Fprintln(d.extraOut, "Executed filesystem rollback due to error:")
+	}
 	d.rollbackLog = nil
 	return nil
+}
+
+func (d *doccurator) GetFreeId() document.Id {
+	candidate := internal.UnixTimestampNow()
+	for candidate > 0 {
+		id := document.Id(candidate)
+		if _, exists := d.appLib.GetDocumentById(id); !exists {
+			return id
+		}
+		candidate--
+	}
+	return document.MissingId
 }
 
 func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {

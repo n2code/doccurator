@@ -4,11 +4,11 @@ import (
 	checksum "crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/n2code/doccurator/internal"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
-	"time"
 )
 
 const IdPattern = string(`[2-9]{5}[23456789ABCDEFHIJKLMNOPQRTUVWXYZ]+`)
@@ -121,7 +121,7 @@ func (doc *document) StandardizedFilename() (string, error) {
 }
 
 func (doc *document) updateRecordChangeDate() {
-	doc.changed = unixTimestamp(time.Now().Unix())
+	doc.changed = unixTimestamp(internal.UnixTimestampNow())
 }
 
 func (stored *storedFile) setFromRelativePath(relativePath string) {

@@ -44,7 +44,7 @@ func (d *doccurator) CommandAddSingle(id document.Id, filePath string, allowForD
 	return nil
 }
 
-func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool) (added []document.Id, err error) {
+func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool, generateMissingIds bool) (added []document.Id, err error) {
 	results, noScanErrors := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
@@ -63,8 +63,11 @@ func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool) (added []docum
 	for _, untracked := range untrackedRootRelativePaths {
 		id, nameErr := ExtractIdFromStandardizedFilename(untracked)
 		if nameErr != nil {
-			err = nameErr
-			return
+			if !generateMissingIds {
+				err = nameErr
+				return
+			}
+			id = d.GetFreeId()
 		}
 		err = d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowDuplicates)
 		if err != nil {
@@ -260,9 +263,10 @@ func (d *doccurator) CommandStandardizeLocation(id document.Id) error {
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
 	}
+	oldRelPath := doc.PathRelativeToLibraryRoot()
 	changedName, err, rollback := doc.RenameToStandardNameFormat()
 	if changedName != "" && err == nil {
-		fmt.Fprintf(d.extraOut, "Renamed document %s to %s\n", id, changedName)
+		fmt.Fprintf(d.extraOut, "Renamed document %s (%s) to %s\n", id, oldRelPath, changedName)
 		d.rollbackLog = append(d.rollbackLog, rollback)
 	}
 	return err
