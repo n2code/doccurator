@@ -11,10 +11,8 @@ import (
 	"github.com/n2code/doccurator/internal/output"
 )
 
-func getSkipperForDbAndPointers(libFilePath string) func(path string) (skip bool) {
-	return func(path string) bool {
-		return path == libFilePath || filepath.Base(path) == library.LocatorFileName
-	}
+func (d *doccurator) isLibFilePath(path string) bool {
+	return path == d.libFile
 }
 
 // Records a new document in the library
@@ -45,7 +43,7 @@ func (d *doccurator) CommandAddSingle(id document.Id, filePath string, allowForD
 }
 
 func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool, generateMissingIds bool) (added []document.Id, err error) {
-	results, noScanErrors := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
+	results, noScanErrors := d.appLib.Scan(d.isLibFilePath)
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
 	}
@@ -113,7 +111,7 @@ func (d *doccurator) CommandRetireByPath(path string) error {
 	doc, exists := d.appLib.GetActiveDocumentByPath(absPath)
 	if !exists {
 		if d.appLib.ObsoleteDocumentExistsForPath(absPath) {
-			fmt.Fprintf(d.extraOut, "Already retired: %s\n", doc.PathRelativeToLibraryRoot())
+			fmt.Fprintf(d.extraOut, "Already retired: %s\n", path)
 			return nil //i.e. command was a no-op
 		}
 		return newCommandError(fmt.Sprintf("path to retire not on record: %s", path), nil)
@@ -168,7 +166,7 @@ func (d *doccurator) CommandTree(excludeUnchanged bool) error {
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	var pathsWithErrors []*library.CheckedPath
-	paths, ok := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
+	paths, ok := d.appLib.Scan(d.isLibFilePath)
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
@@ -233,7 +231,7 @@ func (d *doccurator) CommandStatus(paths []string) error {
 			processResult(&result, abs)
 		}
 	} else {
-		results, _ := d.appLib.Scan(getSkipperForDbAndPointers(d.libFile))
+		results, _ := d.appLib.Scan(d.isLibFilePath)
 		for _, result := range results {
 			processResult(&result, filepath.Join(d.appLib.GetRoot(), result.PathRelativeToLibraryRoot()))
 		}

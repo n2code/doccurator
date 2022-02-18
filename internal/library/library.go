@@ -1,6 +1,7 @@
 package library
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -221,7 +222,63 @@ func calculateFileChecksum(path string) (sum [sha256.Size]byte, err error) {
 	return
 }
 
-func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPath, hasNoErrors bool) {
+func (lib *library) loadIgnoreFile(absolutePath string) (err error) {
+	file, openErr := os.Open(absolutePath)
+	if openErr != nil {
+		return openErr
+	}
+	defer file.Close()
+
+	lineScanner := bufio.NewScanner(file) //splits by newline by default
+	var line string
+	lineNumber := 0
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("line %d (%s): %w", lineNumber, line, err)
+		}
+	}()
+
+	for lineScanner.Scan() {
+		line = lineScanner.Text()
+		lineNumber++
+		if len(line) > 0 && !strings.HasPrefix(line, "#") {
+			if strings.HasPrefix(line, "/") {
+				return fmt.Errorf("absolute path given")
+			}
+			nativePath := filepath.FromSlash(line)
+			absoluteIgnored := filepath.Join(filepath.Dir(absolutePath), nativePath)
+			relativeIgnored, relErr := filepath.Rel(lib.rootPath, absoluteIgnored)
+			if relErr != nil {
+				return fmt.Errorf("relativizing failed (%w)", relErr)
+			}
+			if relativeIgnored == "." {
+				return fmt.Errorf("refers to directory itself")
+			}
+			if components := strings.Split(relativeIgnored, string(filepath.Separator)); len(components) == 0 || components[0] == ".." {
+				return fmt.Errorf("path refers to directory above")
+			}
+			lib.ignoredPaths[ignoredLibraryPath{
+				relative:  relativeIgnored,
+				directory: strings.HasSuffix(line, "/"),
+			}] = true
+
+		}
+	}
+	if scanErr := lineScanner.Err(); scanErr != nil {
+		return scanErr
+	}
+	return nil
+}
+
+func (lib *library) isIgnored(absolutePath string, isDir bool) bool {
+	if filepath.Base(absolutePath) == LocatorFileName {
+		return true
+	}
+	relativePath, _ := filepath.Rel(lib.rootPath, absolutePath)
+	return lib.ignoredPaths[ignoredLibraryPath{relative: relativePath, directory: isDir}]
+}
+
+func (lib *library) Scan(additionalSkip func(absolutePath string) bool) (paths []CheckedPath, hasNoErrors bool) {
 	paths = make([]CheckedPath, 0, len(lib.documents))
 	hasNoErrors = true
 
@@ -229,14 +286,35 @@ func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPa
 	movedIds := make(map[document.Id]bool)
 
 	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
-		if skip(absolutePath) {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
 		if walkError != nil {
+			badPath, _ := filepath.Rel(lib.rootPath, absolutePath)
+			paths = append(paths, CheckedPath{
+				libraryPath: badPath,
+				status:      Error,
+				err:         fmt.Errorf("scan aborted: %w", walkError),
+			})
+			hasNoErrors = false
 			return walkError
+		}
+		if d.IsDir() { //attempt loading an ignore file
+			ignoreFileCandidate := filepath.Join(absolutePath, IgnoreFileName)
+			if _, err := os.Stat(ignoreFileCandidate); err == nil {
+				if ignoreErr := lib.loadIgnoreFile(ignoreFileCandidate); ignoreErr != nil {
+					badIgnore, _ := filepath.Rel(lib.rootPath, ignoreFileCandidate)
+					paths = append(paths, CheckedPath{
+						libraryPath: badIgnore,
+						status:      Error,
+						err:         fmt.Errorf("ignore file error: %w", ignoreErr),
+					})
+					hasNoErrors = false
+				}
+			}
+		}
+		if lib.isIgnored(absolutePath, d.IsDir()) || additionalSkip(absolutePath) {
+			if d.IsDir() {
+				return filepath.SkipDir //to prevent descent
+			}
+			return nil //to continue scan with next candidate
 		}
 		if !d.IsDir() {
 			libPath := lib.CheckFilePath(absolutePath)
@@ -251,7 +329,7 @@ func (lib *library) Scan(skip func(absolutePath string) bool) (paths []CheckedPa
 		}
 		return nil
 	}
-	filepath.WalkDir(lib.rootPath, visitor)
+	filepath.WalkDir(lib.rootPath, visitor) //errors are communicated as path
 
 	for _, doc := range lib.documents {
 		if _, alreadyCheckedPath := coveredLibraryPaths[doc.Path()]; !alreadyCheckedPath {

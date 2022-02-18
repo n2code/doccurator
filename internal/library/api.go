@@ -10,6 +10,7 @@ type Document struct {
 }
 
 const LocatorFileName = ".doccurator"
+const IgnoreFileName = ".doccignore"
 
 type PathStatus rune
 
@@ -46,7 +47,7 @@ type Api interface {
 	ObsoleteDocumentExistsForPath(absolutePath string) bool
 	ForgetDocument(Document)
 	CheckFilePath(absolutePath string) CheckedPath
-	Scan(skip func(absoluteFilePath string) bool) (paths []CheckedPath, hasNoErrors bool)
+	Scan(additionalSkip func(absoluteFilePath string) bool) (paths []CheckedPath, hasNoErrors bool)
 	SaveToLocalFile(path string, overwrite bool) error
 	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)
@@ -57,5 +58,8 @@ type Api interface {
 func NewLibrary() Api {
 	return &library{
 		documents:          make(map[document.Id]document.Api),
-		relPathActiveIndex: make(map[string]document.Api)}
+		relPathActiveIndex: make(map[string]document.Api),
+		rootPath:           "", //to be set later
+		ignoredPaths:       make(map[ignoredLibraryPath]bool),
+	}
 }

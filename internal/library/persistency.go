@@ -148,6 +148,7 @@ func (lib *library) LoadFromLocalFile(path string) {
 
 	lib.documents = make(map[document.Id]document.Api)
 	lib.relPathActiveIndex = make(map[string]document.Api)
+	lib.ignoredPaths = make(map[ignoredLibraryPath]bool)
 
 	err = decoder.Decode(&lib)
 	if err != nil {
