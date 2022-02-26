@@ -118,7 +118,7 @@ ActionParamCheck:
 		argumentSpecification = " [FILEPATH...]"
 		switch request.action {
 		case "add":
-			flagSpecification = " [-all-untracked] [-rename] [-force] [-auto-id | -id=...]"
+			flagSpecification = " [-all-untracked] [-rename] [-force] [-abort-on-error] [-auto-id | -id=...]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
 			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
@@ -128,6 +128,7 @@ ActionParamCheck:
 			request.actionFlags["auto-id"] = actionParams.Bool("auto-id", false, "automatically choose free ID based on current time if filename\n"+
 				"is not *standardized* and hence ID cannot be extracted from it")
 			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename")
+			request.actionFlags["abort-on-error"] = actionParams.Bool("abort-on-error", false, "abort if any error occurs, do not skip issues (for -all-untracked only)")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
 				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
 				"FORMAT 1: doccurator add -id 63835AEV9E my_document.pdf\n"+
@@ -268,11 +269,12 @@ func (rq *CliRequest) execute() (execErr error) {
 		case "add":
 			tryRename := *(rq.actionFlags["rename"].(*bool))
 			autoId := *(rq.actionFlags["auto-id"].(*bool))
+			abortOnError := *(rq.actionFlags["abort-on-error"].(*bool))
 			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags["force"].(*bool))
 			var addedIds []document.Id
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
 				var addErr error
-				addedIds, addErr = api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId)
+				addedIds, addErr = api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
 				if addErr != nil {
 					return addErr
 				}

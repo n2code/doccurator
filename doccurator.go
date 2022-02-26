@@ -28,7 +28,7 @@ type CreateConfig struct {
 type Doccurator interface {
 	GetFreeId() document.Id
 	CommandAddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
-	CommandAddAllUntracked(allowDuplicates bool, generateMissingIds bool) (added []document.Id, err error)
+	CommandAddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
 	CommandStandardizeLocation(id document.Id) error
 	CommandUpdateByPath(path string) error
 	CommandRetireByPath(path string) error
@@ -82,15 +82,16 @@ func (d *doccurator) PersistChanges() error {
 }
 
 func (d *doccurator) RollbackFilesystemChanges() error {
-	for i, rollbackStep := range d.rollbackLog {
+	for i := len(d.rollbackLog) - 1; i >= 0; i-- {
+		rollbackStep := d.rollbackLog[i]
 		err := rollbackStep()
 		if err != nil {
-			d.rollbackLog = d.rollbackLog[i:] //drop all up to failing
+			d.rollbackLog = d.rollbackLog[:i+1] //drop all after failing
 			return fmt.Errorf("filesystem rollback incomplete: %w", err)
 		}
 	}
 	if len(d.rollbackLog) > 0 { //do not print if rollback is no-op
-		fmt.Fprintln(d.extraOut, "Executed filesystem rollback due to error:")
+		fmt.Fprintln(d.extraOut, "Executed filesystem rollback")
 	}
 	d.rollbackLog = nil
 	return nil

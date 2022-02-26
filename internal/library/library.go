@@ -34,12 +34,12 @@ func (lib *library) SetDocumentPath(ref Document, absolutePath string) error {
 	if conflicting, pathAlreadyKnown := lib.relPathActiveIndex[newRelativePath]; pathAlreadyKnown && conflicting.Id() != doc.Id() {
 		return fmt.Errorf("document %s already exists for path %s", conflicting.Id(), absolutePath)
 	}
+	if filepath.Base(absolutePath) == LocatorFileName {
+		return fmt.Errorf("locator files must not be added to the library")
+	}
 	if !doc.IsObsolete() {
 		delete(lib.relPathActiveIndex, doc.Path())
 		lib.relPathActiveIndex[newRelativePath] = doc
-	}
-	if filepath.Base(absolutePath) == LocatorFileName {
-		return fmt.Errorf("locator files must not be added to the library")
 	}
 	doc.SetPath(newRelativePath)
 	return nil

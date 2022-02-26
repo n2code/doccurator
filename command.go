@@ -32,17 +32,19 @@ func (d *doccurator) CommandAddSingle(id document.Id, filePath string, allowForD
 	}
 	err = d.appLib.SetDocumentPath(doc, absoluteFilePath)
 	if err != nil {
+		d.appLib.ForgetDocument(doc)
 		return newCommandError("document creation impossible", err)
 	}
 	_, err = d.appLib.UpdateDocumentFromFile(doc)
 	if err != nil {
+		d.appLib.ForgetDocument(doc)
 		return newCommandError("document creation failed", err)
 	}
 	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
 	return nil
 }
 
-func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool, generateMissingIds bool) (added []document.Id, err error) {
+func (d *doccurator) CommandAddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
 	results, noScanErrors := d.appLib.Scan(d.isLibFilePath)
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
@@ -54,6 +56,10 @@ func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool, generateMissin
 		case library.Untracked:
 			untrackedRootRelativePaths = append(untrackedRootRelativePaths, checked.PathRelativeToLibraryRoot())
 		case library.Error:
+			if abortOnError {
+				err = fmt.Errorf("encountered uncheckable (%s): %w", checked.PathRelativeToLibraryRoot(), checked.GetError())
+				return
+			}
 			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
 		}
 	}
@@ -62,14 +68,23 @@ func (d *doccurator) CommandAddAllUntracked(allowDuplicates bool, generateMissin
 		id, nameErr := ExtractIdFromStandardizedFilename(untracked)
 		if nameErr != nil {
 			if !generateMissingIds {
-				err = nameErr
-				return
+				if abortOnError {
+					err = fmt.Errorf("encountered bad path (%s): %w", untracked, nameErr)
+					return
+				}
+				fmt.Fprintf(d.extraOut, "Skipping bad path (%s): %s\n", untracked, nameErr)
+				continue
 			}
 			id = d.GetFreeId()
 		}
-		err = d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowDuplicates)
-		if err != nil {
-			return
+		addErr := d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowForDuplicateMovedAndObsolete)
+		if addErr != nil {
+			if abortOnError {
+				err = addErr
+				return
+			}
+			fmt.Fprintf(d.extraOut, "Skipping failure (%s): %s\n", untracked, addErr)
+			continue
 		}
 		added = append(added, id)
 	}
