@@ -48,8 +48,8 @@ var pathStatusText = map[PathStatus]string{
 	Obsolete:  "Obsolete",
 }
 
-func (status PathStatus) String() string {
-	return pathStatusText[status]
+func (s PathStatus) String() string {
+	return pathStatusText[s]
 }
 
 func (libDoc Document) String() string {

@@ -185,13 +185,13 @@ func (d *doccurator) ForgetById(id document.Id, forceRetire bool) error {
 
 // Outputs all library records
 func (d *doccurator) PrintAllRecords(excludeRetired bool) {
-	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
+	fmt.Fprintf(d.extraOut, "Library: %s\n\n\n", d.appLib.GetRoot())
 	count := 0
 	d.appLib.VisitAllRecords(func(doc library.Document) {
 		if doc.IsObsolete() && excludeRetired {
 			return
 		}
-		fmt.Fprintf(d.out, "%s\n", doc)
+		fmt.Fprintf(d.out, "%s\n\n", doc)
 		count++
 	})
 	if count == 0 {
@@ -228,7 +228,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 	//TODO [FEATURE]: coloring
 	if !ok {
 		var msg strings.Builder
-		fmt.Fprintf(&msg, "Scanning error%s occurred:\n", output.PluralS(len(pathsWithErrors) != 1))
+		fmt.Fprintf(&msg, "Scanning %s occurred:\n", output.Plural(len(pathsWithErrors) != 1, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
 			fmt.Fprintf(&msg, "@%s: %s\n", errorPath.PathRelativeToLibraryRoot(), errorPath.GetError())
 		}
@@ -244,7 +244,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	buckets := make(map[library.PathStatus][]string)
 
 	if len(paths) > 0 {
-		fmt.Fprintf(d.extraOut, "Status of %d specified path%s:\n", len(paths), output.PluralS(paths))
+		fmt.Fprintf(d.extraOut, "Status of %d specified %s:\n", len(paths), output.Plural(paths, "path", "paths"))
 	}
 	fmt.Fprintln(d.out)
 
@@ -283,14 +283,14 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		if !status.RepresentsChange() && len(paths) == 0 {
 			continue //to hide unchanged files when no explicit paths are queried
 		}
-		fmt.Fprintf(d.out, " %s (%d file%s)\n", status, len(bucket), output.PluralS(bucket))
+		fmt.Fprintf(d.out, " %s (%d %s)\n", status, len(bucket), output.Plural(bucket, "file", "files"))
 		for _, path := range bucket {
 			fmt.Fprintf(d.out, "  [%s] %s\n", string(rune(status)), path)
 		}
 		fmt.Fprintln(d.out)
 	}
 	if errorCount > 0 {
-		fmt.Fprintf(d.out, " Error%s occurred:\n%s\n", output.PluralS(errorCount != 1), errorMessages.String()) //not on stderr because it was explicitly queried
+		fmt.Fprintf(d.out, " %s occurred:\n%s\n", output.Plural(errorCount != 1, "Error", "Errors"), errorMessages.String()) //not on stderr because it was explicitly queried
 	} else if hasChanges == false && len(paths) == 0 {
 		fmt.Fprint(d.out, " Library in sync with all records.\n\n")
 	}
@@ -309,6 +309,28 @@ func (d *doccurator) StandardizeLocation(id document.Id) error {
 		d.rollbackLog = append(d.rollbackLog, rollback)
 	}
 	return err
+}
+
+func (d *doccurator) SearchByIdPart(part string) (results []SearchResult) {
+	partInUpper := strings.ToUpper(part)
+	d.appLib.VisitAllRecords(func(doc library.Document) {
+		if id := doc.Id(); strings.Contains(id.String(), partInUpper) {
+			absolute := filepath.Join(d.appLib.GetRoot(), doc.PathRelativeToLibraryRoot())
+			relative := mustRelFilepathToWorkingDir(absolute)
+			results = append(results, SearchResult{
+				Id:           id,
+				RelativePath: relative,
+				StatusText:   d.appLib.CheckFilePath(absolute, d.optimizedFsAccess).Status().String()})
+		}
+	})
+	return
+}
+
+func (d *doccurator) PrintRecord(id document.Id) {
+	doc, exists := d.appLib.GetDocumentById(id)
+	if exists {
+		fmt.Fprintln(d.out, doc)
+	}
 }
 
 // Auto pilot adds untracked paths, updates touched & moved paths, and removes duplicates.

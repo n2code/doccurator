@@ -1,15 +1,15 @@
 package output
 
-func PluralS(countable interface{}) string {
+func Plural(countable interface{}, singular string, plural string) string {
 	switch c := countable.(type) {
 	case []string:
 		if len(c) != 1 {
-			return "s"
+			return plural
 		}
 	case bool:
 		if c {
-			return "s"
+			return plural
 		}
 	}
-	return ""
+	return singular
 }

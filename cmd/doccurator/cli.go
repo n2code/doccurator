@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/n2code/doccurator"
 	"github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
 	"io"
 	"os"
@@ -30,7 +31,7 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 Usage:
    doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
 
- ACTIONs:  init  status  add  update  retire  forget  tree  dump
+ ACTIONs:  init  status  add  update  search  retire  forget  tree  dump
 
 `))
 		flags.PrintDefaults()
@@ -233,6 +234,15 @@ ActionParamCheck:
 			err = errors.New("bad number of arguments, exactly one expected")
 			break ActionParamCheck
 		}
+	case "search":
+		argumentSpecification = " ID"
+		actionDescription += "Search for documents with the given ID or substring of an ID"
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		if actionParams.NArg() != 1 {
+			err = errors.New("bad number of arguments, exactly one expected")
+			break ActionParamCheck
+		}
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, request.action)
 	}
@@ -367,6 +377,16 @@ func (rq *CliRequest) execute() (execErr error) {
 			if err = api.PrintStatus(rq.actionArgs); err != nil {
 				return err
 			}
+		case "search":
+			matches := api.SearchByIdPart(rq.actionArgs[0])
+			if len(matches) == 0 && !rq.quiet {
+				return fmt.Errorf("no matches found for ID [part]: %s", rq.actionArgs[0])
+			}
+			for _, match := range matches {
+				fmt.Fprintf(os.Stdout, "\n@%s (%s)\n", match.RelativePath, match.StatusText)
+				api.PrintRecord(match.Id)
+			}
+			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", len(matches), output.Plural(len(matches) > 1, "match", "matches"))
 		default:
 			panic("bad action")
 		}

@@ -33,6 +33,12 @@ type CreateConfig struct {
 	Optimization OptimizationLevel
 }
 
+type SearchResult struct {
+	Id           document.Id
+	RelativePath string
+	StatusText   string
+}
+
 type Doccurator interface {
 	GetFreeId() document.Id
 	Add(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
@@ -40,9 +46,11 @@ type Doccurator interface {
 	AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
 	StandardizeLocation(id document.Id) error
 	UpdateByPath(path string) error
+	SearchByIdPart(part string) []SearchResult
 	RetireByPath(path string) error
 	ForgetById(id document.Id, forceRetire bool) error
 	ForgetAllObsolete()
+	PrintRecord(id document.Id)
 	PrintAllRecords(excludeRetired bool)
 	PrintTree(excludeUnchanged bool) error
 	PrintStatus(paths []string) error

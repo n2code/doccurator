@@ -390,6 +390,11 @@ func (lib *library) VisitAllRecords(visitor func(Document)) {
 	}
 }
 
+func (libDoc *Document) Id() document.Id {
+	doc := libDoc.library.documents[libDoc.id] //existence probe, caller error if any is nil
+	return doc.Id()
+}
+
 func (libDoc *Document) IsObsolete() bool {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	return doc.IsObsolete()
