@@ -16,7 +16,7 @@ func (d *doccurator) isLibFilePath(path string) bool {
 }
 
 // Records a new document in the library
-func (d *doccurator) CommandAddSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
+func (d *doccurator) AddSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
 	absoluteFilePath := mustAbsFilepath(filePath)
 	if !allowForDuplicateMovedAndObsolete {
 		switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
@@ -44,7 +44,7 @@ func (d *doccurator) CommandAddSingle(id document.Id, filePath string, allowForD
 	return nil
 }
 
-func (d *doccurator) CommandAddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
+func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
 	results, noScanErrors := d.appLib.Scan(d.isLibFilePath)
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
@@ -77,7 +77,7 @@ func (d *doccurator) CommandAddAllUntracked(allowForDuplicateMovedAndObsolete bo
 			}
 			id = d.GetFreeId()
 		}
-		addErr := d.CommandAddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowForDuplicateMovedAndObsolete)
+		addErr := d.AddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowForDuplicateMovedAndObsolete)
 		if addErr != nil {
 			if abortOnError {
 				err = addErr
@@ -92,7 +92,7 @@ func (d *doccurator) CommandAddAllUntracked(allowForDuplicateMovedAndObsolete bo
 }
 
 // Updates an existing document in the library
-func (d *doccurator) CommandUpdateByPath(filePath string) error {
+func (d *doccurator) UpdateByPath(filePath string) error {
 	absoluteFilePath := mustAbsFilepath(filePath)
 	switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
 	case library.Moved:
@@ -121,7 +121,7 @@ func (d *doccurator) CommandUpdateByPath(filePath string) error {
 }
 
 // Marks an existing document as obsolete
-func (d *doccurator) CommandRetireByPath(path string) error {
+func (d *doccurator) RetireByPath(path string) error {
 	absPath := mustAbsFilepath(path)
 	doc, exists := d.appLib.GetActiveDocumentByPath(absPath)
 	if !exists {
@@ -136,7 +136,7 @@ func (d *doccurator) CommandRetireByPath(path string) error {
 }
 
 // Removes all retired documents from the library completely
-func (d *doccurator) CommandForgetAllObsolete() {
+func (d *doccurator) ForgetAllObsolete() {
 	d.appLib.VisitAllRecords(func(doc library.Document) {
 		if doc.IsObsolete() {
 			d.appLib.ForgetDocument(doc)
@@ -145,7 +145,7 @@ func (d *doccurator) CommandForgetAllObsolete() {
 }
 
 // Removes a retired document from the library completely
-func (d *doccurator) CommandForgetById(id document.Id) error {
+func (d *doccurator) ForgetById(id document.Id) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
@@ -158,7 +158,7 @@ func (d *doccurator) CommandForgetById(id document.Id) error {
 }
 
 // Outputs all library records
-func (d *doccurator) CommandDump(excludeRetired bool) {
+func (d *doccurator) PrintAllRecords(excludeRetired bool) {
 	fmt.Fprintf(d.extraOut, "Library: %s\n\n", d.appLib.GetRoot())
 	count := 0
 	d.appLib.VisitAllRecords(func(doc library.Document) {
@@ -177,7 +177,7 @@ func (d *doccurator) CommandDump(excludeRetired bool) {
 
 // Calculates states for all present and recorded paths.
 //  Tracked and removed paths are listed depending on the flag.
-func (d *doccurator) CommandTree(excludeUnchanged bool) error {
+func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	var pathsWithErrors []*library.CheckedPath
@@ -213,7 +213,7 @@ func (d *doccurator) CommandTree(excludeUnchanged bool) error {
 }
 
 // Queries the given [possibly relative] paths about their affiliation and state with respect to the library
-func (d *doccurator) CommandStatus(paths []string) error {
+func (d *doccurator) PrintStatus(paths []string) error {
 	//TODO [FEATURE]: pair up missing+moved and hide missing
 	buckets := make(map[library.PathStatus][]string)
 
@@ -271,7 +271,7 @@ func (d *doccurator) CommandStatus(paths []string) error {
 	return nil
 }
 
-func (d *doccurator) CommandStandardizeLocation(id document.Id) error {
+func (d *doccurator) StandardizeLocation(id document.Id) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
@@ -289,7 +289,7 @@ func (d *doccurator) CommandStandardizeLocation(id document.Id) error {
 //  Modified and missing are not changed but reported.
 //  If additional flags are passed modified paths are updated and/or missing paths removed.
 //  Unknown paths are reported.
-func (d *doccurator) CommandAuto() error {
+func (d *doccurator) ExecuteAutoPilot() error {
 
 	return nil
 }

@@ -261,9 +261,9 @@ func (rq *CliRequest) execute() (execErr error) {
 
 		switch rq.action {
 		case "dump":
-			api.CommandDump(*(rq.actionFlags["exclude-retired"].(*bool)))
+			api.PrintAllRecords(*(rq.actionFlags["exclude-retired"].(*bool)))
 		case "tree":
-			if err := api.CommandTree(*(rq.actionFlags["diff"].(*bool))); err != nil {
+			if err := api.PrintTree(*(rq.actionFlags["diff"].(*bool))); err != nil {
 				return err
 			}
 		case "add":
@@ -274,7 +274,7 @@ func (rq *CliRequest) execute() (execErr error) {
 			var addedIds []document.Id
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
 				var addErr error
-				addedIds, addErr = api.CommandAddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
+				addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
 				if addErr != nil {
 					return addErr
 				}
@@ -288,7 +288,7 @@ func (rq *CliRequest) execute() (execErr error) {
 						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
 					}
 					newId := document.Id(numId)
-					err = api.CommandAddSingle(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete)
+					err = api.AddSingle(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete)
 					if err != nil {
 						return err
 					}
@@ -302,7 +302,7 @@ func (rq *CliRequest) execute() (execErr error) {
 							}
 							newId = api.GetFreeId()
 						}
-						err = api.CommandAddSingle(newId, target, forceIfDuplicateMovedOrObsolete)
+						err = api.AddSingle(newId, target, forceIfDuplicateMovedOrObsolete)
 						if err != nil {
 							return err
 						}
@@ -312,7 +312,7 @@ func (rq *CliRequest) execute() (execErr error) {
 			}
 			if tryRename {
 				for _, addedId := range addedIds {
-					err := api.CommandStandardizeLocation(addedId)
+					err := api.StandardizeLocation(addedId)
 					if err != nil {
 						return fmt.Errorf(`renaming file of document %s failed: %w`, addedId, err)
 					}
@@ -324,7 +324,7 @@ func (rq *CliRequest) execute() (execErr error) {
 			}
 		case "update":
 			for _, target := range rq.actionArgs {
-				err = api.CommandUpdateByPath(target)
+				err = api.UpdateByPath(target)
 				if err != nil {
 					return err
 				}
@@ -335,7 +335,7 @@ func (rq *CliRequest) execute() (execErr error) {
 			}
 		case "retire":
 			for _, target := range rq.actionArgs {
-				err = api.CommandRetireByPath(target)
+				err = api.RetireByPath(target)
 				if err != nil {
 					return err
 				}
@@ -346,7 +346,7 @@ func (rq *CliRequest) execute() (execErr error) {
 			}
 		case "forget":
 			if *(rq.actionFlags["all-retired"].(*bool)) {
-				api.CommandForgetAllObsolete()
+				api.ForgetAllObsolete()
 			} else {
 				for _, target := range rq.actionArgs {
 					numId, err, complete := ndocid.Decode(target)
@@ -356,7 +356,7 @@ func (rq *CliRequest) execute() (execErr error) {
 					if !complete {
 						return fmt.Errorf(`incomplete ID "%s"`, target)
 					}
-					err = api.CommandForgetById(document.Id(numId))
+					err = api.ForgetById(document.Id(numId))
 					if err != nil {
 						return err
 					}
@@ -367,7 +367,7 @@ func (rq *CliRequest) execute() (execErr error) {
 				return err
 			}
 		case "status":
-			if err = api.CommandStatus(rq.actionArgs); err != nil {
+			if err = api.PrintStatus(rq.actionArgs); err != nil {
 				return err
 			}
 		default:

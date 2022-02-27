@@ -27,17 +27,17 @@ type CreateConfig struct {
 
 type Doccurator interface {
 	GetFreeId() document.Id
-	CommandAddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
-	CommandAddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
-	CommandStandardizeLocation(id document.Id) error
-	CommandUpdateByPath(path string) error
-	CommandRetireByPath(path string) error
-	CommandForgetById(id document.Id) error
-	CommandForgetAllObsolete()
-	CommandDump(excludeRetired bool)
-	CommandTree(excludeUnchanged bool) error
-	CommandStatus(paths []string) error
-	CommandAuto() error
+	AddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
+	AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
+	StandardizeLocation(id document.Id) error
+	UpdateByPath(path string) error
+	RetireByPath(path string) error
+	ForgetById(id document.Id) error
+	ForgetAllObsolete()
+	PrintAllRecords(excludeRetired bool)
+	PrintTree(excludeUnchanged bool) error
+	PrintStatus(paths []string) error
+	ExecuteAutoPilot() error
 	PersistChanges() error
 	RollbackFilesystemChanges() error
 }
