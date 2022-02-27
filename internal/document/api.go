@@ -27,7 +27,7 @@ type Api interface {
 	SetPath(relativePath string)
 	StandardizedFilename() (string, error)
 	UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error)
-	CompareToFileOnStorage(libraryRoot string) TrackedFileStatus
+	CompareToFileOnStorage(libraryRoot string, skipReadOnSizeMatch bool) TrackedFileStatus
 	MatchesChecksum(sha256 [checksum.Size]byte) bool
 	String() string
 }

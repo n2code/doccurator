@@ -15,14 +15,22 @@ import (
 type VerbosityLevel int
 
 const (
-	Default VerbosityLevel = iota
+	DefaultVerbosity VerbosityLevel = iota
 	VerboseMode
 	QuietMode
 )
 
+type OptimizationLevel int
+
+const (
+	DefaultOptimizations OptimizationLevel = iota
+	ThoroughMode
+)
+
 // zero value is a sensible default
 type CreateConfig struct {
-	Verbosity VerbosityLevel
+	Verbosity    VerbosityLevel
+	Optimization OptimizationLevel
 }
 
 type Doccurator interface {
@@ -44,12 +52,13 @@ type Doccurator interface {
 }
 
 type doccurator struct {
-	appLib      library.Api
-	rollbackLog []func() error
-	libFile     string    //absolute, system-native path
-	out         io.Writer //essential output (i.e. requested information)
-	extraOut    io.Writer //more output for convenience (repeats context)
-	verboseOut  io.Writer //most output, talkative
+	appLib            library.Api
+	rollbackLog       []func() error
+	libFile           string    //absolute, system-native path
+	out               io.Writer //essential output (i.e. requested information)
+	extraOut          io.Writer //more output for convenience (repeats context)
+	verboseOut        io.Writer //most output, talkative
+	optimizedFsAccess bool
 }
 
 //represents file.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
@@ -124,14 +133,17 @@ func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {
 	return document.Id(numId), nil
 }
 
-func makeDoccurator(config CreateConfig) (docc *doccurator) {
-	docc = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard}
+func makeDoccurator(config CreateConfig) (instance *doccurator) {
+	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard}
 	switch config.Verbosity {
 	case VerboseMode:
-		docc.verboseOut = os.Stdout
+		instance.verboseOut = os.Stdout
 		fallthrough
-	case Default:
-		docc.extraOut = os.Stdout
+	case DefaultVerbosity:
+		instance.extraOut = os.Stdout
+	}
+	if config.Optimization == DefaultOptimizations {
+		instance.optimizedFsAccess = true
 	}
 	return
 }

@@ -449,7 +449,7 @@ func TestPathChecking(t *testing.T) {
 
 			//WHEN
 			for _, subject := range files {
-				checkResult := lib.CheckFilePath(fullFilePath(subject))
+				checkResult := lib.CheckFilePath(fullFilePath(subject), false)
 				//THEN
 				if checkResult.status != subject.expectedStatus {
 					Test.Errorf("expected status %s for %s but got %s", subject.expectedStatus, subject.path, checkResult.status)
@@ -644,7 +644,7 @@ func TestNameStandardization(t *testing.T) {
 	if doc.PathRelativeToLibraryRoot() != newFilename {
 		t.Fatal("document not renamed in library database")
 	}
-	if lib.CheckFilePath(newPath).Status() != Tracked {
+	if lib.CheckFilePath(newPath, false).Status() != Tracked {
 		t.Fatal("status of new path not as expected")
 	}
 }

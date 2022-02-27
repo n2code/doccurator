@@ -46,8 +46,8 @@ type Api interface {
 	MarkDocumentAsObsolete(Document)
 	ObsoleteDocumentExistsForPath(absolutePath string) bool
 	ForgetDocument(Document)
-	CheckFilePath(absolutePath string) CheckedPath
-	Scan(additionalSkip func(absoluteFilePath string) bool) (paths []CheckedPath, hasNoErrors bool)
+	CheckFilePath(absolutePath string, skipReadOnSizeMatch bool) CheckedPath
+	Scan(additionalSkip func(absoluteFilePath string) bool, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool)
 	SaveToLocalFile(path string, overwrite bool) error
 	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)

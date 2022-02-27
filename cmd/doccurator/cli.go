@@ -15,6 +15,7 @@ import (
 type CliRequest struct {
 	verbose     bool
 	quiet       bool
+	thorough    bool
 	action      string
 	actionFlags map[string]interface{}
 	actionArgs  []string
@@ -27,7 +28,7 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
 Usage:
-   doccurator [-v|-q|-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  retire  forget  tree  dump
 
@@ -47,6 +48,7 @@ Usage:
 	flags.BoolVar(&request.verbose, "v", false, "Output more details on what is done (verbose mode)")
 	flags.BoolVar(&request.quiet, "q", false, "Output as little as possible, i.e. only requested information (quiet mode)")
 	flags.BoolVar(&generalHelpRequested, "h", false, "Display general usage help")
+	flags.BoolVar(&request.thorough, "t", false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files whose modification time is unchanged are not read.")
 
 	var err error
 	defer func() {
@@ -244,6 +246,9 @@ func (rq *CliRequest) execute() (execErr error) {
 	}
 	if rq.quiet {
 		config.Verbosity = doccurator.QuietMode
+	}
+	if rq.thorough {
+		config.Optimization = doccurator.ThoroughMode
 	}
 
 	if rq.action == "init" {

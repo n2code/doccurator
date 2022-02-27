@@ -24,7 +24,7 @@ func (d *doccurator) Add(id document.Id, filePath string, allowForDuplicateMoved
 func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error { //TODO switch signature to command error
 	absoluteFilePath := mustAbsFilepath(filePath)
 	if !allowForDuplicateMovedAndObsolete {
-		switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
+		switch check := d.appLib.CheckFilePath(absoluteFilePath, false); check.Status() { //check on add must be accurate hence no performance optimization
 		case library.Moved:
 			return newCommandError(fmt.Sprintf("document creation prevented: use update to accept move (%s)", filePath), nil)
 		case library.Duplicate, library.Obsolete:
@@ -91,7 +91,7 @@ func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndOb
 }
 
 func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
-	results, noScanErrors := d.appLib.Scan(d.isLibFilePath)
+	results, noScanErrors := d.appLib.Scan(d.isLibFilePath, true) //read can be skipped because it does not affect correct detection of "untracked" status
 	if !noScanErrors {
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
 	}
@@ -117,7 +117,7 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 // Updates an existing document in the library
 func (d *doccurator) UpdateByPath(filePath string) error {
 	absoluteFilePath := mustAbsFilepath(filePath)
-	switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
+	switch check := d.appLib.CheckFilePath(absoluteFilePath, false); check.Status() { //check on update must be accurate hence no performance optimization
 	case library.Moved:
 		err := d.appLib.SetDocumentPath(check.ReferencedDocument(), absoluteFilePath)
 		AssertNoError(err, "path already checked to be inside library and moved implies no conflicting record")
@@ -207,7 +207,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	var pathsWithErrors []*library.CheckedPath
-	paths, ok := d.appLib.Scan(d.isLibFilePath)
+	paths, ok := d.appLib.Scan(d.isLibFilePath, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
@@ -268,11 +268,11 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	if len(paths) > 0 {
 		for _, path := range paths {
 			abs := mustAbsFilepath(path)
-			result := d.appLib.CheckFilePath(abs)
+			result := d.appLib.CheckFilePath(abs, false) //explicit status query must not sacrifice correctness for performance
 			processResult(&result, abs)
 		}
 	} else {
-		results, _ := d.appLib.Scan(d.isLibFilePath)
+		results, _ := d.appLib.Scan(d.isLibFilePath, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 		for _, result := range results {
 			processResult(&result, filepath.Join(d.appLib.GetRoot(), result.PathRelativeToLibraryRoot()))
 		}

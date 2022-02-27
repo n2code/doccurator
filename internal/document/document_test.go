@@ -129,20 +129,20 @@ func TestFileStatusVerification(t *testing.T) {
 		t.Fatal("error on updating from existing file")
 	}
 
-	if doc.CompareToFileOnStorage(libRootDir) != UnmodifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir, false) != UnmodifiedFile {
 		t.Fatal("file not considered unmodified")
 	}
 
 	os.Chmod(sourceFilePath, 0o333)
 
-	if doc.CompareToFileOnStorage(libRootDir) != FileAccessError { //because file cannot be read
+	if doc.CompareToFileOnStorage(libRootDir, false) != FileAccessError { //because file cannot be read
 		t.Fatal("error expected if file unreadable")
 	}
 
 	os.Chmod(sourceFilePath, 0o777)
 	os.Chmod(libRootDir, 0o666)
 
-	if doc.CompareToFileOnStorage(libRootDir) != FileAccessError { //because stat does not work due to directory permissions
+	if doc.CompareToFileOnStorage(libRootDir, false) != FileAccessError { //because stat does not work due to directory permissions
 		t.Fatal("error expected if file un-stat-able")
 	}
 
@@ -151,50 +151,50 @@ func TestFileStatusVerification(t *testing.T) {
 	correctTimestamp := doc.(*document).localStorage.lastModified
 	doc.(*document).localStorage.lastModified--
 
-	if doc.CompareToFileOnStorage(libRootDir) != TouchedFile {
+	if doc.CompareToFileOnStorage(libRootDir, false) != TouchedFile {
 		t.Fatal("file not considered touched")
 	}
 
 	doc.(*document).localStorage.lastModified = correctTimestamp
 	os.WriteFile(sourceFilePath, []byte("B"), fs.ModePerm)
 
-	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir, false) != ModifiedFile {
 		t.Fatal("file not considered modified")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("CCC"), fs.ModePerm)
 
-	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir, false) != ModifiedFile {
 		t.Fatal("file not considered modified")
 	}
 
 	os.Remove(sourceFilePath)
 
-	if doc.CompareToFileOnStorage(libRootDir) != NoFileFound {
+	if doc.CompareToFileOnStorage(libRootDir, false) != NoFileFound {
 		t.Fatal("deleted file not considered not-found")
 	}
 
 	doc.DeclareObsolete()
 
-	if doc.CompareToFileOnStorage(libRootDir) != NoFileFound {
+	if doc.CompareToFileOnStorage(libRootDir, false) != NoFileFound {
 		t.Fatal("obsolete file not considered not-found")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("AAA"), fs.ModePerm) //content of obsoleted record
 
-	if doc.CompareToFileOnStorage(libRootDir) != UnmodifiedFile { //relies on execution of test within one second (i.e. granularity of modification timestamp)
+	if doc.CompareToFileOnStorage(libRootDir, false) != UnmodifiedFile { //relies on execution of test within one second (i.e. granularity of modification timestamp)
 		t.Fatal("zombie file not considered unmodified")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("BOGUS"), fs.ModePerm) //content does not match obsoleted record
 
-	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir, false) != ModifiedFile {
 		t.Fatal("unexpected file not considered modified")
 	}
 
 	os.WriteFile(sourceFilePath, []byte("123"), fs.ModePerm) //equal-length content does not match obsoleted record
 
-	if doc.CompareToFileOnStorage(libRootDir) != ModifiedFile {
+	if doc.CompareToFileOnStorage(libRootDir, false) != ModifiedFile {
 		t.Fatal("unexpected equal-length file not considered modified")
 	}
 }

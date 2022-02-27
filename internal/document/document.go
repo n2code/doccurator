@@ -67,7 +67,7 @@ func (doc *document) UpdateFromFileOnStorage(libraryRoot string) (changed bool, 
 }
 
 //Calculates file status using the recorded document path and the library root (relative/absolute)
-func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatus {
+func (doc *document) CompareToFileOnStorage(libraryRoot string, skipReadOnSizeMatch bool) TrackedFileStatus {
 	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary())
 
 	stat, err := os.Stat(path)
@@ -81,17 +81,27 @@ func (doc *document) CompareToFileOnStorage(libraryRoot string) TrackedFileStatu
 	if stat.Size() != doc.contentMetadata.size {
 		return ModifiedFile
 	}
-	//TODO [FEATURE]: introduce switch which skips the full read at this point for better performance
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return FileAccessError
-	}
-	if checksum.Sum256(content) != doc.contentMetadata.sha256Hash {
-		return ModifiedFile
+
+	if !skipReadOnSizeMatch {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return FileAccessError
+		}
+		if checksum.Sum256(content) != doc.contentMetadata.sha256Hash {
+			return ModifiedFile
+		}
 	}
 
 	if unixTimestamp(stat.ModTime().Unix()) != doc.localStorage.lastModified {
-		//TODO [FEATURE]: on performance optimization do a full read if last modified differs
+		if skipReadOnSizeMatch {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return FileAccessError
+			}
+			if checksum.Sum256(content) != doc.contentMetadata.sha256Hash {
+				return ModifiedFile
+			}
+		}
 		return TouchedFile
 	}
 

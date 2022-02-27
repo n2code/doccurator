@@ -103,7 +103,7 @@ func (lib *library) ForgetDocument(ref Document) {
 }
 
 //deals with all combinations of the given path being on record and/or [not] existing in reality.
-func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
+func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool) (result CheckedPath) {
 	result.status = Untracked
 
 	defer func() {
@@ -120,7 +120,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 	}
 
 	if doc, isOnActiveRecord := lib.relPathActiveIndex[result.libraryPath]; isOnActiveRecord {
-		switch status := doc.CompareToFileOnStorage(lib.rootPath); status {
+		switch status := doc.CompareToFileOnStorage(lib.rootPath, skipReadOnSizeMatch); status {
 		case document.UnmodifiedFile:
 			result.status = Tracked
 		case document.TouchedFile:
@@ -175,7 +175,7 @@ func (lib *library) CheckFilePath(absolutePath string) (result CheckedPath) {
 				foundMatchingObsolete = true
 				continue
 			}
-			statusOfContentMatch := doc.CompareToFileOnStorage(lib.rootPath)
+			statusOfContentMatch := doc.CompareToFileOnStorage(lib.rootPath, skipReadOnSizeMatch)
 			switch statusOfContentMatch {
 			case document.UnmodifiedFile, document.TouchedFile:
 				foundMatchingActive = true
@@ -278,7 +278,7 @@ func (lib *library) isIgnored(absolutePath string, isDir bool) bool {
 	return lib.ignoredPaths[ignoredLibraryPath{relative: relativePath, directory: isDir}]
 }
 
-func (lib *library) Scan(additionalSkip func(absolutePath string) bool) (paths []CheckedPath, hasNoErrors bool) {
+func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool) {
 	paths = make([]CheckedPath, 0, len(lib.documents))
 	hasNoErrors = true
 
@@ -317,7 +317,7 @@ func (lib *library) Scan(additionalSkip func(absolutePath string) bool) (paths [
 			return nil //to continue scan with next candidate
 		}
 		if !d.IsDir() {
-			libPath := lib.CheckFilePath(absolutePath)
+			libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
 			paths = append(paths, libPath)
 			coveredLibraryPaths[libPath.libraryPath] = true
 			switch libPath.status {
@@ -335,7 +335,7 @@ func (lib *library) Scan(additionalSkip func(absolutePath string) bool) (paths [
 		if _, alreadyCheckedPath := coveredLibraryPaths[doc.Path()]; !alreadyCheckedPath {
 			if _, alreadyCoveredId := movedIds[doc.Id()]; !alreadyCoveredId {
 				absolutePath := lib.getAbsolutePathOfDocument(doc)
-				libPath := lib.CheckFilePath(absolutePath)
+				libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
 				paths = append(paths, libPath)
 			}
 		}

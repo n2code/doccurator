@@ -40,12 +40,14 @@ as relative arguments and detect automatically which library (root folder) they'
 $ doccurator -h
 
 Usage:
-   doccurator [-v|-q|-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  retire  forget  tree  dump
 
   -h	Display general usage help
   -q	Output as little as possible, i.e. only requested information (quiet mode)
+  -t	Do not apply optimizations (thorough mode), for example:
+    	  Unless flag is set files whose modification time is unchanged are not read.
   -v	Output more details on what is done (verbose mode)
 
  FLAG(s) and TARGET(s) are action-specific.
