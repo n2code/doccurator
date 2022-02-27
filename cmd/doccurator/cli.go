@@ -128,7 +128,7 @@ ActionParamCheck:
 			request.actionFlags["auto-id"] = actionParams.Bool("auto-id", false, "automatically choose free ID based on current time if filename\n"+
 				"is not *standardized* and hence ID cannot be extracted from it")
 			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename")
-			request.actionFlags["abort-on-error"] = actionParams.Bool("abort-on-error", false, "abort if any error occurs, do not skip issues (for -all-untracked only)")
+			request.actionFlags["abort-on-error"] = actionParams.Bool("abort-on-error", false, "abort if any error occurs, do not skip issues (mass operations)")
 			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
 				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
 				"FORMAT 1: doccurator add -id 63835AEV9E my_document.pdf\n"+
@@ -178,6 +178,12 @@ ActionParamCheck:
 				}
 				if actionParams.NArg() != 1 {
 					err = errors.New(`exactly one FILEPATH must be given when using flag "-id"`)
+					break ActionParamCheck
+				}
+			}
+			if *(request.actionFlags["abort-on-error"].(*bool)) {
+				if actionParams.NArg() == 1 {
+					err = errors.New(`"-abort-on-error" is for mass operations only`)
 					break ActionParamCheck
 				}
 			}
@@ -272,12 +278,9 @@ func (rq *CliRequest) execute() (execErr error) {
 			abortOnError := *(rq.actionFlags["abort-on-error"].(*bool))
 			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags["force"].(*bool))
 			var addedIds []document.Id
+			var addErr error
 			if *(rq.actionFlags["all-untracked"].(*bool)) {
-				var addErr error
 				addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
-				if addErr != nil {
-					return addErr
-				}
 			} else {
 				if explicitId := *(rq.actionFlags["id"].(*string)); explicitId != "" {
 					numId, err, complete := ndocid.Decode(explicitId)
@@ -288,27 +291,16 @@ func (rq *CliRequest) execute() (execErr error) {
 						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
 					}
 					newId := document.Id(numId)
-					err = api.AddSingle(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete)
-					if err != nil {
-						return err
-					}
-					addedIds = append(addedIds, newId)
-				} else {
-					for _, target := range rq.actionArgs {
-						newId, err := doccurator.ExtractIdFromStandardizedFilename(target)
-						if err != nil {
-							if !autoId {
-								return fmt.Errorf(`bad path %s: (%w)`, target, err)
-							}
-							newId = api.GetFreeId()
-						}
-						err = api.AddSingle(newId, target, forceIfDuplicateMovedOrObsolete)
-						if err != nil {
-							return err
-						}
+					addErr = api.Add(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete)
+					if addErr == nil {
 						addedIds = append(addedIds, newId)
 					}
+				} else {
+					addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
 				}
+			}
+			if addErr != nil {
+				return addErr
 			}
 			if tryRename {
 				for _, addedId := range addedIds {
@@ -356,7 +348,7 @@ func (rq *CliRequest) execute() (execErr error) {
 					if !complete {
 						return fmt.Errorf(`incomplete ID "%s"`, target)
 					}
-					err = api.ForgetById(document.Id(numId))
+					err = api.ForgetById(document.Id(numId), false)
 					if err != nil {
 						return err
 					}

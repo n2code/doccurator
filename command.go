@@ -15,8 +15,13 @@ func (d *doccurator) isLibFilePath(path string) bool {
 	return path == d.libFile
 }
 
-// Records a new document in the library
-func (d *doccurator) AddSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
+func (d *doccurator) Add(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
+	return d.addSingle(id, filePath, allowForDuplicateMovedAndObsolete)
+}
+
+// addSingle creates a new document with the given ID and path.
+// On error the library remains clean, i.e. has the same state as before.
+func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error { //TODO switch signature to command error
 	absoluteFilePath := mustAbsFilepath(filePath)
 	if !allowForDuplicateMovedAndObsolete {
 		switch check := d.appLib.CheckFilePath(absoluteFilePath); check.Status() {
@@ -44,6 +49,47 @@ func (d *doccurator) AddSingle(id document.Id, filePath string, allowForDuplicat
 	return nil
 }
 
+// AddMultiple takes multiple paths and adds one document for each. Flags control dealing with irregular situations.
+// If aborted due to an error the library remains clean, i.e. has the same state as before.
+func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
+	defer func() {
+		if err != nil { //abort case only, otherwise errors are printed but not returned
+			//rollback adding of documents
+			for _, id := range added {
+				forgetErr := d.ForgetById(id, true)
+				AssertNoError(forgetErr, "just created document has to exist and is obsolete")
+			}
+			added = nil
+		}
+	}()
+
+	for _, filePath := range filePaths {
+		newId, idErr := ExtractIdFromStandardizedFilename(filePath)
+		if idErr != nil {
+			if !generateMissingIds {
+				if abortOnError {
+					err = fmt.Errorf(`bad path %s: (%w)`, filePath, idErr)
+					return
+				}
+				fmt.Fprintf(d.extraOut, "Skipping bad path (%s): %s\n", filePath, idErr)
+				continue
+			}
+			newId = d.GetFreeId()
+		}
+		addErr := d.addSingle(newId, filePath, allowForDuplicateMovedAndObsolete)
+		if addErr != nil {
+			if abortOnError {
+				err = addErr
+				return
+			}
+			fmt.Fprintf(d.extraOut, "Skipping failure (%s): %s\n", filePath, addErr)
+			continue
+		}
+		added = append(added, newId)
+	}
+	return
+}
+
 func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
 	results, noScanErrors := d.appLib.Scan(d.isLibFilePath)
 	if !noScanErrors {
@@ -64,30 +110,7 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 		}
 	}
 
-	for _, untracked := range untrackedRootRelativePaths {
-		id, nameErr := ExtractIdFromStandardizedFilename(untracked)
-		if nameErr != nil {
-			if !generateMissingIds {
-				if abortOnError {
-					err = fmt.Errorf("encountered bad path (%s): %w", untracked, nameErr)
-					return
-				}
-				fmt.Fprintf(d.extraOut, "Skipping bad path (%s): %s\n", untracked, nameErr)
-				continue
-			}
-			id = d.GetFreeId()
-		}
-		addErr := d.AddSingle(id, filepath.Join(d.appLib.GetRoot(), untracked), allowForDuplicateMovedAndObsolete)
-		if addErr != nil {
-			if abortOnError {
-				err = addErr
-				return
-			}
-			fmt.Fprintf(d.extraOut, "Skipping failure (%s): %s\n", untracked, addErr)
-			continue
-		}
-		added = append(added, id)
-	}
+	added, err = d.AddMultiple(untrackedRootRelativePaths, allowForDuplicateMovedAndObsolete, generateMissingIds, abortOnError)
 	return
 }
 
@@ -145,13 +168,16 @@ func (d *doccurator) ForgetAllObsolete() {
 }
 
 // Removes a retired document from the library completely
-func (d *doccurator) ForgetById(id document.Id) error {
+func (d *doccurator) ForgetById(id document.Id, forceRetire bool) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
 	}
 	if !doc.IsObsolete() {
-		return newCommandError(fmt.Sprintf("document to forget (ID %s) not retired", id), nil)
+		if !forceRetire {
+			return newCommandError(fmt.Sprintf("document to forget (ID %s) not retired", id), nil)
+		}
+		d.appLib.MarkDocumentAsObsolete(doc)
 	}
 	d.appLib.ForgetDocument(doc)
 	return nil

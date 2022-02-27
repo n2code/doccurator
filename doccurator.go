@@ -27,12 +27,13 @@ type CreateConfig struct {
 
 type Doccurator interface {
 	GetFreeId() document.Id
-	AddSingle(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
+	Add(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
+	AddMultiple(paths []string, allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
 	AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
 	StandardizeLocation(id document.Id) error
 	UpdateByPath(path string) error
 	RetireByPath(path string) error
-	ForgetById(id document.Id) error
+	ForgetById(id document.Id, forceRetire bool) error
 	ForgetAllObsolete()
 	PrintAllRecords(excludeRetired bool)
 	PrintTree(excludeUnchanged bool) error
