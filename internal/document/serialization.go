@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/n2code/doccurator/internal/output"
 	"time"
 
 	"github.com/n2code/ndocid"
@@ -23,13 +24,13 @@ func (doc *document) String() string {
 	}
 	return fmt.Sprintf(`Document %s
   Path:     %s
-  Size:     %d bytes
+  Size:     %s
   SHA256:   %s
   Recorded: %s
   Modified: %s%s`,
 		doc.id,
 		doc.localStorage.pathRelativeToLibrary(),
-		doc.contentMetadata.size,
+		output.Filesize(doc.contentMetadata.size),
 		hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
 		formatTime(doc.recorded),
 		formatTime(doc.localStorage.lastModified),
