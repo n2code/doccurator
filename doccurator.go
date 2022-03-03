@@ -39,6 +39,12 @@ type SearchResult struct {
 	StatusText   string
 }
 
+// RequestChoice represents a single-choice decision callback, the first option is considered the default "yes"-like choice.
+// If cleanup is set the implementation is recommended to remove the choice presentation after selection.
+type RequestChoice func(request string, options []string, cleanup bool) (choice string)
+
+const ChoiceAborted = ""
+
 type Doccurator interface {
 	GetFreeId() document.Id
 	Add(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
@@ -54,9 +60,9 @@ type Doccurator interface {
 	PrintAllRecords(excludeRetired bool)
 	PrintTree(excludeUnchanged bool) error
 	PrintStatus(paths []string) error
-	ExecuteAutoPilot() error
+	InteractiveTidy(choice RequestChoice, removeWaste bool) error
 	PersistChanges() error
-	RollbackFilesystemChanges() error
+	RollbackAllFilesystemChanges() error
 }
 
 type doccurator struct {
@@ -66,6 +72,7 @@ type doccurator struct {
 	out               io.Writer //essential output (i.e. requested information)
 	extraOut          io.Writer //more output for convenience (repeats context)
 	verboseOut        io.Writer //most output, talkative
+	errOut            io.Writer //error output
 	optimizedFsAccess bool
 }
 
@@ -99,7 +106,7 @@ func (d *doccurator) PersistChanges() error {
 
 }
 
-func (d *doccurator) RollbackFilesystemChanges() error {
+func (d *doccurator) RollbackAllFilesystemChanges() error {
 	for i := len(d.rollbackLog) - 1; i >= 0; i-- {
 		rollbackStep := d.rollbackLog[i]
 		err := rollbackStep()
@@ -142,7 +149,7 @@ func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {
 }
 
 func makeDoccurator(config CreateConfig) (instance *doccurator) {
-	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard}
+	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard, errOut: os.Stderr}
 	switch config.Verbosity {
 	case VerboseMode:
 		instance.verboseOut = os.Stdout

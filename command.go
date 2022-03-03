@@ -222,13 +222,14 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 			pathsWithErrors = append(pathsWithErrors, &paths[index])
 		}
 	}
+	errorCount := len(pathsWithErrors)
 
 	fmt.Fprint(d.out, tree.Render())
 
 	//TODO [FEATURE]: coloring
 	if !ok {
 		var msg strings.Builder
-		fmt.Fprintf(&msg, "Scanning %s occurred:\n", output.Plural(len(pathsWithErrors) != 1, "error", "errors"))
+		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, output.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
 			fmt.Fprintf(&msg, "@%s: %s\n", errorPath.PathRelativeToLibraryRoot(), errorPath.GetError())
 		}
@@ -251,6 +252,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	var errorMessages strings.Builder
 	errorCount := 0
 	hasChanges := false
+	explicitQueryForPaths := len(paths) > 0
 
 	processResult := func(result *library.CheckedPath, absolutePath string) {
 		switch status := result.Status(); status {
@@ -265,7 +267,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		}
 	}
 
-	if len(paths) > 0 {
+	if explicitQueryForPaths {
 		for _, path := range paths {
 			abs := mustAbsFilepath(path)
 			result := d.appLib.CheckFilePath(abs, false) //explicit status query must not sacrifice correctness for performance
@@ -280,7 +282,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 
 	//TODO [FEATURE]: coloring
 	for status, bucket := range buckets {
-		if !status.RepresentsChange() && len(paths) == 0 {
+		if !status.RepresentsChange() && !explicitQueryForPaths {
 			continue //to hide unchanged files when no explicit paths are queried
 		}
 		fmt.Fprintf(d.out, " %s (%d %s)\n", status, len(bucket), output.Plural(bucket, "file", "files"))
@@ -290,7 +292,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		fmt.Fprintln(d.out)
 	}
 	if errorCount > 0 {
-		fmt.Fprintf(d.out, " %s occurred:\n%s\n", output.Plural(errorCount != 1, "Error", "Errors"), errorMessages.String()) //not on stderr because it was explicitly queried
+		fmt.Fprintf(d.out, " %s occurred:\n%s\n", output.Plural(errorCount, "Error", "Errors"), errorMessages.String()) //not on stderr because it was explicitly queried
 	} else if hasChanges == false && len(paths) == 0 {
 		fmt.Fprint(d.out, " Library in sync with all records.\n\n")
 	}
@@ -333,11 +335,108 @@ func (d *doccurator) PrintRecord(id document.Id) {
 	}
 }
 
-// Auto pilot adds untracked paths, updates touched & moved paths, and removes duplicates.
+// InteractiveTidy guides through library updates and file system changes that can be executed automatically:
+//  It adds untracked paths, updates touched & moved paths, and removes duplicates.
 //  Modified and missing are not changed but reported.
 //  If additional flags are passed modified paths are updated and/or missing paths removed.
 //  Unknown paths are reported.
-func (d *doccurator) ExecuteAutoPilot() error {
+func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) error {
+	fmt.Fprintln(d.out, "Tidying up library... (Abort with SIGINT/Ctrl+C)")
+	paths, _ := d.appLib.Scan(func(absoluteFilePath string) bool {
+		return false
+	}, d.optimizedFsAccess)
 
-	return nil
+	buckets := make(map[library.PathStatus][]*library.CheckedPath)
+	for i, path := range paths {
+		buckets[path.Status()] = append(buckets[path.Status()], &paths[i])
+	}
+
+	for _, status := range []library.PathStatus{library.Touched, library.Moved, library.Modified, library.Obsolete, library.Duplicate} {
+		count := len(buckets[status])
+		if count == 0 {
+			continue
+		}
+		var declarationSingle, promptMassProcessMultiple, question, subject, pastParticiple string
+		switch status {
+		case library.Touched, library.Moved, library.Modified:
+			declarationSingle = "1 document on record has its file %s.\n"
+			promptMassProcessMultiple = "%d documents on record have their files %s. Update records?"
+			question = "Update record?"
+			subject = "document"
+			pastParticiple = "updated"
+		case library.Obsolete, library.Duplicate:
+			if !removeWaste {
+				continue
+			}
+			declarationSingle = "1 file present has %s content.\n"
+			promptMassProcessMultiple = "%d files present have %s content. Delete files?"
+			question = "Delete file?"
+			subject = "file"
+			pastParticiple = "deleted"
+		}
+
+		upperStatus := strings.ToUpper(status.String())
+		var doChange, decideIndividually bool
+		{
+			fmt.Fprintln(d.out)
+			if count == 1 {
+				fmt.Fprintf(d.out, declarationSingle, upperStatus)
+				decideIndividually = true
+			} else {
+				switch choice(fmt.Sprintf(promptMassProcessMultiple, count, upperStatus), []string{"All", "Decide individually", "Skip"}, false) {
+				case "All":
+					decideIndividually = false
+					doChange = true
+				case "Decide individually":
+					decideIndividually = true
+				case "Skip":
+					decideIndividually = false
+					doChange = false
+				case ChoiceAborted:
+					return fmt.Errorf("<ERROR: PROMPT ABORTED>")
+				}
+			}
+		}
+
+		changeCount := 0
+		for _, path := range buckets[status] {
+			absolute := filepath.Join(d.appLib.GetRoot(), path.PathRelativeToLibraryRoot())
+			displayPath := mustRelFilepathToWorkingDir(absolute)
+
+			if decideIndividually {
+				switch choice(fmt.Sprintf("@%s - %s", displayPath, question), []string{"Yes", "No"}, true) {
+				case "Yes":
+					doChange = true
+				case "No":
+					doChange = false
+				case ChoiceAborted:
+					return fmt.Errorf("<ERROR: PROMPT ABORTED>")
+				}
+			}
+
+			if doc := path.ReferencedDocument(); doChange {
+				switch status {
+				case library.Moved:
+					d.appLib.SetDocumentPath(doc, absolute)
+					fallthrough
+				case library.Touched, library.Modified:
+					_, err := d.appLib.UpdateDocumentFromFile(doc)
+					if err != nil {
+						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
+					} else {
+						changeCount++
+						fmt.Fprintf(d.extraOut, "@%s - Updated %s.\n", displayPath, doc.Id())
+					}
+				case library.Obsolete, library.Duplicate:
+					changeCount++
+					fmt.Fprintf(d.extraOut, "@%s - Fake deleted file.\n", displayPath)
+				}
+			} else {
+				fmt.Fprintf(d.extraOut, "@%s - Skipped.\n", displayPath)
+			}
+		}
+		fmt.Fprintf(d.extraOut, "%d %s %s %s.\n", changeCount, upperStatus, output.Plural(changeCount, subject, subject+"s"), pastParticiple)
+	}
+
+	return fmt.Errorf("revert because tidy is not fully implemented yet")
 }

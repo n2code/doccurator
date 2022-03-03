@@ -42,7 +42,7 @@ $ doccurator -h
 Usage:
    doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
 
- ACTIONs:  init  status  add  update  search  retire  forget  tree  dump
+ ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
 
   -h	Display general usage help
   -q	Output as little as possible, i.e. only requested information (quiet mode)

@@ -31,7 +31,7 @@ func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliReq
 Usage:
    doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
 
- ACTIONs:  init  status  add  update  search  retire  forget  tree  dump
+ ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
 
 `))
 		flags.PrintDefaults()
@@ -243,6 +243,16 @@ ActionParamCheck:
 			err = errors.New("bad number of arguments, exactly one expected")
 			break ActionParamCheck
 		}
+	case "tidy":
+		flagSpecification = " [-no-confirm]" //further ideas: [-remove-waste-files]
+		actionDescription += "Do the needful to get the library in sync with the filesystem."
+		request.actionFlags["no-confirm"] = actionParams.Bool("no-confirm", false, "suppress prompts and choose defaults (\"yes to all\")")
+		actionParams.Parse(request.actionArgs)
+		request.actionArgs = actionParams.Args()
+		if actionParams.NArg() > 0 {
+			err = errors.New("command accepts no arguments, only flags")
+			break ActionParamCheck
+		}
 	default:
 		err = fmt.Errorf(`unknown action "%s"`, request.action)
 	}
@@ -262,9 +272,8 @@ func (rq *CliRequest) execute() (execErr error) {
 	}
 
 	if rq.action == "init" {
-		if _, err := doccurator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config); err != nil {
-			return err
-		}
+		_, err := doccurator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config)
+		return err
 	} else {
 		workingDir, _ := os.Getwd()
 		api, err := doccurator.Open(workingDir, config)
@@ -273,7 +282,7 @@ func (rq *CliRequest) execute() (execErr error) {
 		}
 		defer func() {
 			if execErr != nil {
-				rollbackErr := api.RollbackFilesystemChanges()
+				rollbackErr := api.RollbackAllFilesystemChanges()
 				if rollbackErr != nil {
 					execErr = fmt.Errorf("%w (rollback attempt failed: %s)", execErr, rollbackErr)
 				}
@@ -283,10 +292,9 @@ func (rq *CliRequest) execute() (execErr error) {
 		switch rq.action {
 		case "dump":
 			api.PrintAllRecords(*(rq.actionFlags["exclude-retired"].(*bool)))
+			return nil
 		case "tree":
-			if err := api.PrintTree(*(rq.actionFlags["diff"].(*bool))); err != nil {
-				return err
-			}
+			return api.PrintTree(*(rq.actionFlags["diff"].(*bool)))
 		case "add":
 			tryRename := *(rq.actionFlags["rename"].(*bool))
 			autoId := *(rq.actionFlags["auto-id"].(*bool))
@@ -325,10 +333,7 @@ func (rq *CliRequest) execute() (execErr error) {
 					}
 				}
 			}
-			err = api.PersistChanges()
-			if err != nil {
-				return err
-			}
+			return api.PersistChanges()
 		case "update":
 			for _, target := range rq.actionArgs {
 				err = api.UpdateByPath(target)
@@ -336,10 +341,7 @@ func (rq *CliRequest) execute() (execErr error) {
 					return err
 				}
 			}
-			err = api.PersistChanges()
-			if err != nil {
-				return err
-			}
+			return api.PersistChanges()
 		case "retire":
 			for _, target := range rq.actionArgs {
 				err = api.RetireByPath(target)
@@ -347,10 +349,7 @@ func (rq *CliRequest) execute() (execErr error) {
 					return err
 				}
 			}
-			err = api.PersistChanges()
-			if err != nil {
-				return err
-			}
+			return api.PersistChanges()
 		case "forget":
 			if *(rq.actionFlags["all-retired"].(*bool)) {
 				api.ForgetAllObsolete()
@@ -369,29 +368,31 @@ func (rq *CliRequest) execute() (execErr error) {
 					}
 				}
 			}
-			err = api.PersistChanges()
-			if err != nil {
-				return err
-			}
+			return api.PersistChanges()
 		case "status":
-			if err = api.PrintStatus(rq.actionArgs); err != nil {
-				return err
-			}
+			return api.PrintStatus(rq.actionArgs)
 		case "search":
 			matches := api.SearchByIdPart(rq.actionArgs[0])
-			if len(matches) == 0 && !rq.quiet {
+			matchCount := len(matches)
+			if matchCount == 0 && !rq.quiet {
 				return fmt.Errorf("no matches found for ID [part]: %s", rq.actionArgs[0])
 			}
 			for _, match := range matches {
 				fmt.Fprintf(os.Stdout, "\n@%s (%s)\n", match.RelativePath, match.StatusText)
 				api.PrintRecord(match.Id)
 			}
-			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", len(matches), output.Plural(len(matches) > 1, "match", "matches"))
+			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, output.Plural(matchCount, "match", "matches"))
+			return nil
+		case "tidy":
+			choice := PromptUser
+			if *(rq.actionFlags["no-confirm"].(*bool)) {
+				choice = AutoChooseDefaultOption
+			}
+			return api.InteractiveTidy(choice, true)
 		default:
 			panic("bad action")
 		}
 	}
-	return nil
 }
 
 func main() {
@@ -402,7 +403,7 @@ func main() {
 	if err := rq.execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		switch rq.action {
-		case "add", "update":
+		case "add", "update", "tidy":
 			if !rq.quiet {
 				fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
 			}

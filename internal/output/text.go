@@ -1,6 +1,8 @@
 package output
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func Plural(countable interface{}, singular string, plural string) string {
 	switch c := countable.(type) {
@@ -8,8 +10,8 @@ func Plural(countable interface{}, singular string, plural string) string {
 		if len(c) != 1 {
 			return plural
 		}
-	case bool:
-		if c {
+	case int:
+		if c != 1 {
 			return plural
 		}
 	}
