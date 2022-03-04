@@ -80,6 +80,7 @@ ParseOptions:
 				out(prompt)
 			}
 		case <-interrupt:
+			out("\r\n")
 			return doccurator.ChoiceAborted
 		}
 	}

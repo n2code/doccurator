@@ -62,17 +62,19 @@ type Doccurator interface {
 	PrintStatus(paths []string) error
 	InteractiveTidy(choice RequestChoice, removeWaste bool) error
 	PersistChanges() error
-	RollbackAllFilesystemChanges() error
+	RollbackAllFilesystemChanges() (complete bool)
 }
+
+type rollbackStep func() error
 
 type doccurator struct {
 	appLib            library.Api
-	rollbackLog       []func() error
-	libFile           string    //absolute, system-native path
-	out               io.Writer //essential output (i.e. requested information)
-	extraOut          io.Writer //more output for convenience (repeats context)
-	verboseOut        io.Writer //most output, talkative
-	errOut            io.Writer //error output
+	rollbackLog       []rollbackStep //series of steps to be executed in reverse order, errors shall be reported but not stop rollback execution
+	libFile           string         //absolute, system-native path
+	out               io.Writer      //essential output (i.e. requested information)
+	extraOut          io.Writer      //more output for convenience (repeats context)
+	verboseOut        io.Writer      //most output, talkative
+	errOut            io.Writer      //error output
 	optimizedFsAccess bool
 }
 
@@ -106,20 +108,32 @@ func (d *doccurator) PersistChanges() error {
 
 }
 
-func (d *doccurator) RollbackAllFilesystemChanges() error {
+func (d *doccurator) RollbackAllFilesystemChanges() (complete bool) {
+	complete = true
+	if len(d.rollbackLog) == 0 { //early exit if rollback is no-op
+		return
+	}
+
+	fmt.Fprint(d.extraOut, "Executing filesystem rollback...")
 	for i := len(d.rollbackLog) - 1; i >= 0; i-- {
-		rollbackStep := d.rollbackLog[i]
-		err := rollbackStep()
-		if err != nil {
-			d.rollbackLog = d.rollbackLog[:i+1] //drop all after failing
-			return fmt.Errorf("filesystem rollback incomplete: %w", err)
+		step := d.rollbackLog[i]
+		if err := step(); err != nil {
+			if complete { //i.e. first issue encountered
+				fmt.Fprint(d.extraOut, "\n")
+			}
+			fmt.Fprint(d.extraOut, "  ")
+			fmt.Fprintf(d.errOut, "rollback issue: %s\n", err)
+			complete = false
+			//errors are reported but execution continues to achieve best partial rollback possible
 		}
 	}
-	if len(d.rollbackLog) > 0 { //do not print if rollback is no-op
-		fmt.Fprintln(d.extraOut, "Executed filesystem rollback")
+	if complete {
+		fmt.Fprint(d.extraOut, " DONE!\n")
+	} else {
+		fmt.Fprint(d.extraOut, "  Rollback completed partially, issues occurred.\n")
 	}
-	d.rollbackLog = nil
-	return nil
+	d.rollbackLog = nil //note: failed rollback steps are not preserved
+	return
 }
 
 func (d *doccurator) GetFreeId() document.Id {

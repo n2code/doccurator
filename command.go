@@ -3,6 +3,7 @@ package doccurator
 import (
 	"fmt"
 	. "github.com/n2code/doccurator/internal"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -341,7 +342,7 @@ func (d *doccurator) PrintRecord(id document.Id) {
 //  If additional flags are passed modified paths are updated and/or missing paths removed.
 //  Unknown paths are reported.
 func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) error {
-	fmt.Fprintln(d.out, "Tidying up library... (Abort with SIGINT/Ctrl+C)")
+	fmt.Fprint(d.extraOut, "Tidying up library... (Abort with SIGINT/Ctrl+C)\n")
 	paths, _ := d.appLib.Scan(func(absoluteFilePath string) bool {
 		return false
 	}, d.optimizedFsAccess)
@@ -350,6 +351,8 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 	for i, path := range paths {
 		buckets[path.Status()] = append(buckets[path.Status()], &paths[i])
 	}
+
+	var deletionCommitQueue []func() error
 
 	for _, status := range []library.PathStatus{library.Touched, library.Moved, library.Modified, library.Obsolete, library.Duplicate} {
 		count := len(buckets[status])
@@ -372,7 +375,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 			promptMassProcessMultiple = "%d files present have %s content. Delete files?"
 			question = "Delete file?"
 			subject = "file"
-			pastParticiple = "deleted"
+			pastParticiple = "marked for deletion"
 		}
 
 		upperStatus := strings.ToUpper(status.String())
@@ -399,6 +402,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 		}
 
 		changeCount := 0
+	NextChange:
 		for _, path := range buckets[status] {
 			absolute := filepath.Join(d.appLib.GetRoot(), path.PathRelativeToLibraryRoot())
 			displayPath := mustRelFilepathToWorkingDir(absolute)
@@ -417,20 +421,57 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 			if doc := path.ReferencedDocument(); doChange {
 				switch status {
 				case library.Moved:
-					d.appLib.SetDocumentPath(doc, absolute)
+					err := d.appLib.SetDocumentPath(doc, absolute)
+					if err != nil {
+						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
+						continue NextChange
+					}
 					fallthrough
 				case library.Touched, library.Modified:
 					_, err := d.appLib.UpdateDocumentFromFile(doc)
 					if err != nil {
 						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
+						continue NextChange
 					} else {
-						changeCount++
 						fmt.Fprintf(d.extraOut, "@%s - Updated %s.\n", displayPath, doc.Id())
 					}
 				case library.Obsolete, library.Duplicate:
-					changeCount++
-					fmt.Fprintf(d.extraOut, "@%s - Fake deleted file.\n", displayPath)
+					tempDir, err := os.MkdirTemp("", "doccurator-tidy-delete-staging-*")
+					if err != nil {
+						fmt.Fprintf(d.errOut, "deletion preparation failed (%s): %s\n", displayPath, err)
+						continue NextChange
+					}
+					deleteStagingDir := func(stagingDir string) func() error {
+						return func() error {
+							if err := os.RemoveAll(stagingDir); err != nil {
+								return fmt.Errorf("could not delete temporary staging directory (%s): %w", stagingDir, err)
+							}
+							return nil
+						}
+					}(tempDir)
+
+					backup := filepath.Join(tempDir, filepath.Base(absolute))
+					if err := os.Rename(absolute, backup); err != nil {
+						fmt.Fprintf(d.errOut, "deletion failed (%s): %s\n", displayPath, err)
+						if err := deleteStagingDir(); err != nil {
+							fmt.Fprintf(d.errOut, "%s\n", err)
+						}
+						continue NextChange
+					}
+					deletionCommitQueue = append(deletionCommitQueue, deleteStagingDir)
+
+					d.rollbackLog = append(d.rollbackLog, func(source string, target string, stagingDir string) func() error {
+						return func() error {
+							if err := os.Rename(source, target); err != nil {
+								return err
+							}
+							return os.RemoveAll(stagingDir)
+						}
+					}(backup, absolute, tempDir))
+
+					fmt.Fprintf(d.extraOut, "@%s - Marked for delete.\n", displayPath)
 				}
+				changeCount++
 			} else {
 				fmt.Fprintf(d.extraOut, "@%s - Skipped.\n", displayPath)
 			}
@@ -438,5 +479,19 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 		fmt.Fprintf(d.extraOut, "%d %s %s %s.\n", changeCount, upperStatus, output.Plural(changeCount, subject, subject+"s"), pastParticiple)
 	}
 
-	return fmt.Errorf("revert because tidy is not fully implemented yet")
+	fmt.Fprint(d.extraOut, "\n")
+
+	if len(deletionCommitQueue) > 0 {
+		fmt.Fprintf(d.extraOut, "Committing deletions...\n")
+		for _, commitDelete := range deletionCommitQueue {
+			if err := commitDelete(); err != nil {
+				//errors are reported but do not constitute an overall failure as a rollback would not work and removal from the original directory is already complete by now
+				// => failure is only possible theoretically anyway as the application should be able to remove the staging directory it has just created
+				fmt.Fprintf(d.errOut, "deletion has leftovers: %s\n", err)
+			}
+		}
+	}
+
+	fmt.Fprint(d.extraOut, "Tidy operation complete.\n")
+	return nil
 }

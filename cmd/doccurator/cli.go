@@ -282,10 +282,9 @@ func (rq *CliRequest) execute() (execErr error) {
 		}
 		defer func() {
 			if execErr != nil {
-				rollbackErr := api.RollbackAllFilesystemChanges()
-				if rollbackErr != nil {
-					execErr = fmt.Errorf("%w (rollback attempt failed: %s)", execErr, rollbackErr)
-				}
+				if complete := api.RollbackAllFilesystemChanges(); complete {
+					execErr = fmt.Errorf("%w\n(filesystem unchanged)", execErr)
+				} //else pure error is returned, rollback issues have already been output
 			}
 		}()
 
@@ -336,16 +335,14 @@ func (rq *CliRequest) execute() (execErr error) {
 			return api.PersistChanges()
 		case "update":
 			for _, target := range rq.actionArgs {
-				err = api.UpdateByPath(target)
-				if err != nil {
+				if err := api.UpdateByPath(target); err != nil {
 					return err
 				}
 			}
 			return api.PersistChanges()
 		case "retire":
 			for _, target := range rq.actionArgs {
-				err = api.RetireByPath(target)
-				if err != nil {
+				if err := api.RetireByPath(target); err != nil {
 					return err
 				}
 			}
@@ -362,8 +359,7 @@ func (rq *CliRequest) execute() (execErr error) {
 					if !complete {
 						return fmt.Errorf(`incomplete ID "%s"`, target)
 					}
-					err = api.ForgetById(document.Id(numId), false)
-					if err != nil {
+					if err := api.ForgetById(document.Id(numId), false); err != nil {
 						return err
 					}
 				}
@@ -388,7 +384,10 @@ func (rq *CliRequest) execute() (execErr error) {
 			if *(rq.actionFlags["no-confirm"].(*bool)) {
 				choice = AutoChooseDefaultOption
 			}
-			return api.InteractiveTidy(choice, true)
+			if err := api.InteractiveTidy(choice, true); err != nil {
+				return err
+			}
+			return api.PersistChanges()
 		default:
 			panic("bad action")
 		}
