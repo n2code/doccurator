@@ -342,7 +342,7 @@ func (d *doccurator) PrintRecord(id document.Id) {
 //  If additional flags are passed modified paths are updated and/or missing paths removed.
 //  Unknown paths are reported.
 func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) error {
-	fmt.Fprint(d.extraOut, "Tidying up library... (Abort with SIGINT/Ctrl+C)\n")
+	fmt.Fprint(d.verboseOut, "Tidying up library...\n")
 	paths, _ := d.appLib.Scan(func(absoluteFilePath string) bool {
 		return false
 	}, d.optimizedFsAccess)
@@ -359,11 +359,12 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 		if count == 0 {
 			continue
 		}
-		var declarationSingle, promptMassProcessMultiple, question, subject, pastParticiple string
+		var declarationSingle, declarationMultiple, promptMassProcessing, question, subject, pastParticiple string
 		switch status {
 		case library.Touched, library.Moved, library.Modified:
-			declarationSingle = "1 document on record has its file %s.\n"
-			promptMassProcessMultiple = "%d documents on record have their files %s. Update records?"
+			declarationSingle = "1 document on record has its file %s.\n"         // touched/moved/modified
+			declarationMultiple = "%d documents on record have their files %s.\n" // <count> + touched/moved/modified
+			promptMassProcessing = "Update %s records?"                           // touched/moved/modified
 			question = "Update record?"
 			subject = "document"
 			pastParticiple = "updated"
@@ -371,22 +372,25 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 			if !removeWaste {
 				continue
 			}
-			declarationSingle = "1 file present has %s content.\n"
-			promptMassProcessMultiple = "%d files present have %s content. Delete files?"
+			declarationSingle = "1 file present has %s content.\n"      // duplicate/obsolete
+			declarationMultiple = "%d files present have %s content.\n" // <count> + duplicate/obsolete
+			promptMassProcessing = "Delete %s files?"                   // duplicate/obsolete
 			question = "Delete file?"
 			subject = "file"
 			pastParticiple = "marked for deletion"
 		}
 
 		upperStatus := strings.ToUpper(status.String())
+		lowerStatus := strings.ToLower(status.String())
 		var doChange, decideIndividually bool
 		{
-			fmt.Fprintln(d.out)
+			fmt.Fprintf(d.extraOut, "\n")
 			if count == 1 {
-				fmt.Fprintf(d.out, declarationSingle, upperStatus)
+				fmt.Fprintf(d.verboseOut, declarationSingle, upperStatus)
 				decideIndividually = true
 			} else {
-				switch choice(fmt.Sprintf(promptMassProcessMultiple, count, upperStatus), []string{"All", "Decide individually", "Skip"}, false) {
+				fmt.Fprintf(d.verboseOut, declarationMultiple, count, upperStatus)
+				switch choice(fmt.Sprintf(promptMassProcessing, lowerStatus), []string{"All", "Decide individually", "Skip"}, true) {
 				case "All":
 					decideIndividually = false
 					doChange = true
@@ -408,7 +412,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 			displayPath := mustRelFilepathToWorkingDir(absolute)
 
 			if decideIndividually {
-				switch choice(fmt.Sprintf("@%s - %s", displayPath, question), []string{"Yes", "No"}, true) {
+				switch choice(fmt.Sprintf("@%s [%s] - %s", displayPath, lowerStatus, question), []string{"Yes", "No"}, true) {
 				case "Yes":
 					doChange = true
 				case "No":
@@ -433,7 +437,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					} else {
-						fmt.Fprintf(d.extraOut, "@%s - Updated %s.\n", displayPath, doc.Id())
+						fmt.Fprintf(d.extraOut, "@%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
 					}
 				case library.Obsolete, library.Duplicate:
 					tempDir, err := os.MkdirTemp("", "doccurator-tidy-delete-staging-*")
@@ -469,7 +473,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 						}
 					}(backup, absolute, tempDir))
 
-					fmt.Fprintf(d.extraOut, "@%s - Marked for delete.\n", displayPath)
+					fmt.Fprintf(d.extraOut, "@%s [%s] - Marked for delete.\n", displayPath, lowerStatus)
 				}
 				changeCount++
 			} else {
@@ -482,7 +486,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 	fmt.Fprint(d.extraOut, "\n")
 
 	if len(deletionCommitQueue) > 0 {
-		fmt.Fprintf(d.extraOut, "Committing deletions...\n")
+		fmt.Fprintf(d.verboseOut, "Committing deletions...\n")
 		for _, commitDelete := range deletionCommitQueue {
 			if err := commitDelete(); err != nil {
 				//errors are reported but do not constitute an overall failure as a rollback would not work and removal from the original directory is already complete by now
@@ -492,6 +496,6 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 		}
 	}
 
-	fmt.Fprint(d.extraOut, "Tidy operation complete.\n")
+	fmt.Fprint(d.verboseOut, "Tidy operation complete.\n")
 	return nil
 }

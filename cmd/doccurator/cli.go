@@ -69,11 +69,11 @@ Usage:
 		return
 	}
 	if flags.NArg() == 0 {
-		err = errors.New("No arguments given!")
+		err = errors.New("no arguments given")
 		return
 	}
 	if request.verbose && request.quiet {
-		err = errors.New("Quiet mode and verbose mode are mutually exclusive!")
+		err = errors.New("quiet mode and verbose mode are mutually exclusive")
 		return
 	}
 
@@ -244,9 +244,11 @@ ActionParamCheck:
 			break ActionParamCheck
 		}
 	case "tidy":
-		flagSpecification = " [-no-confirm]" //further ideas: [-remove-waste-files]
-		actionDescription += "Do the needful to get the library in sync with the filesystem."
+		flagSpecification = " [-no-confirm] [-remove-waste-files]"
+		actionDescription += "Interactively do the needful to get the library in sync with the filesystem.\n" +
+			actionDescriptionIndent + "By default only known records are considered and the filesystem is not touched."
 		request.actionFlags["no-confirm"] = actionParams.Bool("no-confirm", false, "suppress prompts and choose defaults (\"yes to all\")")
+		request.actionFlags["remove-waste-files"] = actionParams.Bool("remove-waste-files", false, "remove superfluous files with duplicate or obsolete content")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -380,11 +382,13 @@ func (rq *CliRequest) execute() (execErr error) {
 			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, output.Plural(matchCount, "match", "matches"))
 			return nil
 		case "tidy":
-			choice := PromptUser
+			choice := PromptUser()
 			if *(rq.actionFlags["no-confirm"].(*bool)) {
-				choice = AutoChooseDefaultOption
+				choice = AutoChooseDefaultOption(rq.quiet)
+			} else {
+				fmt.Fprint(os.Stdout, "(To abort and undo everything: SIGINT/Ctrl+C during prompts)\n")
 			}
-			if err := api.InteractiveTidy(choice, true); err != nil {
+			if err := api.InteractiveTidy(choice, *(rq.actionFlags["remove-waste-files"].(*bool))); err != nil {
 				return err
 			}
 			return api.PersistChanges()
