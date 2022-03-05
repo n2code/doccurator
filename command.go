@@ -17,37 +17,38 @@ func (d *doccurator) isLibFilePath(path string) bool {
 }
 
 func (d *doccurator) Add(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
-	return d.addSingle(id, filePath, allowForDuplicateMovedAndObsolete)
+	_, err := d.addSingle(id, filePath, allowForDuplicateMovedAndObsolete)
+	return err
 }
 
 // addSingle creates a new document with the given ID and path.
 // On error the library remains clean, i.e. has the same state as before.
-func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error { //TODO switch signature to command error
+func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) (library.Document, error) { //TODO switch signature to command error
 	absoluteFilePath := mustAbsFilepath(filePath)
 	if !allowForDuplicateMovedAndObsolete {
 		switch check := d.appLib.CheckFilePath(absoluteFilePath, false); check.Status() { //check on add must be accurate hence no performance optimization
 		case library.Moved:
-			return newCommandError(fmt.Sprintf("document creation prevented: use update to accept move (%s)", filePath), nil)
+			return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: use update to accept move (%s)", filePath), nil)
 		case library.Duplicate, library.Obsolete:
-			return newCommandError(fmt.Sprintf("document creation prevented: override required to add duplicate/obsolete file (%s)", filePath), nil)
+			return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: override required to add duplicate/obsolete file (%s)", filePath), nil)
 		}
 	}
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
-		return newCommandError("document creation blocked", err)
+		return library.Document{}, newCommandError("document creation blocked", err)
 	}
 	err = d.appLib.SetDocumentPath(doc, absoluteFilePath)
 	if err != nil {
 		d.appLib.ForgetDocument(doc)
-		return newCommandError("document creation impossible", err)
+		return library.Document{}, newCommandError("document creation impossible", err)
 	}
 	_, err = d.appLib.UpdateDocumentFromFile(doc)
 	if err != nil {
 		d.appLib.ForgetDocument(doc)
-		return newCommandError("document creation failed", err)
+		return library.Document{}, newCommandError("document creation failed", err)
 	}
 	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
-	return nil
+	return doc, nil
 }
 
 // AddMultiple takes multiple paths and adds one document for each. Flags control dealing with irregular situations.
@@ -77,7 +78,7 @@ func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndOb
 			}
 			newId = d.GetFreeId()
 		}
-		addErr := d.addSingle(newId, filePath, allowForDuplicateMovedAndObsolete)
+		_, addErr := d.addSingle(newId, filePath, allowForDuplicateMovedAndObsolete)
 		if addErr != nil {
 			if abortOnError {
 				err = addErr
@@ -107,7 +108,7 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 				err = fmt.Errorf("encountered uncheckable (%s): %w", checked.PathRelativeToLibraryRoot(), checked.GetError())
 				return
 			}
-			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
+			fmt.Fprintf(d.errOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
 		}
 	}
 
@@ -306,11 +307,11 @@ func (d *doccurator) StandardizeLocation(id document.Id) error {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
 	}
 	oldRelPath := doc.PathRelativeToLibraryRoot()
-	changedName, err, rollback := doc.RenameToStandardNameFormat()
+	changedName, err, rollback := doc.RenameToStandardNameFormat(false)
 	if changedName != "" && err == nil {
 		fmt.Fprintf(d.extraOut, "Renamed document %s (%s) to %s\n", id, oldRelPath, changedName)
-		d.rollbackLog = append(d.rollbackLog, rollback)
 	}
+	d.rollbackLog = append(d.rollbackLog, rollback) //rollback is no-op on error
 	return err
 }
 
@@ -497,5 +498,93 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 	}
 
 	fmt.Fprint(d.verboseOut, "Tidy operation complete.\n")
+	return nil
+}
+
+func (d *doccurator) InteractiveAdd(choice RequestChoice) error {
+	results, _ := d.appLib.Scan(d.isLibFilePath, true) //read can be skipped because it does not affect correct detection of "untracked" status
+
+NextCandidate:
+	for _, checked := range results {
+		switch checked.Status() {
+		case library.Untracked:
+			anchored := checked.PathRelativeToLibraryRoot()
+			absolute := filepath.Join(d.appLib.GetRoot(), anchored)
+
+			usingExtractedId := true
+			extractedId, idErr := ExtractIdFromStandardizedFilename(absolute)
+			hasExtractedId := idErr == nil
+			newId := extractedId
+			if !hasExtractedId {
+				newId = d.GetFreeId()
+				usingExtractedId = false
+			}
+
+			for decided := false; !decided; {
+				if usingExtractedId {
+					switch choice(fmt.Sprintf("Add %s using ID from filename? [%s]", anchored, extractedId), []string{"Yes", "New ID", "Skip"}, true) {
+					case "Yes":
+						decided = true
+					case "New ID":
+						newId = d.GetFreeId()
+						usingExtractedId = false
+					case "Skip":
+						continue NextCandidate
+					case ChoiceAborted:
+						return nil
+					}
+				} else {
+					options := []string{"Yes"}
+					if hasExtractedId {
+						options = append(options, "From filename")
+					}
+					options = append(options, "Skip")
+					switch choice(fmt.Sprintf("Add %s using new generated ID? [%s]", anchored, newId), options, true) {
+					case "Yes":
+						decided = true
+					case "From filename":
+						newId = extractedId
+						usingExtractedId = true
+					case "Skip":
+						continue NextCandidate
+					case ChoiceAborted:
+						return nil
+					}
+				}
+			}
+
+			var newDoc library.Document
+			var addErr error
+			if newDoc, addErr = d.addSingle(newId, absolute, false); addErr != nil {
+				fmt.Fprintf(d.errOut, "Adding failed (%s): %s\n", anchored, addErr)
+				continue NextCandidate
+			}
+
+			differentNewName, namePreviewErr, _ := newDoc.RenameToStandardNameFormat(true)
+			if namePreviewErr != nil {
+				fmt.Fprintf(d.errOut, "Skipping rename for new document [%s]: %s\n", newId, namePreviewErr)
+				continue NextCandidate
+			}
+			if differentNewName == "" { //nothing to rename
+				continue NextCandidate
+			}
+
+			switch choice(fmt.Sprintf("  Rename %s to %s to include ID in filename?", filepath.Base(anchored), differentNewName), []string{"Rename", "Keep filename"}, true) {
+			case "Rename":
+				if _, renameErr, _ := newDoc.RenameToStandardNameFormat(false); renameErr != nil {
+					fmt.Fprintf(d.errOut, "Skipping rename of %s: %s\n", newId, namePreviewErr)
+					continue NextCandidate
+				}
+				fmt.Fprintf(d.extraOut, "  => Renamed to: %s\n", differentNewName)
+			case "Keep filename":
+				continue NextCandidate
+			case ChoiceAborted:
+				return nil
+			}
+
+		case library.Error:
+			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
+		}
+	}
 	return nil
 }

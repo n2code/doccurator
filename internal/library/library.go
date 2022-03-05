@@ -355,6 +355,13 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 	return
 }
 
+func (lib *library) pathExists(anchoredPath string) (exists bool) {
+	//relativePath, err := filepath.Rel(lib.rootPath, absolutePath)
+	//internal.AssertNoError(err, "input is expected to be absolute")
+	_, exists = lib.relPathActiveIndex[anchoredPath]
+	return
+}
+
 func (lib *library) getAbsolutePathOfDocument(doc document.Api) string {
 	return filepath.Join(lib.rootPath, doc.Path())
 }
@@ -405,13 +412,13 @@ func (libDoc *Document) PathRelativeToLibraryRoot() string {
 	return doc.Path()
 }
 
-func (libDoc *Document) RenameToStandardNameFormat() (newNameIfDifferent string, err error, fsRollback func() error) {
+func (libDoc *Document) RenameToStandardNameFormat(dryRun bool) (newNameIfDifferent string, err error, fsRollback func() error) {
 	fsRollback = func() error { return nil }
+
+	//calculate new name and paths
+
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
-	standardName, err := doc.StandardizedFilename()
-	if err != nil {
-		return
-	}
+	standardName := doc.StandardizedFilename()
 	oldPath := doc.Path()
 	standardPath := filepath.Join(filepath.Dir(oldPath), standardName)
 	if standardPath == oldPath {
@@ -420,19 +427,37 @@ func (libDoc *Document) RenameToStandardNameFormat() (newNameIfDifferent string,
 	newNameIfDifferent = standardName
 	absoluteOldPath := filepath.Join(libDoc.library.GetRoot(), oldPath)
 	absoluteNewPath := filepath.Join(libDoc.library.GetRoot(), standardPath)
-	if _, err = os.Stat(absoluteNewPath); err == nil {
+
+	//check for conflicts
+
+	if libDoc.library.pathExists(standardPath) {
+		err = fmt.Errorf("standardized path already on record: %s", absoluteNewPath)
+		return
+	}
+	if _, statErr := os.Stat(absoluteNewPath); statErr == nil {
 		err = fmt.Errorf("file with standardized name already exists: %s", absoluteNewPath)
 		return
 	}
-	err = os.Rename(absoluteOldPath, absoluteNewPath)
-	if err == nil {
-		libDoc.library.SetDocumentPath(*libDoc, absoluteNewPath)
-		fsRollback = func(source string, target string) func() error {
-			return func() error {
-				return os.Rename(source, target)
-			}
-		}(absoluteNewPath, absoluteOldPath)
+
+	//early exit if caller is only interested in change preview
+	if dryRun {
+		return
 	}
+
+	//apply rename
+
+	if err = libDoc.library.SetDocumentPath(*libDoc, absoluteNewPath); err != nil {
+		return
+	}
+	if err = os.Rename(absoluteOldPath, absoluteNewPath); err != nil {
+		return
+	}
+	fsRollback = func(source string, target string) func() error {
+		return func() error {
+			return os.Rename(source, target)
+		}
+	}(absoluteNewPath, absoluteOldPath)
+
 	return
 }
 

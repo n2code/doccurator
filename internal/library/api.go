@@ -4,6 +4,7 @@ import (
 	"github.com/n2code/doccurator/internal/document"
 )
 
+// Document is a softlink and API in one, if zero-valued it represents absence of a document
 type Document struct {
 	id      document.Id
 	library *library

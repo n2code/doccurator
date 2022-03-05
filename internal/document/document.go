@@ -114,20 +114,17 @@ func (doc *document) MatchesChecksum(sha256 [checksum.Size]byte) bool {
 
 var ndocFileNameRegex = regexp.MustCompile(`^(.*)\.(` + IdPattern + `)\.ndoc(\.[^.]*)?$`)
 
-func (doc *document) StandardizedFilename() (string, error) {
-	original, id, extension := "", "", ""
+func (doc *document) StandardizedFilename() string {
+	var original, extension string
 	//represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .ext_only.23456X777.ndoc.ext_only
 	matches := ndocFileNameRegex.FindStringSubmatch(doc.localStorage.name)
 	if matches == nil {
 		original = doc.localStorage.name
 		extension = filepath.Ext(doc.localStorage.name)
 	} else {
-		original, id, extension = matches[1], matches[2], matches[3]
-		if id != doc.id.String() {
-			return "", fmt.Errorf("ID in filename %s does not match document ID %s on record", doc.localStorage.name, doc.id)
-		}
+		original, _, extension = matches[1], matches[2], matches[3]
 	}
-	return fmt.Sprintf("%s.%s.ndoc%s", original, doc.id, extension), nil
+	return fmt.Sprintf("%s.%s.ndoc%s", original, doc.id, extension)
 }
 
 func (doc *document) updateRecordChangeDate() {

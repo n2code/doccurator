@@ -123,6 +123,8 @@ ActionParamCheck:
 		case "add":
 			flagSpecification = " [-all-untracked] [-rename] [-force] [-abort-on-error] [-auto-id | -id=...]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
+				actionDescriptionIndent + "Interactive mode is launched if no paths are given. The user is prompted to\n" +
+				actionDescriptionIndent + "decide for each untracked file whether it shall be added and/or renamed.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
 			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
 				"(requires *standardized* filenames to extract IDs)")
@@ -171,8 +173,11 @@ ActionParamCheck:
 					err = errors.New(`flag "-id" must not be used together with "-all-untracked"`)
 					break ActionParamCheck
 				}
-			} else {
-				verifyTargetsExist()
+			} else if actionParams.NArg() == 0 { //interactive mode
+				if actionParams.NFlag() > 0 {
+					err = errors.New(`interactive mode does not take any flags`)
+					break ActionParamCheck
+				}
 			}
 			if *(request.actionFlags["id"].(*string)) != "" {
 				if *(request.actionFlags["auto-id"].(*bool)) {
@@ -320,7 +325,12 @@ func (rq *CliRequest) execute() (execErr error) {
 						addedIds = append(addedIds, newId)
 					}
 				} else {
-					addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
+					if len(rq.actionArgs) == 0 {
+						fmt.Fprint(os.Stdout, "(To stop adding more files: SIGINT/Ctrl+C during prompts)\n")
+						api.InteractiveAdd(PromptUser())
+					} else {
+						addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
+					}
 				}
 			}
 			if addErr != nil {

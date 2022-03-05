@@ -204,24 +204,18 @@ func TestStandardizingFilenames(t *testing.T) {
 	assertRepeatedlyStandardizableAndReversible := func(filename string, expectedAfterStandardization string) {
 		cut := NewDocument(someId)
 		cut.SetPath("fake_dir/" + filename)
-		act, err := cut.StandardizedFilename()
+		act := cut.StandardizedFilename()
 
 		//single standardization
 		switch {
-		case err != nil:
-			t.Error("standardization of", filename, "yields unexpected error: ", err)
-			return
 		case act != expectedAfterStandardization:
 			t.Error("standardization of", filename, "yields", act, "but expectation is", expectedAfterStandardization)
 			return
 		}
 
 		//repeated standardization
-		actRepeated, err := cut.StandardizedFilename()
-		switch {
-		case err != nil:
-			t.Error("repeated standardization of standardized name ", act, "yields unexpected error: ", err)
-		case actRepeated != act:
+		actRepeated := cut.StandardizedFilename()
+		if actRepeated != act {
 			t.Error("repeated standardization of standardized name ", act, "yields", actRepeated, "but expectation is no change")
 		}
 
@@ -238,12 +232,14 @@ func TestStandardizingFilenames(t *testing.T) {
 	assertRepeatedlyStandardizableAndReversible("name.ext1.ext2", "name.ext1.ext2."+someId.String()+".ndoc.ext2")
 	assertRepeatedlyStandardizableAndReversible("name.", "name.."+someId.String()+".ndoc.")
 
-	//verify detection of non-matching IDs in filenames
-	correctID := Id(777)
-	differentID := Id(13)
-	irregularDoc := NewDocument(correctID)
-	irregularDoc.SetPath("fake_dir/problematic.ext." + differentID.String() + ".ndoc.ext")
-	if _, err := irregularDoc.StandardizedFilename(); err == nil {
-		t.Error("already-standardized filename not recognized to have unexpected ID: ", err)
+	//verify change of non-matching IDs in filenames
+	correctId := Id(777)
+	outdatedId := Id(13)
+	irregularDoc := NewDocument(correctId)
+	outdatedName := "problematic.ext." + outdatedId.String() + ".ndoc.ext"
+	irregularDoc.SetPath("fake_dir/" + outdatedName)
+	expectedStandardized := "problematic.ext." + correctId.String() + ".ndoc.ext"
+	if standardized := irregularDoc.StandardizedFilename(); standardized != expectedStandardized {
+		t.Error("already-standardized filename", outdatedName, "not adapted to correct ID:", expectedStandardized)
 	}
 }

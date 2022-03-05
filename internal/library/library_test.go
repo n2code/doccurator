@@ -625,7 +625,7 @@ func TestNameStandardization(t *testing.T) {
 	lib.UpdateDocumentFromFile(doc)
 
 	//WHEN
-	newFilename, err, _ := doc.RenameToStandardNameFormat()
+	newFilename, err, _ := doc.RenameToStandardNameFormat(false)
 
 	//THEN
 	if err != nil {

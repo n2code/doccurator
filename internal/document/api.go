@@ -25,7 +25,7 @@ type Api interface {
 	DeclareObsolete()
 	Path() string
 	SetPath(relativePath string)
-	StandardizedFilename() (string, error)
+	StandardizedFilename() string
 	UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error)
 	CompareToFileOnStorage(libraryRoot string, skipReadOnSizeMatch bool) TrackedFileStatus
 	MatchesChecksum(sha256 [checksum.Size]byte) bool

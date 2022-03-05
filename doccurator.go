@@ -60,6 +60,7 @@ type Doccurator interface {
 	PrintAllRecords(excludeRetired bool)
 	PrintTree(excludeUnchanged bool) error
 	PrintStatus(paths []string) error
+	InteractiveAdd(choice RequestChoice) error
 	InteractiveTidy(choice RequestChoice, removeWaste bool) error
 	PersistChanges() error
 	RollbackAllFilesystemChanges() (complete bool)
