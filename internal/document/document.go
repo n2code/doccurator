@@ -116,7 +116,7 @@ var ndocFileNameRegex = regexp.MustCompile(`^(.*)\.(` + IdPattern + `)\.ndoc(\.[
 
 func (doc *document) StandardizedFilename() string {
 	var original, extension string
-	//represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .ext_only.23456X777.ndoc.ext_only
+	//represents file.ext.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .ext_only.23456X777.ndoc.ext_only (see tests!)
 	matches := ndocFileNameRegex.FindStringSubmatch(doc.localStorage.name)
 	if matches == nil {
 		original = doc.localStorage.name

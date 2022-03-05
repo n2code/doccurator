@@ -337,11 +337,6 @@ func (d *doccurator) PrintRecord(id document.Id) {
 	}
 }
 
-// InteractiveTidy guides through library updates and file system changes that can be executed automatically:
-//  It adds untracked paths, updates touched & moved paths, and removes duplicates.
-//  Modified and missing are not changed but reported.
-//  If additional flags are passed modified paths are updated and/or missing paths removed.
-//  Unknown paths are reported.
 func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) error {
 	fmt.Fprint(d.verboseOut, "Tidying up library...\n")
 	paths, _ := d.appLib.Scan(func(absoluteFilePath string) bool {
