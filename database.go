@@ -10,7 +10,44 @@ import (
 	"github.com/n2code/doccurator/internal/library"
 )
 
-const libraryLocatorPermissions = 0o440 //owner and group can read
+func (d *doccurator) PersistChanges() error {
+	if err := d.appLib.SaveToLocalFile(d.libFile, true); err != nil {
+		return fmt.Errorf("library save error: %w", err)
+	}
+	d.rollbackLog = nil
+	return nil
+
+}
+
+type rollbackStep func() error
+
+func (d *doccurator) RollbackAllFilesystemChanges() (complete bool) {
+	complete = true
+	if len(d.rollbackLog) == 0 { //early exit if rollback is no-op
+		return
+	}
+
+	fmt.Fprint(d.extraOut, "Executing filesystem rollback...")
+	for i := len(d.rollbackLog) - 1; i >= 0; i-- {
+		step := d.rollbackLog[i]
+		if err := step(); err != nil {
+			if complete { //i.e. first issue encountered
+				fmt.Fprint(d.extraOut, "\n")
+			}
+			fmt.Fprint(d.extraOut, "  ")
+			fmt.Fprintf(d.errOut, "rollback issue: %s\n", err)
+			complete = false
+			//errors are reported but execution continues to achieve best partial rollback possible
+		}
+	}
+	if complete {
+		fmt.Fprint(d.extraOut, " DONE!\n")
+	} else {
+		fmt.Fprint(d.extraOut, "  Rollback completed partially, issues occurred.\n")
+	}
+	d.rollbackLog = nil //note: failed rollback steps are not preserved
+	return
+}
 
 func (d *doccurator) createLibrary(absoluteRoot string, absoluteDbFilePath string) error {
 	d.appLib = library.NewLibrary()
@@ -60,6 +97,8 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 		}
 	}
 }
+
+const libraryLocatorPermissions = 0o440 //owner and group can read
 
 func (d *doccurator) createLocatorFile(directory string) error {
 	path := filepath.Join(directory, library.LocatorFileName)

@@ -82,7 +82,7 @@ func PromptUser() doccurator.RequestChoice {
 				}
 			case <-interrupt:
 				out("\r\n")
-				return doccurator.ChoiceAborted
+				return "" //represents abort as per type documentation
 			}
 		}
 	}
