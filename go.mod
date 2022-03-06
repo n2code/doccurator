@@ -1,6 +1,6 @@
 module github.com/n2code/doccurator
 
-go 1.16
+go 1.17
 
 require (
 	github.com/disiqueira/gotree/v3 v3.0.2

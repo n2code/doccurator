@@ -1,3 +1,5 @@
+//go:build !windows
+
 package doccurator
 
 import "testing"
@@ -32,12 +34,12 @@ func TestPleasantPath(t *testing.T) {
 		{name: "NextToFileInSub_2", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my/lib/sub", collapseRoot: true, omitDotSlash: false}, want: "./file"},
 		{name: "NextToFileInSub_3", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my/lib/sub", collapseRoot: false, omitDotSlash: true}, want: "file"},
 		{name: "NextToFileInSub_4", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my/lib/sub", collapseRoot: false, omitDotSlash: false}, want: "./file"},
-		{name: "OutsideLibrary_1", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/", collapseRoot: true, omitDotSlash: true}, want: "<LIB>/sub/file"},
-		{name: "OutsideLibrary_2", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/", collapseRoot: true, omitDotSlash: false}, want: "<LIB>/sub/file"},
+		{name: "OutsideLibrary_1", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/", collapseRoot: true, omitDotSlash: true}, want: "lib://sub/file"},
+		{name: "OutsideLibrary_2", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/", collapseRoot: true, omitDotSlash: false}, want: "lib://sub/file"},
 		{name: "OutsideLibrary_3", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/", collapseRoot: false, omitDotSlash: true}, want: "/my/lib/sub/file"},
 		{name: "OutsideLibrary_4", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/", collapseRoot: false, omitDotSlash: false}, want: "/my/lib/sub/file"},
-		{name: "BarelyOutsideLibrary_1", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my", collapseRoot: true, omitDotSlash: true}, want: "<LIB>/sub/file"},
-		{name: "BarelyOutsideLibrary_2", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my", collapseRoot: true, omitDotSlash: false}, want: "<LIB>/sub/file"},
+		{name: "BarelyOutsideLibrary_1", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my", collapseRoot: true, omitDotSlash: true}, want: "lib://sub/file"},
+		{name: "BarelyOutsideLibrary_2", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my", collapseRoot: true, omitDotSlash: false}, want: "lib://sub/file"},
 		{name: "BarelyOutsideLibrary_3", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my", collapseRoot: false, omitDotSlash: true}, want: "/my/lib/sub/file"},
 		{name: "BarelyOutsideLibrary_4", args: args{absolute: "/my/lib/sub/file", root: "/my/lib", wd: "/my", collapseRoot: false, omitDotSlash: false}, want: "/my/lib/sub/file"},
 	}

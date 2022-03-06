@@ -3,6 +3,7 @@ package doccurator
 import (
 	"fmt"
 	"github.com/n2code/doccurator/internal/document"
+	"github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
 	"os"
 	"path/filepath"
@@ -28,12 +29,18 @@ func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {
 	return document.Id(numId), nil
 }
 
+const libRootScheme = "lib:" + string(filepath.Separator) + string(filepath.Separator)
+
 func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot bool, omitDotSlash bool) string {
 	workingDirectory, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	return pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), workingDirectory, shortenLibraryRoot, omitDotSlash)
+	pleasant := pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), workingDirectory, shortenLibraryRoot, omitDotSlash)
+	if strings.HasPrefix(pleasant, libRootScheme) {
+		pleasant = strings.Replace(pleasant, libRootScheme, output.TerminalFormatAsDim(libRootScheme), 1)
+	}
+	return pleasant
 }
 
 // pleasantPath turns an absolute path into something easily understandable from the current context.
@@ -55,7 +62,7 @@ func pleasantPath(absolute string, root string, wd string, collapseRoot bool, om
 			return absolute
 		}
 		anchored, _ := filepath.Rel(root, absolute) //error impossible because both are rooted
-		return fmt.Sprintf("<LIB>%c%s", filepath.Separator, anchored)
+		return libRootScheme + anchored
 	}
 
 	prefix := ""
