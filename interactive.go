@@ -156,7 +156,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 	fmt.Fprint(d.extraOut, "\n")
 
 	if len(deletionCommitQueue) > 0 {
-		fmt.Fprintf(d.verboseOut, "Committing deletions...\n")
+		fmt.Fprintf(d.extraOut, "Committing deletions...\n")
 		for _, commitDelete := range deletionCommitQueue {
 			if err := commitDelete(); err != nil {
 				//errors are reported but do not constitute an overall failure as a rollback would not work and removal from the original directory is already complete by now
@@ -173,6 +173,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 func (d *doccurator) InteractiveAdd(choice RequestChoice) (cancelled bool) {
 	results, _ := d.appLib.Scan(d.isLibFilePath, true) //read can be skipped because it does not affect correct detection of "untracked" status
 
+	doRename, skipRenameChoice := false, false
 NextCandidate:
 	for _, checked := range results {
 		switch checked.Status() {
@@ -238,23 +239,37 @@ NextCandidate:
 				continue NextCandidate
 			}
 
-			idChange := "include"
-			if hasExtractedId {
-				idChange = "update"
-			}
-			question := fmt.Sprintf("Rename %s to %s to %s ID in filename?", filepath.Base(anchored), differentNewName, idChange)
-			switch choice(question, []string{"Rename", "Keep filename"}, true) {
-			case "Rename":
-				if _, renameErr, _ := newDoc.RenameToStandardNameFormat(false); renameErr != nil {
-					fmt.Fprintf(d.errOut, "Skipping rename of %s: %s\n", newId, namePreviewErr)
-					continue NextCandidate
+			if !skipRenameChoice {
+				idChange := "include"
+				if hasExtractedId {
+					idChange = "update"
 				}
-				fmt.Fprintf(d.extraOut, "  => Renamed to: %s\n", differentNewName)
-			case "Keep filename":
-				continue NextCandidate
-			case choiceAborted:
-				return true
+				question := fmt.Sprintf("Rename %s to %s to %s ID in filename?", filepath.Base(anchored), differentNewName, idChange)
+				switch choice(question, []string{"Rename once", "Always rename", "Never rename", "Keep filename"}, true) {
+				case "Always rename":
+					skipRenameChoice = true
+					fallthrough
+				case "Rename once":
+					doRename = true
+				case "Never rename":
+					skipRenameChoice = true
+					fallthrough
+				case "Keep filename":
+					doRename = false
+				case choiceAborted:
+					return true
+				}
 			}
+
+			if !doRename {
+				continue NextCandidate
+			}
+
+			if _, renameErr, _ := newDoc.RenameToStandardNameFormat(false); renameErr != nil {
+				fmt.Fprintf(d.errOut, "Skipping rename of %s: %s\n", newId, namePreviewErr)
+				continue NextCandidate
+			}
+			fmt.Fprintf(d.extraOut, "  => Renamed to: %s\n", differentNewName)
 
 		case library.Error:
 			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())

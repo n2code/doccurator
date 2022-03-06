@@ -289,9 +289,7 @@ func (rq *CliRequest) execute() (execErr error) {
 		}
 		defer func() {
 			if execErr != nil {
-				if complete := api.RollbackAllFilesystemChanges(); complete {
-					execErr = fmt.Errorf("%w\n(filesystem unchanged)", execErr)
-				} //else pure error is returned, rollback issues have already been output
+				api.RollbackAllFilesystemChanges()
 			}
 		}()
 

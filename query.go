@@ -111,9 +111,22 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	}
 
 	//TODO [FEATURE]: coloring
-	for status, bucket := range buckets {
-		if !status.RepresentsChange() && !explicitQueryForPaths {
-			continue //to hide unchanged files when no explicit paths are queried
+
+	for _, status := range []library.PathStatus{
+		library.Tracked,
+		library.Removed,
+		library.Obsolete,
+		library.Duplicate,
+		library.Untracked,
+		library.Touched,
+		library.Moved,
+		library.Modified,
+		library.Missing,
+		library.Error,
+	} {
+		bucket := buckets[status]
+		if len(bucket) == 0 || (!status.RepresentsChange() && !explicitQueryForPaths) {
+			continue //to hide empty buckets and unchanged files [when no explicit paths are queried]
 		}
 		fmt.Fprintf(d.out, " %s (%d %s)\n", status, len(bucket), output.Plural(bucket, "file", "files"))
 		for _, path := range bucket {
@@ -124,7 +137,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	if errorCount > 0 {
 		fmt.Fprintf(d.out, " %s occurred:\n%s\n", output.Plural(errorCount, "Error", "Errors"), errorMessages.String()) //not on stderr because it was explicitly queried
 	} else if hasChanges == false && len(paths) == 0 {
-		fmt.Fprint(d.out, " Library in sync with all records.\n\n")
+		fmt.Fprint(d.out, " Library files in sync with all records.\n\n")
 	}
 	return nil
 }
