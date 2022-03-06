@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 //represents file.23456X777.ndoc.ext or file_without_ext.23456X777.ndoc or .23456X777.ndoc.ext_only
@@ -27,6 +28,45 @@ func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {
 	return document.Id(numId), nil
 }
 
+func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot bool, omitDotSlash bool) string {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), workingDirectory, shortenLibraryRoot, omitDotSlash)
+}
+
+// pleasantPath turns an absolute path into something easily understandable from the current context.
+// If the working directory is inside the library a relative path is emitted, with leading "./" to stress relativity (opt-out possible).
+// If the current location is outside the library an anchored path is printed and the library root is abbreviated.
+// If the [absolute] input path is a target outside the library it is reflected unchanged.
+func pleasantPath(absolute string, root string, wd string, collapseRoot bool, omitDotSlash bool) string {
+	const dotSlash = "." + string(filepath.Separator)
+	const dotDotSlash = "." + dotSlash
+
+	var wdInLibrary bool
+	{
+		rel, _ := filepath.Rel(root, wd) //error impossible because workingDirectory is rooted
+		wdInLibrary = !strings.HasPrefix(rel, dotDotSlash) && rel != ".."
+	}
+
+	if !wdInLibrary {
+		if !collapseRoot {
+			return absolute
+		}
+		anchored, _ := filepath.Rel(root, absolute) //error impossible because both are rooted
+		return fmt.Sprintf("<LIB>%c%s", filepath.Separator, anchored)
+	}
+
+	prefix := ""
+	relative, _ := filepath.Rel(wd, absolute) //error impossible because both are rooted
+	if !omitDotSlash && !strings.HasPrefix(relative, dotDotSlash) {
+		prefix = dotSlash
+	}
+	return prefix + relative
+}
+
+// mustAbsFilepath calls filepath.Abs and asserts that it is successful
 func mustAbsFilepath(path string) string {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -35,12 +75,13 @@ func mustAbsFilepath(path string) string {
 	return abs
 }
 
-func mustRelFilepathToWorkingDir(path string) string {
+// mustRelFilepathToWorkingDir calculates the path relative to the given target path (using the current working directory) and asserts that it is successful
+func mustRelFilepathToWorkingDir(target string) string {
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	rel, err := filepath.Rel(wd, path)
+	rel, err := filepath.Rel(wd, target)
 	if err != nil {
 		panic(err)
 	}

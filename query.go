@@ -62,7 +62,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 		var msg strings.Builder
 		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, output.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
-			fmt.Fprintf(&msg, "@%s: %s\n", errorPath.AnchoredPath(), errorPath.GetError())
+			fmt.Fprintf(&msg, "@%s: %s\n", d.displayablePath(filepath.Join(d.appLib.GetRoot(), errorPath.AnchoredPath()), false, false), errorPath.GetError())
 		}
 		return fmt.Errorf(msg.String())
 	} else {
@@ -84,13 +84,13 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	hasChanges := false
 	explicitQueryForPaths := len(paths) > 0
 
-	processResult := func(result *library.CheckedPath, absolutePath string) {
+	processResult := func(result *library.CheckedPath, path string) {
 		switch status := result.Status(); status {
 		case library.Error:
-			fmt.Fprintf(&errorMessages, "  [E] @%s\n      %s\n", absolutePath, result.GetError())
+			fmt.Fprintf(&errorMessages, "  [E] %s\n      %s\n", path, result.GetError())
 			errorCount++
 		default:
-			buckets[status] = append(buckets[status], mustRelFilepathToWorkingDir(absolutePath))
+			buckets[status] = append(buckets[status], path)
 			if status.RepresentsChange() {
 				hasChanges = true
 			}
@@ -99,14 +99,13 @@ func (d *doccurator) PrintStatus(paths []string) error {
 
 	if explicitQueryForPaths {
 		for _, path := range paths {
-			abs := mustAbsFilepath(path)
-			result := d.appLib.CheckFilePath(abs, false) //explicit status query must not sacrifice correctness for performance
-			processResult(&result, abs)
+			result := d.appLib.CheckFilePath(mustAbsFilepath(path), false) //explicit status query must not sacrifice correctness for performance
+			processResult(&result, path)
 		}
 	} else {
 		results, _ := d.appLib.Scan(d.isLibFilePath, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 		for _, result := range results {
-			processResult(&result, filepath.Join(d.appLib.GetRoot(), result.AnchoredPath()))
+			processResult(&result, mustRelFilepathToWorkingDir(filepath.Join(d.appLib.GetRoot(), result.AnchoredPath())))
 		}
 	}
 
@@ -130,7 +129,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		}
 		fmt.Fprintf(d.out, " %s (%d %s)\n", status, len(bucket), output.Plural(bucket, "file", "files"))
 		for _, path := range bucket {
-			fmt.Fprintf(d.out, "  [%s] %s\n", string(rune(status)), path)
+			fmt.Fprintf(d.out, "  [%c] %s\n", rune(status), d.displayablePath(mustAbsFilepath(path), true, true))
 		}
 		fmt.Fprintln(d.out)
 	}

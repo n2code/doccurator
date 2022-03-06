@@ -79,10 +79,10 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 	NextChange:
 		for _, path := range buckets[status] {
 			absolute := filepath.Join(d.appLib.GetRoot(), path.AnchoredPath())
-			displayPath := mustRelFilepathToWorkingDir(absolute)
+			displayPath := d.displayablePath(absolute, true, false)
 
 			if decideIndividually {
-				switch choice(fmt.Sprintf("@%s [%s] - %s", displayPath, lowerStatus, question), []string{"Yes", "No"}, true) {
+				switch choice(fmt.Sprintf("%s [%s] - %s", displayPath, lowerStatus, question), []string{"Yes", "No"}, true) {
 				case "Yes":
 					doChange = true
 				case "No":
@@ -107,7 +107,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					} else {
-						fmt.Fprintf(d.extraOut, "@%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
+						fmt.Fprintf(d.extraOut, "%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
 					}
 				case library.Obsolete, library.Duplicate:
 					tempDir, err := os.MkdirTemp("", "doccurator-tidy-delete-staging-*")
@@ -143,11 +143,11 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 						}
 					}(backup, absolute, tempDir))
 
-					fmt.Fprintf(d.extraOut, "@%s [%s] - Marked for delete.\n", displayPath, lowerStatus)
+					fmt.Fprintf(d.extraOut, "%s [%s] - Marked for delete.\n", displayPath, lowerStatus)
 				}
 				changeCount++
 			} else {
-				fmt.Fprintf(d.extraOut, "@%s - Skipped.\n", displayPath)
+				fmt.Fprintf(d.extraOut, "%s - Skipped.\n", displayPath)
 			}
 		}
 		fmt.Fprintf(d.extraOut, "%d %s %s %s.\n", changeCount, upperStatus, output.Plural(changeCount, subject, subject+"s"), pastParticiple)
@@ -178,8 +178,8 @@ NextCandidate:
 	for _, checked := range results {
 		switch checked.Status() {
 		case library.Untracked:
-			anchored := checked.AnchoredPath()
-			absolute := filepath.Join(d.appLib.GetRoot(), anchored)
+			absolute := filepath.Join(d.appLib.GetRoot(), checked.AnchoredPath())
+			displayPath := d.displayablePath(absolute, true, false)
 
 			usingExtractedId := true
 			extractedId, idErr := ExtractIdFromStandardizedFilename(absolute)
@@ -192,7 +192,7 @@ NextCandidate:
 
 			for decided := false; !decided; {
 				if usingExtractedId {
-					switch choice(fmt.Sprintf("Add %s using ID from filename? [%s]", anchored, extractedId), []string{"Yes", "New ID", "Skip"}, true) {
+					switch choice(fmt.Sprintf("Add %s using ID from filename? [%s]", displayPath, extractedId), []string{"Yes", "New ID", "Skip"}, true) {
 					case "Yes":
 						decided = true
 					case "New ID":
@@ -209,7 +209,7 @@ NextCandidate:
 						options = append(options, "From filename")
 					}
 					options = append(options, "Skip")
-					switch choice(fmt.Sprintf("Add %s using new generated ID? [%s]", anchored, newId), options, true) {
+					switch choice(fmt.Sprintf("Add %s using new generated ID? [%s]", displayPath, newId), options, true) {
 					case "Yes":
 						decided = true
 					case "From filename":
@@ -226,7 +226,7 @@ NextCandidate:
 			var newDoc library.Document
 			var addErr error
 			if newDoc, addErr = d.addSingle(newId, absolute, false); addErr != nil {
-				fmt.Fprintf(d.errOut, "Adding failed (%s): %s\n", anchored, addErr)
+				fmt.Fprintf(d.errOut, "Adding failed (%s): %s\n", displayPath, addErr)
 				continue NextCandidate
 			}
 
@@ -244,7 +244,7 @@ NextCandidate:
 				if hasExtractedId {
 					idChange = "update"
 				}
-				question := fmt.Sprintf("Rename %s to %s to %s ID in filename?", filepath.Base(anchored), differentNewName, idChange)
+				question := fmt.Sprintf(" ... rename to %s to %s ID in filename?", differentNewName, idChange)
 				switch choice(question, []string{"Rename once", "Always rename", "Never rename", "Keep filename"}, true) {
 				case "Always rename":
 					skipRenameChoice = true

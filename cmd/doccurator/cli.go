@@ -387,7 +387,7 @@ func (rq *CliRequest) execute() (execErr error) {
 				return fmt.Errorf("no matches found for ID [part]: %s", rq.actionArgs[0])
 			}
 			for _, match := range matches {
-				fmt.Fprintf(os.Stdout, "\n@%s (%s)\n", match.Path, match.StatusText)
+				fmt.Fprintf(os.Stdout, "\n%s (%s)\n", match.Path, match.StatusText)
 				api.PrintRecord(match.Id)
 			}
 			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, output.Plural(matchCount, "match", "matches"))
