@@ -13,9 +13,10 @@ const choiceAborted = ""
 
 func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (cancelled bool) {
 	fmt.Fprint(d.verboseOut, "Tidying up library...\n")
-	paths, _ := d.appLib.Scan(func(absoluteFilePath string) bool {
-		return false
-	}, d.optimizedFsAccess)
+
+	// this scan has no skip conditions because consciously added content shall be treated as such
+	// => status untracked not relevant in tidy operation and the filter is usually used to prevent accidental adding or noise in queries
+	paths, _ := d.appLib.Scan(nil, d.optimizedFsAccess)
 
 	buckets := make(map[library.PathStatus][]*library.CheckedPath)
 	for i, path := range paths {
@@ -171,7 +172,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 }
 
 func (d *doccurator) InteractiveAdd(choice RequestChoice) (cancelled bool) {
-	results, _ := d.appLib.Scan(d.isLibFilePath, true) //read can be skipped because it does not affect correct detection of "untracked" status
+	results, _ := d.appLib.Scan([]library.SkipEvaluator{d.isLibFile}, true) //read can be skipped because it does not affect correct detection of "untracked" status
 
 	doRename, skipRenameChoice := false, false
 NextCandidate:

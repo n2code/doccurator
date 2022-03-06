@@ -38,7 +38,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
 
 	var pathsWithErrors []*library.CheckedPath
-	paths, ok := d.appLib.Scan(d.isLibFilePath, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+	paths, ok := d.appLib.Scan([]library.SkipEvaluator{d.isLibFile}, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
@@ -103,7 +103,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 			processResult(&result, path)
 		}
 	} else {
-		results, _ := d.appLib.Scan(d.isLibFilePath, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+		results, _ := d.appLib.Scan([]library.SkipEvaluator{d.isLibFile}, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 		for _, result := range results {
 			processResult(&result, mustRelFilepathToWorkingDir(filepath.Join(d.appLib.GetRoot(), result.AnchoredPath())))
 		}
@@ -167,6 +167,6 @@ func (d *doccurator) GetFreeId() document.Id {
 	return document.MissingId
 }
 
-func (d *doccurator) isLibFilePath(path string) bool {
-	return path == d.libFile
+func (d *doccurator) isLibFile(absolute string, dir bool) bool {
+	return absolute == d.libFile && !dir
 }

@@ -278,7 +278,7 @@ func (lib *library) isIgnored(absolutePath string, isDir bool) bool {
 	return lib.ignoredPaths[ignoredLibraryPath{anchored: anchoredPath, directory: isDir}]
 }
 
-func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool) {
+func (lib *library) Scan(skipChecks []SkipEvaluator, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool) {
 	paths = make([]CheckedPath, 0, len(lib.documents))
 	hasNoErrors = true
 
@@ -296,7 +296,8 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 			hasNoErrors = false
 			return walkError
 		}
-		if d.IsDir() { //attempt loading an ignore file
+		isDir := d.IsDir()
+		if isDir { //attempt loading an ignore file
 			ignoreFileCandidate := filepath.Join(absolutePath, IgnoreFileName)
 			if _, err := os.Stat(ignoreFileCandidate); err == nil {
 				if ignoreErr := lib.loadIgnoreFile(ignoreFileCandidate); ignoreErr != nil {
@@ -310,13 +311,20 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 				}
 			}
 		}
-		if lib.isIgnored(absolutePath, d.IsDir()) || additionalSkip(absolutePath) {
-			if d.IsDir() {
+		if lib.isIgnored(absolutePath, isDir) || func() bool {
+			for _, check := range skipChecks {
+				if check(absolutePath, isDir) {
+					return true
+				}
+			}
+			return false
+		}() {
+			if isDir {
 				return filepath.SkipDir //to prevent descent
 			}
 			return nil //to continue scan with next candidate
 		}
-		if !d.IsDir() {
+		if !isDir {
 			libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
 			paths = append(paths, libPath)
 			coveredLibraryPaths[libPath.anchoredPath] = true
