@@ -37,7 +37,7 @@ func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot boo
 		panic(err)
 	}
 	pleasant := pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), workingDirectory, shortenLibraryRoot, omitDotSlash)
-	if strings.HasPrefix(pleasant, libRootScheme) {
+	if d.fancyTerminalFeatures && strings.HasPrefix(pleasant, libRootScheme) {
 		pleasant = strings.Replace(pleasant, libRootScheme, output.TerminalFormatAsDim(libRootScheme), 1)
 	}
 	return pleasant

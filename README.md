@@ -40,11 +40,12 @@ as relative arguments and detect automatically which library (root folder) they'
 $ doccurator -h
 
 Usage:
-   doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-v|-q] [-t] [-p] [-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
 
   -h	Display general usage help
+  -p	Do not use terminal escape sequence features such as colors (plain mode)
   -q	Output as little as possible, i.e. only requested information (quiet mode)
   -t	Do not apply optimizations (thorough mode), for example:
     	  Unless flag is set files whose modification time is unchanged are not read.

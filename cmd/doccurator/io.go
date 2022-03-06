@@ -11,7 +11,7 @@ import (
 	"unicode"
 )
 
-func PromptUser() doccurator.RequestChoice {
+func PromptUser(allowEscapeSequences bool) doccurator.RequestChoice {
 	return func(request string, options []string, cleanup bool) (choice string) {
 		letterToChoice := make(map[rune]string)
 		var displayOptions []string
@@ -46,13 +46,22 @@ func PromptUser() doccurator.RequestChoice {
 			}
 		}
 
-		if oldTermState, err := term.MakeRaw(int(os.Stdin.Fd())); err == nil {
-			rawMode = true
-			defer term.Restore(int(os.Stdin.Fd()), oldTermState)
-		} // else terminal is not raw, i.e. ENTER is required to confirm input -> acceptable fallback
+		if allowEscapeSequences {
+			if oldTermState, err := term.MakeRaw(int(os.Stdin.Fd())); err == nil {
+				rawMode = true
+				defer term.Restore(int(os.Stdin.Fd()), oldTermState)
+			} // else terminal is not raw, i.e. ENTER is required to confirm input -> acceptable fallback
+		}
 		waitForKey := func() {
 			reader := bufio.NewReaderSize(os.Stdin, 1)
 			input, _ := reader.ReadByte()
+			if !rawMode && reader.Buffered() > 0 {
+				if extra, _ := reader.ReadByte(); extra != '\n' && extra != '\r' {
+					key <- '?'
+					reader.Reset(os.Stdin)
+					return
+				}
+			}
 			reader.Reset(os.Stdin)
 			if rawMode && input == 3 { //Ctrl+C
 				interrupt <- os.Interrupt

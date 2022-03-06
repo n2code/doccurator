@@ -13,10 +13,11 @@ import (
 	"path/filepath"
 )
 
-type CliRequest struct {
+type cliRequest struct {
 	verbose     bool
 	quiet       bool
 	thorough    bool
+	plain       bool
 	action      string
 	actionFlags map[string]interface{}
 	actionArgs  []string
@@ -24,12 +25,12 @@ type CliRequest struct {
 
 const defaultDbFileName = `doccurator.db`
 
-func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *CliRequest, exitCode int) {
+func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *cliRequest, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
 Usage:
-   doccurator [-v|-q] [-t] [-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-v|-q] [-t] [-p] [-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
 
@@ -44,12 +45,13 @@ Usage:
 
 	}
 
-	request = &CliRequest{}
+	request = &cliRequest{}
 	var generalHelpRequested bool
 	flags.BoolVar(&request.verbose, "v", false, "Output more details on what is done (verbose mode)")
 	flags.BoolVar(&request.quiet, "q", false, "Output as little as possible, i.e. only requested information (quiet mode)")
 	flags.BoolVar(&generalHelpRequested, "h", false, "Display general usage help")
 	flags.BoolVar(&request.thorough, "t", false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files whose modification time is unchanged are not read.")
+	flags.BoolVar(&request.plain, "p", false, "Do not use terminal escape sequence features such as colors (plain mode)")
 
 	var err error
 	defer func() {
@@ -266,8 +268,8 @@ ActionParamCheck:
 	return
 }
 
-func (rq *CliRequest) execute() (execErr error) {
-	var config doccurator.CreateConfig
+func (rq *cliRequest) execute() (execErr error) {
+	var config doccurator.HandleConfig
 	if rq.verbose {
 		config.Verbosity = doccurator.VerboseMode
 	}
@@ -276,6 +278,9 @@ func (rq *CliRequest) execute() (execErr error) {
 	}
 	if rq.thorough {
 		config.Optimization = doccurator.ThoroughMode
+	}
+	if rq.plain {
+		config.SuppressTerminalCodes = true
 	}
 
 	if rq.action == "init" {
@@ -325,7 +330,7 @@ func (rq *CliRequest) execute() (execErr error) {
 				} else {
 					if len(rq.actionArgs) == 0 {
 						fmt.Fprint(os.Stdout, "(To stop adding more files: SIGINT/Ctrl+C during prompts)\n")
-						cancelled := api.InteractiveAdd(PromptUser())
+						cancelled := api.InteractiveAdd(PromptUser(!rq.plain))
 						if cancelled {
 							fmt.Fprint(os.Stdout, "(Interactive mode interrupted, repeat command to continue)\n")
 						}
@@ -393,7 +398,7 @@ func (rq *CliRequest) execute() (execErr error) {
 			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, output.Plural(matchCount, "match", "matches"))
 			return nil
 		case "tidy":
-			choice := PromptUser()
+			choice := PromptUser(!rq.plain)
 			if *(rq.actionFlags["no-confirm"].(*bool)) {
 				choice = AutoChooseDefaultOption(rq.quiet)
 			} else {

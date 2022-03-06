@@ -10,11 +10,12 @@ import (
 type VerbosityLevel int
 type OptimizationLevel int
 
-// CreateConfig holds a set of common configuration switches that concern all calls to the doccurator API.
+// HandleConfig holds a set of common configuration switches that concern all calls to the doccurator API.
 // The zero value is a sensible default.
-type CreateConfig struct {
-	Verbosity    VerbosityLevel
-	Optimization OptimizationLevel
+type HandleConfig struct {
+	Verbosity             VerbosityLevel    //amount of detail in output
+	Optimization          OptimizationLevel //performance-vs-thoroughness
+	SuppressTerminalCodes bool              //do use fancy terminal formatting options such as ANSI escape sequences to add color
 }
 
 const (
@@ -30,7 +31,7 @@ const (
 
 // New creates a new doccurator library rooted at the given root directory.
 // The library database file does not need to be located inside the root directory. However, its path must not be changed after creation.
-func New(root string, database string, config CreateConfig) (Doccurator, error) {
+func New(root string, database string, config HandleConfig) (Doccurator, error) {
 	handle := makeDoccurator(config)
 	err := handle.createLibrary(mustAbsFilepath(root), mustAbsFilepath(database))
 	if err != nil {
@@ -40,7 +41,7 @@ func New(root string, database string, config CreateConfig) (Doccurator, error) 
 }
 
 // Open loads the doccurator library database which tracks the given directory. (It does not need to be the library root directory.)
-func Open(directory string, config CreateConfig) (Doccurator, error) {
+func Open(directory string, config HandleConfig) (Doccurator, error) {
 	handle := makeDoccurator(config)
 	err := handle.loadLibrary(mustAbsFilepath(directory))
 	if err != nil {
@@ -50,17 +51,18 @@ func Open(directory string, config CreateConfig) (Doccurator, error) {
 }
 
 type doccurator struct {
-	appLib            library.Api
-	rollbackLog       []rollbackStep //series of steps to be executed in reverse order, errors shall be reported but not stop rollback execution
-	libFile           string         //absolute, system-native path
-	out               io.Writer      //essential output (i.e. requested information)
-	extraOut          io.Writer      //more output for convenience (repeats context)
-	verboseOut        io.Writer      //most output, talkative
-	errOut            io.Writer      //error output
-	optimizedFsAccess bool
+	appLib                library.Api
+	rollbackLog           []rollbackStep //series of steps to be executed in reverse order, errors shall be reported but not stop rollback execution
+	libFile               string         //absolute, system-native path
+	out                   io.Writer      //essential output (i.e. requested information)
+	extraOut              io.Writer      //more output for convenience (repeats context)
+	verboseOut            io.Writer      //most output, talkative
+	errOut                io.Writer      //error output
+	optimizedFsAccess     bool
+	fancyTerminalFeatures bool
 }
 
-func makeDoccurator(config CreateConfig) (instance *doccurator) {
+func makeDoccurator(config HandleConfig) (instance *doccurator) {
 	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard, errOut: os.Stderr}
 	switch config.Verbosity {
 	case VerboseMode:
@@ -72,5 +74,6 @@ func makeDoccurator(config CreateConfig) (instance *doccurator) {
 	if config.Optimization == DefaultOptimizations {
 		instance.optimizedFsAccess = true
 	}
+	instance.fancyTerminalFeatures = !config.SuppressTerminalCodes
 	return
 }
