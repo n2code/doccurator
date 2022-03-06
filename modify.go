@@ -77,7 +77,7 @@ func (d *doccurator) StandardizeLocation(id document.Id) error {
 	if !exists {
 		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
 	}
-	oldRelPath := doc.PathRelativeToLibraryRoot()
+	oldRelPath := doc.AnchoredPath()
 	changedName, err, rollback := doc.RenameToStandardNameFormat(false)
 	if changedName != "" && err == nil {
 		fmt.Fprintf(d.extraOut, "Renamed document %s (%s) to %s\n", id, oldRelPath, changedName)

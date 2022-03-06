@@ -59,21 +59,21 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
 	}
 
-	var untrackedRootRelativePaths []string
+	var untrackedAnchoredPaths []string
 	for _, checked := range results {
 		switch checked.Status() {
 		case library.Untracked:
-			untrackedRootRelativePaths = append(untrackedRootRelativePaths, checked.PathRelativeToLibraryRoot())
+			untrackedAnchoredPaths = append(untrackedAnchoredPaths, checked.AnchoredPath())
 		case library.Error:
 			if abortOnError {
-				err = fmt.Errorf("encountered uncheckable (%s): %w", checked.PathRelativeToLibraryRoot(), checked.GetError())
+				err = fmt.Errorf("encountered uncheckable (%s): %w", checked.AnchoredPath(), checked.GetError())
 				return
 			}
-			fmt.Fprintf(d.errOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
+			fmt.Fprintf(d.errOut, "Skipping uncheckable (%s): %s\n", checked.AnchoredPath(), checked.GetError())
 		}
 	}
 
-	added, err = d.AddMultiple(untrackedRootRelativePaths, allowForDuplicateMovedAndObsolete, generateMissingIds, abortOnError)
+	added, err = d.AddMultiple(untrackedAnchoredPaths, allowForDuplicateMovedAndObsolete, generateMissingIds, abortOnError)
 	return
 }
 
@@ -103,6 +103,6 @@ func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicat
 		d.appLib.ForgetDocument(doc)
 		return library.Document{}, newCommandError("document creation failed", err)
 	}
-	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.PathRelativeToLibraryRoot())
+	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.AnchoredPath())
 	return doc, nil
 }

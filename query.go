@@ -48,7 +48,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 		if status != library.Tracked {
 			prefix = fmt.Sprintf("[%s] ", string(status))
 		}
-		tree.InsertPath(checkedPath.PathRelativeToLibraryRoot(), prefix)
+		tree.InsertPath(checkedPath.AnchoredPath(), prefix)
 		if status == library.Error {
 			pathsWithErrors = append(pathsWithErrors, &paths[index])
 		}
@@ -62,7 +62,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 		var msg strings.Builder
 		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, output.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
-			fmt.Fprintf(&msg, "@%s: %s\n", errorPath.PathRelativeToLibraryRoot(), errorPath.GetError())
+			fmt.Fprintf(&msg, "@%s: %s\n", errorPath.AnchoredPath(), errorPath.GetError())
 		}
 		return fmt.Errorf(msg.String())
 	} else {
@@ -106,7 +106,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	} else {
 		results, _ := d.appLib.Scan(d.isLibFilePath, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 		for _, result := range results {
-			processResult(&result, filepath.Join(d.appLib.GetRoot(), result.PathRelativeToLibraryRoot()))
+			processResult(&result, filepath.Join(d.appLib.GetRoot(), result.AnchoredPath()))
 		}
 	}
 
@@ -146,12 +146,11 @@ func (d *doccurator) SearchByIdPart(part string) (results []SearchResult) {
 	partInUpper := strings.ToUpper(part)
 	d.appLib.VisitAllRecords(func(doc library.Document) {
 		if id := doc.Id(); strings.Contains(id.String(), partInUpper) {
-			absolute := filepath.Join(d.appLib.GetRoot(), doc.PathRelativeToLibraryRoot())
-			relative := mustRelFilepathToWorkingDir(absolute)
+			absolute := filepath.Join(d.appLib.GetRoot(), doc.AnchoredPath())
 			results = append(results, SearchResult{
-				Id:           id,
-				RelativePath: relative,
-				StatusText:   d.appLib.CheckFilePath(absolute, d.optimizedFsAccess).Status().String()})
+				Id:         id,
+				Path:       mustRelFilepathToWorkingDir(absolute),
+				StatusText: d.appLib.CheckFilePath(absolute, d.optimizedFsAccess).Status().String()})
 		}
 	})
 	return

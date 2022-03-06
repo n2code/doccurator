@@ -27,7 +27,7 @@ func SemanticPathFromNative(path string) SemanticPath {
 
 // storedFile is location relative to the storage root
 type storedFile struct {
-	directory    SemanticPath // directory is a semantic path relative to the library's root directory
+	directory    SemanticPath // directory is a semantic path relative to the library's root directory ("anchored")
 	name         string       // name is a pure filename without path information
 	lastModified unixTimestamp
 }

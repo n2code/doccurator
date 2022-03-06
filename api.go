@@ -95,9 +95,9 @@ type Doccurator interface {
 
 // SearchResult represents a subset of information taken from an existing library record.
 type SearchResult struct {
-	Id           document.Id
-	RelativePath string
-	StatusText   string
+	Id         document.Id
+	Path       string //relative to the current working directory
+	StatusText string
 }
 
 // RequestChoice represents a single-choice decision callback, the first option is considered the default "yes"-like choice.

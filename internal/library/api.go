@@ -31,10 +31,10 @@ const (
 )
 
 type CheckedPath struct {
-	libraryPath string //relative to library root, system-native
-	status      PathStatus
-	referencing Document
-	err         error
+	anchoredPath string //relative to library root, system-native
+	status       PathStatus
+	referencing  Document
+	err          error
 }
 
 // Api expects absolute system-native paths (with respect to the directory separator)
@@ -58,9 +58,9 @@ type Api interface {
 
 func NewLibrary() Api {
 	return &library{
-		documents:          make(map[document.Id]document.Api),
-		relPathActiveIndex: make(map[string]document.Api),
-		rootPath:           "", //to be set later
-		ignoredPaths:       make(map[ignoredLibraryPath]bool),
+		documents:               make(map[document.Id]document.Api),
+		activeAnchoredPathIndex: make(map[string]document.Api),
+		rootPath:                "", //to be set later
+		ignoredPaths:            make(map[ignoredLibraryPath]bool),
 	}
 }

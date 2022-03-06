@@ -29,7 +29,7 @@ func (lib *library) UnmarshalJSON(blob []byte) error {
 	lib.documents = loadedLib.Documents
 	for _, doc := range lib.documents {
 		if !doc.IsObsolete() {
-			lib.relPathActiveIndex[doc.Path()] = doc
+			lib.activeAnchoredPathIndex[doc.AnchoredPath()] = doc
 		}
 	}
 	return nil

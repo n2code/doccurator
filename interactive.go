@@ -78,7 +78,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 		changeCount := 0
 	NextChange:
 		for _, path := range buckets[status] {
-			absolute := filepath.Join(d.appLib.GetRoot(), path.PathRelativeToLibraryRoot())
+			absolute := filepath.Join(d.appLib.GetRoot(), path.AnchoredPath())
 			displayPath := mustRelFilepathToWorkingDir(absolute)
 
 			if decideIndividually {
@@ -178,7 +178,7 @@ NextCandidate:
 	for _, checked := range results {
 		switch checked.Status() {
 		case library.Untracked:
-			anchored := checked.PathRelativeToLibraryRoot()
+			anchored := checked.AnchoredPath()
 			absolute := filepath.Join(d.appLib.GetRoot(), anchored)
 
 			usingExtractedId := true
@@ -272,7 +272,7 @@ NextCandidate:
 			fmt.Fprintf(d.extraOut, "  => Renamed to: %s\n", differentNewName)
 
 		case library.Error:
-			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
+			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.AnchoredPath(), checked.GetError())
 		}
 	}
 	return false

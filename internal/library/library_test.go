@@ -13,11 +13,11 @@ import (
 	"github.com/n2code/doccurator/internal/document"
 )
 
-func TestGetPathRelativeToLibraryRoot(t *testing.T) {
+func TestGetAnchoredPath(t *testing.T) {
 	lib := library{rootPath: "/dummy/root"}
 
 	assertRelPath := func(full string, expRel string) {
-		actRel, inLibrary := lib.getPathRelativeToLibraryRoot(full)
+		actRel, inLibrary := lib.getAnchoredPath(full)
 		if inLibrary != true {
 			t.Error("expected detection to determine that path", full, "is inside library")
 		}
@@ -27,7 +27,7 @@ func TestGetPathRelativeToLibraryRoot(t *testing.T) {
 	}
 
 	assertNotInLib := func(full string) {
-		actRel, inLibrary := lib.getPathRelativeToLibraryRoot(full)
+		actRel, inLibrary := lib.getAnchoredPath(full)
 		if inLibrary != false {
 			t.Error("expected detection to determine that path", full, "is outside library")
 		}
@@ -586,17 +586,17 @@ func TestVisitRecordsAndPrint(t *testing.T) {
 	lib := NewLibrary()
 	imaginaryRoot := "/imaginary"
 	lib.SetRoot(imaginaryRoot)
-	id932229, relativePathA := document.Id(1), "A.932229.ndoc"
-	id97322X, relativePathB := document.Id(13), "B.97322X.ndoc"
-	id94722N, relativePathC := document.Id(42), "C.94722N.ndoc"
+	id932229, anchoredPathA := document.Id(1), "A.932229.ndoc"
+	id97322X, anchoredPathB := document.Id(13), "B.97322X.ndoc"
+	id94722N, anchoredPathC := document.Id(42), "C.94722N.ndoc"
 
 	//WHEN
 	docA, _ := lib.CreateDocument(id932229)
 	docB, _ := lib.CreateDocument(id97322X)
 	docC, _ := lib.CreateDocument(id94722N)
-	lib.SetDocumentPath(docA, filepath.Join(imaginaryRoot, relativePathA))
-	lib.SetDocumentPath(docB, filepath.Join(imaginaryRoot, relativePathB))
-	lib.SetDocumentPath(docC, filepath.Join(imaginaryRoot, relativePathC))
+	lib.SetDocumentPath(docA, filepath.Join(imaginaryRoot, anchoredPathA))
+	lib.SetDocumentPath(docB, filepath.Join(imaginaryRoot, anchoredPathB))
+	lib.SetDocumentPath(docC, filepath.Join(imaginaryRoot, anchoredPathC))
 	lib.MarkDocumentAsObsolete(docB)
 	lib.ForgetDocument(docC)
 
@@ -606,9 +606,9 @@ func TestVisitRecordsAndPrint(t *testing.T) {
 		recordPrintout.WriteString(doc.String())
 		recordPrintout.WriteRune('\n')
 	})
-	if !strings.Contains(recordPrintout.String(), relativePathA) ||
-		!strings.Contains(recordPrintout.String(), relativePathB) ||
-		strings.Contains(recordPrintout.String(), relativePathC) { //C must not be contained because it should have been forgotten
+	if !strings.Contains(recordPrintout.String(), anchoredPathA) ||
+		!strings.Contains(recordPrintout.String(), anchoredPathB) ||
+		strings.Contains(recordPrintout.String(), anchoredPathC) { //C must not be contained because it should have been forgotten
 		t.Fatal("record printout unexpected:\n" + recordPrintout.String())
 	}
 }
@@ -641,7 +641,7 @@ func TestNameStandardization(t *testing.T) {
 	if _, err := os.Stat(newPath); err != nil {
 		t.Fatal("file not found at expected new path", newPath)
 	}
-	if doc.PathRelativeToLibraryRoot() != newFilename {
+	if doc.AnchoredPath() != newFilename {
 		t.Fatal("document not renamed in library database")
 	}
 	if lib.CheckFilePath(newPath, false).Status() != Tracked {

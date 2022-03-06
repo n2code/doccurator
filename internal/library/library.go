@@ -26,22 +26,22 @@ func (lib *library) CreateDocument(id document.Id) (Document, error) {
 }
 
 func (lib *library) SetDocumentPath(ref Document, absolutePath string) error {
-	newRelativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
+	newAnchoredPath, inLibrary := lib.getAnchoredPath(absolutePath)
 	if !inLibrary {
 		return fmt.Errorf("path outside library: %s", absolutePath)
 	}
 	doc := lib.documents[ref.id] //caller error if nil
-	if conflicting, pathAlreadyKnown := lib.relPathActiveIndex[newRelativePath]; pathAlreadyKnown && conflicting.Id() != doc.Id() {
+	if conflicting, pathAlreadyKnown := lib.activeAnchoredPathIndex[newAnchoredPath]; pathAlreadyKnown && conflicting.Id() != doc.Id() {
 		return fmt.Errorf("document %s already exists for path %s", conflicting.Id(), absolutePath)
 	}
 	if filepath.Base(absolutePath) == LocatorFileName {
 		return fmt.Errorf("locator files must not be added to the library")
 	}
 	if !doc.IsObsolete() {
-		delete(lib.relPathActiveIndex, doc.Path())
-		lib.relPathActiveIndex[newRelativePath] = doc
+		delete(lib.activeAnchoredPathIndex, doc.AnchoredPath())
+		lib.activeAnchoredPathIndex[newAnchoredPath] = doc
 	}
-	doc.SetPath(newRelativePath)
+	doc.SetPath(newAnchoredPath)
 	return nil
 }
 
@@ -54,12 +54,12 @@ func (lib *library) GetDocumentById(id document.Id) (doc Document, exists bool) 
 }
 
 func (lib *library) GetActiveDocumentByPath(absolutePath string) (ref Document, exists bool) {
-	relativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
+	anchoredPath, inLibrary := lib.getAnchoredPath(absolutePath)
 	if !inLibrary {
 		exists = false
 		return
 	}
-	doc, exists := lib.relPathActiveIndex[relativePath]
+	doc, exists := lib.activeAnchoredPathIndex[anchoredPath]
 	if exists {
 		ref = Document{id: doc.Id(), library: lib}
 	}
@@ -67,13 +67,13 @@ func (lib *library) GetActiveDocumentByPath(absolutePath string) (ref Document, 
 }
 
 func (lib *library) ObsoleteDocumentExistsForPath(absolutePath string) bool {
-	relativePath, inLibrary := lib.getPathRelativeToLibraryRoot(absolutePath)
+	anchoredPath, inLibrary := lib.getAnchoredPath(absolutePath)
 	if !inLibrary {
 		return false
 	}
 	//linear scan, could be improved
 	for _, doc := range lib.documents {
-		if doc.IsObsolete() && doc.Path() == relativePath {
+		if doc.IsObsolete() && doc.AnchoredPath() == anchoredPath {
 			return true
 		}
 	}
@@ -89,15 +89,15 @@ func (lib *library) MarkDocumentAsObsolete(ref Document) {
 	doc := lib.documents[ref.id] //caller error if nil
 	if !doc.IsObsolete() {
 		doc.DeclareObsolete()
-		delete(lib.relPathActiveIndex, doc.Path())
+		delete(lib.activeAnchoredPathIndex, doc.AnchoredPath())
 	}
 }
 
 func (lib *library) ForgetDocument(ref Document) {
 	doc := lib.documents[ref.id] //caller error if nil
 	if !doc.IsObsolete() {
-		relativePath := doc.Path()
-		delete(lib.relPathActiveIndex, relativePath)
+		anchored := doc.AnchoredPath()
+		delete(lib.activeAnchoredPathIndex, anchored)
 	}
 	delete(lib.documents, doc.Id())
 }
@@ -113,13 +113,13 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 	}()
 
 	var inLibrary bool
-	result.libraryPath, inLibrary = lib.getPathRelativeToLibraryRoot(absolutePath)
+	result.anchoredPath, inLibrary = lib.getAnchoredPath(absolutePath)
 	if !inLibrary {
 		result.err = fmt.Errorf("path is not below library root: %s", absolutePath)
 		return
 	}
 
-	if doc, isOnActiveRecord := lib.relPathActiveIndex[result.libraryPath]; isOnActiveRecord {
+	if doc, isOnActiveRecord := lib.activeAnchoredPathIndex[result.anchoredPath]; isOnActiveRecord {
 		switch status := doc.CompareToFileOnStorage(lib.rootPath, skipReadOnSizeMatch); status {
 		case document.UnmodifiedFile:
 			result.status = Tracked
@@ -132,7 +132,7 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 		case document.NoFileFound:
 			result.status = Missing
 		case document.FileAccessError:
-			result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
+			result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.AnchoredPath(), doc.Id())
 		}
 		return
 	}
@@ -185,7 +185,7 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 				foundMissingActive = true
 				anyMissingMatchingActive = doc
 			case document.FileAccessError:
-				result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.Path(), doc.Id())
+				result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.AnchoredPath(), doc.Id())
 				return
 			}
 		}
@@ -247,18 +247,18 @@ func (lib *library) loadIgnoreFile(absolutePath string) (err error) {
 			}
 			nativePath := filepath.FromSlash(line)
 			absoluteIgnored := filepath.Join(filepath.Dir(absolutePath), nativePath)
-			relativeIgnored, relErr := filepath.Rel(lib.rootPath, absoluteIgnored)
+			anchoredIgnored, relErr := filepath.Rel(lib.rootPath, absoluteIgnored)
 			if relErr != nil {
 				return fmt.Errorf("relativizing failed (%w)", relErr)
 			}
-			if relativeIgnored == "." {
+			if anchoredIgnored == "." {
 				return fmt.Errorf("refers to directory itself")
 			}
-			if components := strings.Split(relativeIgnored, string(filepath.Separator)); len(components) == 0 || components[0] == ".." {
+			if components := strings.Split(anchoredIgnored, string(filepath.Separator)); len(components) == 0 || components[0] == ".." {
 				return fmt.Errorf("path refers to directory above")
 			}
 			lib.ignoredPaths[ignoredLibraryPath{
-				relative:  relativeIgnored,
+				anchored:  anchoredIgnored,
 				directory: strings.HasSuffix(line, "/"),
 			}] = true
 
@@ -274,8 +274,8 @@ func (lib *library) isIgnored(absolutePath string, isDir bool) bool {
 	if filepath.Base(absolutePath) == LocatorFileName {
 		return true
 	}
-	relativePath, _ := filepath.Rel(lib.rootPath, absolutePath)
-	return lib.ignoredPaths[ignoredLibraryPath{relative: relativePath, directory: isDir}]
+	anchoredPath, _ := filepath.Rel(lib.rootPath, absolutePath)
+	return lib.ignoredPaths[ignoredLibraryPath{anchored: anchoredPath, directory: isDir}]
 }
 
 func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool) {
@@ -289,9 +289,9 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 		if walkError != nil {
 			badPath, _ := filepath.Rel(lib.rootPath, absolutePath)
 			paths = append(paths, CheckedPath{
-				libraryPath: badPath,
-				status:      Error,
-				err:         fmt.Errorf("scan aborted: %w", walkError),
+				anchoredPath: badPath,
+				status:       Error,
+				err:          fmt.Errorf("scan aborted: %w", walkError),
 			})
 			hasNoErrors = false
 			return walkError
@@ -302,9 +302,9 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 				if ignoreErr := lib.loadIgnoreFile(ignoreFileCandidate); ignoreErr != nil {
 					badIgnore, _ := filepath.Rel(lib.rootPath, ignoreFileCandidate)
 					paths = append(paths, CheckedPath{
-						libraryPath: badIgnore,
-						status:      Error,
-						err:         fmt.Errorf("ignore file error: %w", ignoreErr),
+						anchoredPath: badIgnore,
+						status:       Error,
+						err:          fmt.Errorf("ignore file error: %w", ignoreErr),
 					})
 					hasNoErrors = false
 				}
@@ -319,7 +319,7 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 		if !d.IsDir() {
 			libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
 			paths = append(paths, libPath)
-			coveredLibraryPaths[libPath.libraryPath] = true
+			coveredLibraryPaths[libPath.anchoredPath] = true
 			switch libPath.status {
 			case Moved:
 				movedIds[libPath.referencing.id] = true
@@ -332,7 +332,7 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 	filepath.WalkDir(lib.rootPath, visitor) //errors are communicated as path
 
 	for _, doc := range lib.documents {
-		if _, alreadyCheckedPath := coveredLibraryPaths[doc.Path()]; !alreadyCheckedPath {
+		if _, alreadyCheckedPath := coveredLibraryPaths[doc.AnchoredPath()]; !alreadyCheckedPath {
 			if _, alreadyCoveredId := movedIds[doc.Id()]; !alreadyCoveredId {
 				absolutePath := lib.getAbsolutePathOfDocument(doc)
 				libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
@@ -344,10 +344,10 @@ func (lib *library) Scan(additionalSkip func(absoluteFilePath string) bool, skip
 	return
 }
 
-func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativePath string, insideLibraryDir bool) {
-	relativePath, err := filepath.Rel(lib.rootPath, absolutePath)
-	if err != nil || strings.HasPrefix(relativePath, "..") {
-		relativePath = ""
+func (lib *library) getAnchoredPath(absolutePath string) (anchored string, insideLibraryDir bool) {
+	anchored, err := filepath.Rel(lib.rootPath, absolutePath)
+	if err != nil || strings.HasPrefix(anchored, "..") {
+		anchored = ""
 		insideLibraryDir = false
 		return
 	}
@@ -355,15 +355,13 @@ func (lib *library) getPathRelativeToLibraryRoot(absolutePath string) (relativeP
 	return
 }
 
-func (lib *library) pathExists(anchoredPath string) (exists bool) {
-	//relativePath, err := filepath.Rel(lib.rootPath, absolutePath)
-	//internal.AssertNoError(err, "input is expected to be absolute")
-	_, exists = lib.relPathActiveIndex[anchoredPath]
+func (lib *library) pathExists(anchored string) (exists bool) {
+	_, exists = lib.activeAnchoredPathIndex[anchored]
 	return
 }
 
 func (lib *library) getAbsolutePathOfDocument(doc document.Api) string {
-	return filepath.Join(lib.rootPath, doc.Path())
+	return filepath.Join(lib.rootPath, doc.AnchoredPath())
 }
 
 func (lib *library) SetRoot(absolutePath string) {
@@ -407,9 +405,9 @@ func (libDoc *Document) IsObsolete() bool {
 	return doc.IsObsolete()
 }
 
-func (libDoc *Document) PathRelativeToLibraryRoot() string {
+func (libDoc *Document) AnchoredPath() string {
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
-	return doc.Path()
+	return doc.AnchoredPath()
 }
 
 func (libDoc *Document) RenameToStandardNameFormat(dryRun bool) (newNameIfDifferent string, err error, fsRollback func() error) {
@@ -419,7 +417,7 @@ func (libDoc *Document) RenameToStandardNameFormat(dryRun bool) (newNameIfDiffer
 
 	doc := libDoc.library.documents[libDoc.id] //caller error if any is nil
 	standardName := doc.StandardizedFilename()
-	oldPath := doc.Path()
+	oldPath := doc.AnchoredPath()
 	standardPath := filepath.Join(filepath.Dir(oldPath), standardName)
 	if standardPath == oldPath {
 		return
@@ -465,8 +463,8 @@ func (p CheckedPath) Status() PathStatus {
 	return p.status
 }
 
-func (p CheckedPath) PathRelativeToLibraryRoot() string {
-	return p.libraryPath
+func (p CheckedPath) AnchoredPath() string {
+	return p.anchoredPath
 }
 
 func (p CheckedPath) GetError() error {

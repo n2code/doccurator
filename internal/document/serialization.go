@@ -29,7 +29,7 @@ func (doc *document) String() string {
   Recorded: %s
   Modified: %s%s`,
 		doc.id,
-		doc.localStorage.pathRelativeToLibrary(),
+		doc.localStorage.anchoredFilepath(),
 		output.Filesize(doc.contentMetadata.size),
 		hex.EncodeToString(doc.contentMetadata.sha256Hash[:]),
 		formatTime(doc.recorded),

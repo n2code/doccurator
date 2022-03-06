@@ -147,7 +147,7 @@ func (lib *library) LoadFromLocalFile(path string) {
 	decoder.DisallowUnknownFields()
 
 	lib.documents = make(map[document.Id]document.Api)
-	lib.relPathActiveIndex = make(map[string]document.Api)
+	lib.activeAnchoredPathIndex = make(map[string]document.Api)
 	lib.ignoredPaths = make(map[ignoredLibraryPath]bool)
 
 	err = decoder.Decode(&lib)

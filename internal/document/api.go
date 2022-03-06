@@ -23,8 +23,8 @@ type Api interface {
 	Changed() unixTimestamp
 	IsObsolete() bool
 	DeclareObsolete()
-	Path() string
-	SetPath(relativePath string)
+	AnchoredPath() string
+	SetPath(anchored string)
 	StandardizedFilename() string
 	UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error)
 	CompareToFileOnStorage(libraryRoot string, skipReadOnSizeMatch bool) TrackedFileStatus

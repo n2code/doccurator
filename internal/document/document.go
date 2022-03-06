@@ -36,20 +36,20 @@ func (doc *document) DeclareObsolete() {
 	}
 }
 
-//Path returns a filepath relative to the library root directory
-func (doc *document) Path() string {
-	return doc.localStorage.pathRelativeToLibrary()
+// AnchoredPath returns a filepath relative to the library root directory ("anchored")
+func (doc *document) AnchoredPath() string {
+	return doc.localStorage.anchoredFilepath()
 }
 
-//SetPath expects a filepath relative to the library root directory
-func (doc *document) SetPath(relativePath string) {
-	doc.localStorage.setFromRelativePath(relativePath)
+//SetPath expects a filepath relative to the library root directory ("anchored")
+func (doc *document) SetPath(anchored string) {
+	doc.localStorage.setFromPath(anchored)
 	doc.updateRecordChangeDate()
 }
 
-//reads and stats the document using the recorded document path and the library root (relative/absolute)
+// UpdateFromFileOnStorage reads and stats the document using the recorded document path and the library root path (can be relative or absolute)
 func (doc *document) UpdateFromFileOnStorage(libraryRoot string) (changed bool, err error) {
-	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary()) //path may be relative if the library root is relative
+	path := filepath.Join(libraryRoot, doc.localStorage.anchoredFilepath()) //result may be relative if the library root is relative
 	statsChanged, err := doc.localStorage.updateFileStats(path)
 	if err != nil {
 		return false, err
@@ -66,9 +66,9 @@ func (doc *document) UpdateFromFileOnStorage(libraryRoot string) (changed bool, 
 	return
 }
 
-//Calculates file status using the recorded document path and the library root (relative/absolute)
+// CompareToFileOnStorage calculates file status using the recorded document path and the library root path (can be relative or absolute)
 func (doc *document) CompareToFileOnStorage(libraryRoot string, skipReadOnSizeMatch bool) TrackedFileStatus {
-	path := filepath.Join(libraryRoot, doc.localStorage.pathRelativeToLibrary())
+	path := filepath.Join(libraryRoot, doc.localStorage.anchoredFilepath())
 
 	stat, err := os.Stat(path)
 	if err != nil {
@@ -131,12 +131,13 @@ func (doc *document) updateRecordChangeDate() {
 	doc.changed = unixTimestamp(internal.UnixTimestampNow())
 }
 
-func (stored *storedFile) setFromRelativePath(relativePath string) {
-	stored.directory = SemanticPathFromNative(filepath.Dir(relativePath))
-	stored.name = filepath.Base(relativePath)
+func (stored *storedFile) setFromPath(anchored string) {
+	stored.directory = SemanticPathFromNative(filepath.Dir(anchored))
+	stored.name = filepath.Base(anchored)
 }
 
-func (stored *storedFile) pathRelativeToLibrary() string {
+// anchoredFilepath returns a filepath with system-native separators that is relative to the library root
+func (stored *storedFile) anchoredFilepath() string {
 	return filepath.Join(stored.directory.ToNativeFilepath(), stored.name)
 }
 
