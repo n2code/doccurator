@@ -11,7 +11,7 @@ import (
 
 const choiceAborted = ""
 
-func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) error {
+func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (cancelled bool) {
 	fmt.Fprint(d.verboseOut, "Tidying up library...\n")
 	paths, _ := d.appLib.Scan(func(absoluteFilePath string) bool {
 		return false
@@ -70,7 +70,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 					decideIndividually = false
 					doChange = false
 				case choiceAborted:
-					return fmt.Errorf("<ERROR: PROMPT ABORTED>")
+					return true
 				}
 			}
 		}
@@ -88,7 +88,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 				case "No":
 					doChange = false
 				case choiceAborted:
-					return fmt.Errorf("<ERROR: PROMPT ABORTED>")
+					return true
 				}
 			}
 
@@ -167,10 +167,10 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) err
 	}
 
 	fmt.Fprint(d.verboseOut, "Tidy operation complete.\n")
-	return nil
+	return false
 }
 
-func (d *doccurator) InteractiveAdd(choice RequestChoice) error {
+func (d *doccurator) InteractiveAdd(choice RequestChoice) (cancelled bool) {
 	results, _ := d.appLib.Scan(d.isLibFilePath, true) //read can be skipped because it does not affect correct detection of "untracked" status
 
 NextCandidate:
@@ -200,7 +200,7 @@ NextCandidate:
 					case "Skip":
 						continue NextCandidate
 					case choiceAborted:
-						return nil
+						return true
 					}
 				} else {
 					options := []string{"Yes"}
@@ -217,7 +217,7 @@ NextCandidate:
 					case "Skip":
 						continue NextCandidate
 					case choiceAborted:
-						return nil
+						return true
 					}
 				}
 			}
@@ -238,7 +238,12 @@ NextCandidate:
 				continue NextCandidate
 			}
 
-			switch choice(fmt.Sprintf("  Rename %s to %s to include ID in filename?", filepath.Base(anchored), differentNewName), []string{"Rename", "Keep filename"}, true) {
+			idChange := "include"
+			if hasExtractedId {
+				idChange = "update"
+			}
+			question := fmt.Sprintf("Rename %s to %s to %s ID in filename?", filepath.Base(anchored), differentNewName, idChange)
+			switch choice(question, []string{"Rename", "Keep filename"}, true) {
 			case "Rename":
 				if _, renameErr, _ := newDoc.RenameToStandardNameFormat(false); renameErr != nil {
 					fmt.Fprintf(d.errOut, "Skipping rename of %s: %s\n", newId, namePreviewErr)
@@ -248,12 +253,12 @@ NextCandidate:
 			case "Keep filename":
 				continue NextCandidate
 			case choiceAborted:
-				return nil
+				return true
 			}
 
 		case library.Error:
 			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.PathRelativeToLibraryRoot(), checked.GetError())
 		}
 	}
-	return nil
+	return false
 }

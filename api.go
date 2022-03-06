@@ -78,9 +78,9 @@ type Doccurator interface {
 	SearchByIdPart(part string) []SearchResult
 
 	// InteractiveAdd lets the user choose for each untracked file whether to add it, which ID to use, and whether to rename it to match the chosen ID.
-	// Library changes need to be committed with PersistChanges.
-	// Filesystem changes have an immediate effect and CANNOT be reverted by RollbackAllFilesystemChanges.
-	InteractiveAdd(choice RequestChoice) error
+	// Library changes need to be committed with a subsequent call to PersistChanges.
+	// Filesystem changes (renames) have an immediate effect (and CANNOT be reverted by RollbackAllFilesystemChanges).
+	InteractiveAdd(prompt RequestChoice) (cancelled bool)
 
 	// InteractiveTidy guides the user through possible library updates and file system changes:
 	// Touched, moved, and modified files can have their records updated.
@@ -89,8 +89,8 @@ type Doccurator interface {
 	// Untracked files with duplicate content (waste) can be deleted.
 	// All decisions are up to the user and nothing is changed without confirmation.
 	// Library changes need to be committed with a subsequent call to PersistChanges.
-	// Filesystem changes have an immediate effect and CANNOT be reverted by RollbackAllFilesystemChanges.
-	InteractiveTidy(choice RequestChoice, removeWaste bool) error
+	// Filesystem changes have an immediate effect and need to be reverted by RollbackAllFilesystemChanges.
+	InteractiveTidy(prompt RequestChoice, removeWaste bool) (cancelled bool)
 }
 
 // SearchResult represents a subset of information taken from an existing library record.

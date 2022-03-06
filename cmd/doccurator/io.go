@@ -81,7 +81,7 @@ func PromptUser() doccurator.RequestChoice {
 					out(prompt)
 				}
 			case <-interrupt:
-				out("\r\n")
+				out("<CANCELLED>\r\n")
 				return "" //represents abort as per type documentation
 			}
 		}

@@ -327,7 +327,10 @@ func (rq *CliRequest) execute() (execErr error) {
 				} else {
 					if len(rq.actionArgs) == 0 {
 						fmt.Fprint(os.Stdout, "(To stop adding more files: SIGINT/Ctrl+C during prompts)\n")
-						api.InteractiveAdd(PromptUser())
+						cancelled := api.InteractiveAdd(PromptUser())
+						if cancelled {
+							fmt.Fprint(os.Stdout, "(Interactive mode interrupted, repeat command to continue)\n")
+						}
 					} else {
 						addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
 					}
@@ -398,8 +401,9 @@ func (rq *CliRequest) execute() (execErr error) {
 			} else {
 				fmt.Fprint(os.Stdout, "(To abort and undo everything: SIGINT/Ctrl+C during prompts)\n")
 			}
-			if err := api.InteractiveTidy(choice, *(rq.actionFlags["remove-waste-files"].(*bool))); err != nil {
-				return err
+			cancelled := api.InteractiveTidy(choice, *(rq.actionFlags["remove-waste-files"].(*bool)))
+			if cancelled {
+				return fmt.Errorf("operation aborted, undo requested")
 			}
 			return api.PersistChanges()
 		default:
@@ -417,9 +421,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		switch rq.action {
 		case "add", "update", "tidy":
-			if !rq.quiet {
-				fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
-			}
+			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
 		}
 		os.Exit(1)
 	}
