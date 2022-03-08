@@ -34,21 +34,47 @@ func (d *doccurator) PrintAllRecords(excludeRetired bool) {
 	}
 }
 
-func (d *doccurator) PrintTree(excludeUnchanged bool) error {
-	tree := output.NewVisualFileTree(d.appLib.GetRoot() + " [library root]")
+func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error {
+	displayFilters := make([]library.PathSkipEvaluator, 0, 2)
+	libRoot := d.appLib.GetRoot()
+
+	label := libRoot + " [library root]"
+	trimPrefix := ""
+
+	if onlyWorkingDir {
+		wd := mustGetwd()
+		//fmt.Println("wd is", wd)
+		if isChildOf(wd, libRoot) {
+			label = wd + " [working directory]"
+
+			trimPrefix, _ = filepath.Rel(libRoot, wd)
+			trimPrefix += dirSeparator
+
+			displayFilters = append(displayFilters, func(absolute string, dir bool) bool {
+				//do not skip if...
+				return !(dir && isChildOf(wd, absolute) || //directory above (walk-into required!)
+					dir && absolute == wd || //or working directory itself
+					isChildOf(absolute, wd)) //or file/directory inside working directory
+			})
+		} else if wd != libRoot {
+			return fmt.Errorf("working directory is not inside library")
+		} //else wd == root which shall not behave differently
+	}
+
+	tree := output.NewVisualFileTree(label)
 
 	var pathsWithErrors []*library.CheckedPath
-	paths, ok := d.appLib.Scan([]library.SkipEvaluator{d.isLibFile}, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+	paths, ok := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, displayFilters, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 	for index, checkedPath := range paths {
 		prefix := ""
 		status := checkedPath.Status()
-		if excludeUnchanged && (status == library.Tracked || status == library.Removed) {
+		if excludeUnchanged && !status.RepresentsChange() {
 			continue
 		}
 		if status != library.Tracked {
 			prefix = fmt.Sprintf("[%s] ", string(status))
 		}
-		tree.InsertPath(checkedPath.AnchoredPath(), prefix)
+		tree.InsertPath(strings.TrimPrefix(checkedPath.AnchoredPath(), trimPrefix), prefix)
 		if status == library.Error {
 			pathsWithErrors = append(pathsWithErrors, &paths[index])
 		}
@@ -62,17 +88,15 @@ func (d *doccurator) PrintTree(excludeUnchanged bool) error {
 		var msg strings.Builder
 		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, output.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
-			fmt.Fprintf(&msg, "@%s: %s\n", d.displayablePath(filepath.Join(d.appLib.GetRoot(), errorPath.AnchoredPath()), false, false), errorPath.GetError())
+			fmt.Fprintf(&msg, "@%s: %s\n", d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), errorPath.GetError())
 		}
 		return fmt.Errorf(msg.String())
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (d *doccurator) PrintStatus(paths []string) error {
-	//TODO [FEATURE]: pair up missing+moved and hide missing
-	buckets := make(map[library.PathStatus][]string)
+	buckets := make(map[library.PathStatus][]library.CheckedPath)
 
 	if len(paths) > 0 {
 		fmt.Fprintf(d.extraOut, "Status of %d specified %s:\n", len(paths), output.Plural(paths, "path", "paths"))
@@ -84,13 +108,17 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	hasChanges := false
 	explicitQueryForPaths := len(paths) > 0
 
-	processResult := func(result *library.CheckedPath, path string) {
-		switch status := result.Status(); status {
+	processResult := func(result library.CheckedPath, relativePath string) {
+		status := result.Status()
+		if !status.RepresentsChange() && !explicitQueryForPaths {
+			return //to hide unchanged files [when no explicit paths are queried]
+		}
+		switch status {
 		case library.Error:
-			fmt.Fprintf(&errorMessages, "  [E] %s\n      %s\n", path, result.GetError())
+			fmt.Fprintf(&errorMessages, "  [E] %s\n      %s\n", relativePath, result.GetError())
 			errorCount++
 		default:
-			buckets[status] = append(buckets[status], path)
+			buckets[status] = append(buckets[status], result)
 			if status.RepresentsChange() {
 				hasChanges = true
 			}
@@ -100,13 +128,31 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	if explicitQueryForPaths {
 		for _, path := range paths {
 			result := d.appLib.CheckFilePath(mustAbsFilepath(path), false) //explicit status query must not sacrifice correctness for performance
-			processResult(&result, path)
+			processResult(result, path)
 		}
 	} else {
-		results, _ := d.appLib.Scan([]library.SkipEvaluator{d.isLibFile}, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+		results, _ := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, nil, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 		for _, result := range results {
-			processResult(&result, mustRelFilepathToWorkingDir(filepath.Join(d.appLib.GetRoot(), result.AnchoredPath())))
+			processResult(result, mustRelFilepathToWorkingDir(filepath.Join(d.appLib.GetRoot(), result.AnchoredPath())))
 		}
+	}
+
+	// special treatment to filter missing results for which a moved entry is displayed
+	// note: remaining entries do not imply they have not been moved - maybe the target destination was just out of scan scope!
+	if missingCount := len(buckets[library.Missing]); missingCount > 0 {
+		filteredMissing := make([]library.CheckedPath, 0, missingCount)
+		movedIds := make(map[document.Id]bool)
+		for _, moved := range buckets[library.Moved] {
+			originalRecord := moved.ReferencedDocument()
+			movedIds[originalRecord.Id()] = true
+		}
+		for _, missing := range buckets[library.Missing] {
+			lost := missing.ReferencedDocument()
+			if _, wasMoved := movedIds[lost.Id()]; !wasMoved {
+				filteredMissing = append(filteredMissing, missing)
+			}
+		}
+		buckets[library.Missing] = filteredMissing
 	}
 
 	//TODO [FEATURE]: coloring
@@ -124,12 +170,18 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		library.Error,
 	} {
 		bucket := buckets[status]
-		if len(bucket) == 0 || (!status.RepresentsChange() && !explicitQueryForPaths) {
-			continue //to hide empty buckets and unchanged files [when no explicit paths are queried]
+		if len(bucket) == 0 {
+			continue //to hide empty buckets
 		}
 		fmt.Fprintf(d.out, " %s (%d %s)\n", status, len(bucket), output.Plural(bucket, "file", "files"))
-		for _, path := range bucket {
-			fmt.Fprintf(d.out, "  [%c] %s\n", rune(status), d.displayablePath(mustAbsFilepath(path), true, true))
+		for _, result := range bucket {
+			line := fmt.Sprintf("  [%c] %s", rune(status), d.displayablePath(d.appLib.Absolutize(result.AnchoredPath()), true, true))
+			if status == library.Moved {
+				originalRecord := result.ReferencedDocument()
+				fmt.Fprintf(d.out, "%s\n      previous: %s\n", line, d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
+				continue
+			}
+			fmt.Fprintf(d.out, "%s\n", line)
 		}
 		fmt.Fprintln(d.out)
 	}

@@ -37,7 +37,7 @@ type CheckedPath struct {
 	err          error
 }
 
-type SkipEvaluator func(absolutePath string, isDir bool) (skip bool)
+type PathSkipEvaluator func(absolutePath string, isDir bool) (skip bool)
 
 // Api expects absolute system-native paths (with respect to the directory separator)
 type Api interface {
@@ -50,11 +50,12 @@ type Api interface {
 	ObsoleteDocumentExistsForPath(absolutePath string) bool
 	ForgetDocument(Document)
 	CheckFilePath(absolutePath string, skipReadOnSizeMatch bool) CheckedPath
-	Scan(skipChecks []SkipEvaluator, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool)
+	Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSkipEvaluator, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool)
 	SaveToLocalFile(path string, overwrite bool) error
 	LoadFromLocalFile(path string)
 	SetRoot(absolutePath string)
 	GetRoot() string
+	Absolutize(anchoredPath string) string
 	VisitAllRecords(func(Document)) //the list of visited documents is stable and isolated from changes during the visits
 }
 

@@ -527,16 +527,16 @@ func TestPathChecking(t *testing.T) {
 		f{path: "B", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Untracked})
 
 	testStatusCombination("Missing",
-		f{path: "A", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing})
+		f{path: "A", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing, expectedRefToDocOf: 1})
 
 	testStatusCombination("DuplicateOfMissingIsMoved", //because if original is absent it can be interpreted as a move
-		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing},
+		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing, expectedRefToDocOf: 1},
 		f{path: "NEW", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Moved, expectedRefToDocOf: 1})
 
 	testStatusCombination("TrackedCloneBesidesMoved",
 		f{path: "COPY", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked},
 		f{path: "NEW", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Moved, expectedRefToDocOf: 3},
-		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing})
+		f{path: "OLD", contentOnRecord: "1", fileContent: noFile, expectedStatus: Missing, expectedRefToDocOf: 3})
 
 	testStatusCombination("MixModifiedAndDuplicate",
 		f{path: "A", contentOnRecord: "1", fileContent: "1+", expectedStatus: Modified, expectedRefToDocOf: 1},

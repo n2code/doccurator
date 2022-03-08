@@ -220,10 +220,11 @@ ActionParamCheck:
 			break ActionParamCheck
 		}
 	case "tree":
-		flagSpecification = " [-diff]"
+		flagSpecification = " [-diff] [-here]"
 		actionDescription += "Display the library as a tree which represents the union of all\n" +
 			actionDescriptionIndent + "library records and the files currently present in the library folder."
 		request.actionFlags["diff"] = actionParams.Bool("diff", false, "show only difference to library records, i.e. exclude\nunchanged tracked and tracked-as-removed files")
+		request.actionFlags["here"] = actionParams.Bool("here", false, "only print the subtree whose root is the current working directory")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -303,7 +304,7 @@ func (rq *cliRequest) execute() (execErr error) {
 			api.PrintAllRecords(*(rq.actionFlags["exclude-retired"].(*bool)))
 			return nil
 		case "tree":
-			return api.PrintTree(*(rq.actionFlags["diff"].(*bool)))
+			return api.PrintTree(*(rq.actionFlags["diff"].(*bool)), *(rq.actionFlags["here"].(*bool)))
 		case "add":
 			tryRename := *(rq.actionFlags["rename"].(*bool))
 			autoId := *(rq.actionFlags["auto-id"].(*bool))

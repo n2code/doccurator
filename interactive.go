@@ -15,8 +15,8 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 	fmt.Fprint(d.verboseOut, "Tidying up library...\n")
 
 	// this scan has no skip conditions because consciously added content shall be treated as such
-	// => status untracked not relevant in tidy operation and the filter is usually used to prevent accidental adding or noise in queries
-	paths, _ := d.appLib.Scan(nil, d.optimizedFsAccess)
+	// => status untracked & missing not relevant in tidy operation and the filter is usually used to prevent accidental adding or noise in queries
+	paths, _ := d.appLib.Scan(nil, nil, d.optimizedFsAccess)
 
 	buckets := make(map[library.PathStatus][]*library.CheckedPath)
 	for i, path := range paths {
@@ -172,7 +172,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 }
 
 func (d *doccurator) InteractiveAdd(choice RequestChoice) (cancelled bool) {
-	results, _ := d.appLib.Scan([]library.SkipEvaluator{d.isLibFile}, true) //read can be skipped because it does not affect correct detection of "untracked" status
+	results, _ := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, nil, true) //read can be skipped because it does not affect correct detection of "untracked" status
 
 	doRename, skipRenameChoice := false, false
 NextCandidate:

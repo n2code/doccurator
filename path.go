@@ -2,6 +2,7 @@ package doccurator
 
 import (
 	"fmt"
+	"github.com/n2code/doccurator/internal"
 	"github.com/n2code/doccurator/internal/document"
 	"github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
@@ -32,15 +33,23 @@ func ExtractIdFromStandardizedFilename(path string) (document.Id, error) {
 const libRootScheme = "lib:" + string(filepath.Separator) + string(filepath.Separator)
 
 func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot bool, omitDotSlash bool) string {
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	pleasant := pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), workingDirectory, shortenLibraryRoot, omitDotSlash)
+	pleasant := pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), mustGetwd(), shortenLibraryRoot, omitDotSlash)
 	if d.fancyTerminalFeatures && strings.HasPrefix(pleasant, libRootScheme) {
 		pleasant = strings.Replace(pleasant, libRootScheme, output.TerminalFormatAsDim(libRootScheme), 1)
 	}
 	return pleasant
+}
+
+const dot string = "."
+const dirSeparator = string(filepath.Separator)
+const dotDirSeparator = dot + dirSeparator
+const doubleDot = dot + dot
+const doubleDotDirSeparator = doubleDot + dirSeparator
+
+func isChildOf(child string, parent string) bool {
+	rel, err := filepath.Rel(parent, child)
+	internal.AssertNoError(err, "paths should both be nice and not of mixed nature")
+	return !(rel == dot || rel == doubleDot || strings.HasPrefix(rel, doubleDotDirSeparator))
 }
 
 // pleasantPath turns an absolute path into something easily understandable from the current context.
@@ -48,16 +57,7 @@ func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot boo
 // If the current location is outside the library an anchored path is printed and the library root is abbreviated.
 // If the [absolute] input path is a target outside the library it is reflected unchanged.
 func pleasantPath(absolute string, root string, wd string, collapseRoot bool, omitDotSlash bool) string {
-	const dotSlash = "." + string(filepath.Separator)
-	const dotDotSlash = "." + dotSlash
-
-	var wdInLibrary bool
-	{
-		rel, _ := filepath.Rel(root, wd) //error impossible because workingDirectory is rooted
-		wdInLibrary = !strings.HasPrefix(rel, dotDotSlash) && rel != ".."
-	}
-
-	if !wdInLibrary {
+	if wdAboveRoot := isChildOf(root, wd); wdAboveRoot {
 		if !collapseRoot {
 			return absolute
 		}
@@ -67,10 +67,18 @@ func pleasantPath(absolute string, root string, wd string, collapseRoot bool, om
 
 	prefix := ""
 	relative, _ := filepath.Rel(wd, absolute) //error impossible because both are rooted
-	if !omitDotSlash && !strings.HasPrefix(relative, dotDotSlash) {
-		prefix = dotSlash
+	if !omitDotSlash && !strings.HasPrefix(relative, doubleDotDirSeparator) {
+		prefix = dotDirSeparator
 	}
 	return prefix + relative
+}
+
+func mustGetwd() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return wd
 }
 
 // mustAbsFilepath calls filepath.Abs and asserts that it is successful
@@ -84,11 +92,7 @@ func mustAbsFilepath(path string) string {
 
 // mustRelFilepathToWorkingDir calculates the path relative to the given target path (using the current working directory) and asserts that it is successful
 func mustRelFilepathToWorkingDir(target string) string {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	rel, err := filepath.Rel(wd, target)
+	rel, err := filepath.Rel(mustGetwd(), target)
 	if err != nil {
 		panic(err)
 	}

@@ -102,7 +102,7 @@ func (lib *library) ForgetDocument(ref Document) {
 	delete(lib.documents, doc.Id())
 }
 
-//deals with all combinations of the given path being on record and/or [not] existing in reality.
+// CheckFilePath deals with all combinations of the given path being on record and/or [not] existing in reality.
 func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool) (result CheckedPath) {
 	result.status = Untracked
 
@@ -131,6 +131,7 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.NoFileFound:
 			result.status = Missing
+			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.FileAccessError:
 			result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.AnchoredPath(), doc.Id())
 		}
@@ -213,6 +214,11 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 	return
 }
 
+// Absolutize turns an anchored path into an absolute one
+func (lib *library) Absolutize(anchored string) string {
+	return filepath.Join(lib.rootPath, anchored)
+}
+
 func calculateFileChecksum(path string) (sum [sha256.Size]byte, err error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -278,74 +284,78 @@ func (lib *library) isIgnored(absolutePath string, isDir bool) bool {
 	return lib.ignoredPaths[ignoredLibraryPath{anchored: anchoredPath, directory: isDir}]
 }
 
-func (lib *library) Scan(skipChecks []SkipEvaluator, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool) {
-	paths = make([]CheckedPath, 0, len(lib.documents))
+func isAnyFilterMatching(filters *[]PathSkipEvaluator, absolute string, isDir bool) bool {
+	for _, filter := range *filters {
+		if filter(absolute, isDir) {
+			return true
+		}
+	}
+	return false
+}
+
+func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSkipEvaluator, skipReadOnSizeMatch bool) (results []CheckedPath, hasNoErrors bool) {
+	results = make([]CheckedPath, 0, len(lib.documents))
+	coveredLibraryPaths := make(map[string]bool)
 	hasNoErrors = true
 
-	coveredLibraryPaths := make(map[string]bool)
-	movedIds := make(map[document.Id]bool)
+	isFileResultFiltered := func(absolute string) bool {
+		return isAnyFilterMatching(&resultFilters, absolute, false)
+	}
+	addError := func(anchored string, err error) {
+		results = append(results, CheckedPath{
+			anchoredPath: anchored,
+			status:       Error,
+			err:          err,
+		})
+		hasNoErrors = false
+	}
 
-	visitor := func(absolutePath string, d fs.DirEntry, walkError error) error {
-		if walkError != nil {
-			badPath, _ := filepath.Rel(lib.rootPath, absolutePath)
-			paths = append(paths, CheckedPath{
-				anchoredPath: badPath,
-				status:       Error,
-				err:          fmt.Errorf("scan aborted: %w", walkError),
-			})
-			hasNoErrors = false
-			return walkError
+	visitor := func(absolutePath string, d fs.DirEntry, dirError error) error {
+		if dirError != nil {
+			badDir, _ := filepath.Rel(lib.rootPath, absolutePath)
+			addError(badDir, fmt.Errorf("directory scan error: %w", dirError))
+			return filepath.SkipDir //attempt to continue
 		}
+
 		isDir := d.IsDir()
-		if isDir { //attempt loading an ignore file
-			ignoreFileCandidate := filepath.Join(absolutePath, IgnoreFileName)
-			if _, err := os.Stat(ignoreFileCandidate); err == nil {
-				if ignoreErr := lib.loadIgnoreFile(ignoreFileCandidate); ignoreErr != nil {
-					badIgnore, _ := filepath.Rel(lib.rootPath, ignoreFileCandidate)
-					paths = append(paths, CheckedPath{
-						anchoredPath: badIgnore,
-						status:       Error,
-						err:          fmt.Errorf("ignore file error: %w", ignoreErr),
-					})
-					hasNoErrors = false
-				}
-			}
-		}
-		if lib.isIgnored(absolutePath, isDir) || func() bool {
-			for _, check := range skipChecks {
-				if check(absolutePath, isDir) {
-					return true
-				}
-			}
-			return false
-		}() {
+		if lib.isIgnored(absolutePath, isDir) || isAnyFilterMatching(&scanFilters, absolutePath, isDir) {
 			if isDir {
 				return filepath.SkipDir //to prevent descent
 			}
 			return nil //to continue scan with next candidate
 		}
-		if !isDir {
-			libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
-			paths = append(paths, libPath)
-			coveredLibraryPaths[libPath.anchoredPath] = true
-			switch libPath.status {
-			case Moved:
-				movedIds[libPath.referencing.id] = true
-			case Error:
-				hasNoErrors = false
+
+		switch isDir {
+		case true: //attempt loading an ignore file
+			ignoreFileCandidate := filepath.Join(absolutePath, IgnoreFileName)
+			if _, err := os.Stat(ignoreFileCandidate); err == nil { //ignore file does not have to exist
+				if ignoreErr := lib.loadIgnoreFile(ignoreFileCandidate); ignoreErr != nil {
+					badIgnore, _ := filepath.Rel(lib.rootPath, ignoreFileCandidate)
+					addError(badIgnore, fmt.Errorf("ignore file error: %w", ignoreErr))
+				}
+			}
+		case false: //check file
+			result := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
+			coveredLibraryPaths[result.anchoredPath] = true
+			if !isFileResultFiltered(absolutePath) {
+				results = append(results, result)
+				if result.status == Error {
+					hasNoErrors = false
+				}
 			}
 		}
+
 		return nil
 	}
-	filepath.WalkDir(lib.rootPath, visitor) //errors are communicated as path
+	filepath.WalkDir(lib.rootPath, visitor) //errors are communicated as entry in output parameter
 
 	for _, doc := range lib.documents {
 		if _, alreadyCheckedPath := coveredLibraryPaths[doc.AnchoredPath()]; !alreadyCheckedPath {
-			if _, alreadyCoveredId := movedIds[doc.Id()]; !alreadyCoveredId {
-				absolutePath := lib.getAbsolutePathOfDocument(doc)
-				libPath := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
-				paths = append(paths, libPath)
+			absolutePath := lib.getAbsolutePathOfDocument(doc)
+			if isFileResultFiltered(absolutePath) {
+				continue
 			}
+			results = append(results, lib.CheckFilePath(absolutePath, skipReadOnSizeMatch))
 		}
 	}
 
