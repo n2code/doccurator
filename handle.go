@@ -3,25 +3,26 @@ package doccurator
 import (
 	"fmt"
 	"github.com/n2code/doccurator/internal/library"
+	"github.com/n2code/doccurator/internal/output"
 	"io"
 	"os"
 )
 
-type VerbosityLevel int
+type VerbosityMode int
 type OptimizationLevel int
 
 // HandleConfig holds a set of common configuration switches that concern all calls to the doccurator API.
 // The zero value is a sensible default.
 type HandleConfig struct {
-	Verbosity             VerbosityLevel    //amount of detail in output
+	Verbosity             VerbosityMode     //amount of detail in output
 	Optimization          OptimizationLevel //performance-vs-thoroughness
 	SuppressTerminalCodes bool              //do use fancy terminal formatting options such as ANSI escape sequences to add color
 }
 
 const (
-	DefaultVerbosity VerbosityLevel = iota //normal level of information, all noteworthy facts without too much noise
-	VerboseMode                            //exhaustive information about what is happening, repeating context
-	QuietMode                              //only output errors and information that was explicitly requested (-> Print* functions)
+	DefaultVerbosity VerbosityMode = iota //normal level of information, all noteworthy facts without too much noise
+	VerboseMode                           //exhaustive information about what is happening, repeating context
+	QuietMode                             //only output errors and information that was explicitly requested (-> Print* functions)
 )
 
 const (
@@ -59,21 +60,28 @@ type doccurator struct {
 	verboseOut            io.Writer      //most output, talkative
 	errOut                io.Writer      //error output
 	optimizedFsAccess     bool
+	printer               output.Printer
 	fancyTerminalFeatures bool
 }
 
 func makeDoccurator(config HandleConfig) (instance *doccurator) {
-	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard, errOut: os.Stderr}
+	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard, errOut: os.Stderr} //TODO: get rid of this once Printer is everywhere
+
+	classes := []output.Class{output.Required, output.Error}
 	switch config.Verbosity {
 	case VerboseMode:
-		instance.verboseOut = os.Stdout
+		classes = append(classes, output.Verbose)
 		fallthrough
 	case DefaultVerbosity:
-		instance.extraOut = os.Stdout
-	}
-	if config.Optimization == DefaultOptimizations {
-		instance.optimizedFsAccess = true
+		classes = append(classes, output.Normal)
 	}
 	instance.fancyTerminalFeatures = !config.SuppressTerminalCodes
+	instance.printer = output.NewPrinter(classes, !config.SuppressTerminalCodes)
+
+	instance.optimizedFsAccess = config.Optimization == DefaultOptimizations
 	return
+}
+
+func (d doccurator) Print(class output.Class, format string, values ...interface{}) {
+	d.printer.Out(class, format, values...)
 }

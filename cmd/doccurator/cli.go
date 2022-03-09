@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/n2code/doccurator"
 	"github.com/n2code/doccurator/internal/document"
-	"github.com/n2code/doccurator/internal/output"
+	out "github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
 	"io"
 	"os"
@@ -396,7 +396,7 @@ func (rq *cliRequest) execute() (execErr error) {
 				fmt.Fprintf(os.Stdout, "\n%s (%s)\n", match.Path, match.StatusText)
 				api.PrintRecord(match.Id)
 			}
-			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, output.Plural(matchCount, "match", "matches"))
+			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, out.Plural(matchCount, "match", "matches"))
 			return nil
 		case "tidy":
 			choice := PromptUser(!rq.plain)

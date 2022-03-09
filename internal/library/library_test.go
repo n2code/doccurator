@@ -31,8 +31,8 @@ func TestGetAnchoredPath(t *testing.T) {
 		if inLibrary != false {
 			t.Error("expected detection to determine that path", full, "is outside library")
 		}
-		if actRel != "" {
-			t.Error("expected path", full, "to be empty on error but got", actRel)
+		if !strings.HasPrefix(actRel, ".."+string(filepath.Separator)) {
+			t.Error("expected path", full, "to start with ../ but got", actRel)
 		}
 	}
 

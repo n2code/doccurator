@@ -5,7 +5,7 @@ import (
 	"github.com/n2code/doccurator/internal"
 	"github.com/n2code/doccurator/internal/document"
 	"github.com/n2code/doccurator/internal/library"
-	"github.com/n2code/doccurator/internal/output"
+	out "github.com/n2code/doccurator/internal/output"
 	"path/filepath"
 	"strings"
 )
@@ -13,24 +13,24 @@ import (
 func (d *doccurator) PrintRecord(id document.Id) {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if exists {
-		fmt.Fprintln(d.out, doc)
+		d.Print(out.Required, "%s\n", doc)
 	}
 }
 
 func (d *doccurator) PrintAllRecords(excludeRetired bool) {
-	fmt.Fprintf(d.extraOut, "Library: %s\n\n\n", d.appLib.GetRoot())
+	d.Print(out.Normal, "Library: %s\n\n\n", d.appLib.GetRoot())
 	count := 0
 	d.appLib.VisitAllRecords(func(doc library.Document) {
 		if doc.IsObsolete() && excludeRetired {
 			return
 		}
-		fmt.Fprintf(d.out, "%s\n\n", doc)
+		d.Print(out.Required, "%s\n\n", doc)
 		count++
 	})
 	if count == 0 {
-		fmt.Fprintln(d.extraOut, "<no records>")
+		d.Print(out.Normal, "<no records>")
 	} else {
-		fmt.Fprintf(d.extraOut, "\n%d in total\n", count)
+		d.Print(out.Normal, "\n%d in total\n", count)
 	}
 }
 
@@ -43,7 +43,6 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 
 	if onlyWorkingDir {
 		wd := mustGetwd()
-		//fmt.Println("wd is", wd)
 		if isChildOf(wd, libRoot) {
 			label = wd + " [working directory]"
 
@@ -61,7 +60,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 		} //else wd == root which shall not behave differently
 	}
 
-	tree := output.NewVisualFileTree(label)
+	tree := out.NewVisualFileTree(label)
 
 	var pathsWithErrors []*library.CheckedPath
 	paths, ok := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, displayFilters, d.optimizedFsAccess) //full scan may optimize performance if allowed to
@@ -86,7 +85,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 	//TODO [FEATURE]: coloring
 	if !ok {
 		var msg strings.Builder
-		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, output.Plural(errorCount, "error", "errors"))
+		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, out.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
 			fmt.Fprintf(&msg, "@%s: %s\n", d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), errorPath.GetError())
 		}
@@ -99,12 +98,10 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	buckets := make(map[library.PathStatus][]library.CheckedPath)
 
 	if len(paths) > 0 {
-		fmt.Fprintf(d.extraOut, "Status of %d specified %s:\n", len(paths), output.Plural(paths, "path", "paths"))
+		d.Print(out.Verbose, "Status of %d specified %s:\n", len(paths), out.Plural(paths, "path", "paths"))
 	}
-	fmt.Fprintln(d.out)
+	d.Print(out.Normal, "\n")
 
-	var errorMessages strings.Builder
-	errorCount := 0
 	hasChanges := false
 	explicitQueryForPaths := len(paths) > 0
 
@@ -113,15 +110,9 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		if !status.RepresentsChange() && !explicitQueryForPaths {
 			return //to hide unchanged files [when no explicit paths are queried]
 		}
-		switch status {
-		case library.Error:
-			fmt.Fprintf(&errorMessages, "  [E] %s\n      %s\n", relativePath, result.GetError())
-			errorCount++
-		default:
-			buckets[status] = append(buckets[status], result)
-			if status.RepresentsChange() {
-				hasChanges = true
-			}
+		buckets[status] = append(buckets[status], result)
+		if status.RepresentsChange() {
+			hasChanges = true
 		}
 	}
 
@@ -173,22 +164,31 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		if len(bucket) == 0 {
 			continue //to hide empty buckets
 		}
-		fmt.Fprintf(d.out, " %s (%d %s)\n", status, len(bucket), output.Plural(bucket, "file", "files"))
-		for _, result := range bucket {
-			line := fmt.Sprintf("  [%c] %s", rune(status), d.displayablePath(d.appLib.Absolutize(result.AnchoredPath()), true, true))
-			if status == library.Moved {
-				originalRecord := result.ReferencedDocument()
-				fmt.Fprintf(d.out, "%s\n      previous: %s\n", line, d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
-				continue
-			}
-			fmt.Fprintf(d.out, "%s\n", line)
+
+		//bucket header
+		if status == library.Error {
+			d.Print(out.Normal, " %s occurred:\n", out.Plural(len(bucket), "Error", "Errors")) //not on stderr because it was explicitly queried)
+		} else {
+			d.Print(out.Normal, " %s (%d %s)\n", status, len(bucket), out.Plural(bucket, "file", "files"))
 		}
-		fmt.Fprintln(d.out)
+
+		//bucket content
+		for _, result := range bucket {
+			d.Print(out.Normal, "  ")
+			d.Print(out.Required, "[%c] %s\n", rune(status), d.displayablePath(d.appLib.Absolutize(result.AnchoredPath()), status != library.Error, true))
+			switch status {
+			case library.Moved:
+				originalRecord := result.ReferencedDocument()
+				d.printer.Out(out.Normal, "      previous: %s\n", d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
+			case library.Error:
+				d.printer.Out(out.Normal, "      ")
+				d.printer.Out(out.Error, "%s\n", result.GetError())
+			}
+		}
+		d.printer.Out(out.Normal, "\n")
 	}
-	if errorCount > 0 {
-		fmt.Fprintf(d.out, " %s occurred:\n%s\n", output.Plural(errorCount, "Error", "Errors"), errorMessages.String()) //not on stderr because it was explicitly queried
-	} else if hasChanges == false && len(paths) == 0 {
-		fmt.Fprint(d.out, " Library files in sync with all records.\n\n")
+	if hasChanges == false && len(paths) == 0 {
+		d.printer.Out(out.Normal, " Library files in sync with all records.\n\n")
 	}
 	return nil
 }

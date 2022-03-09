@@ -365,7 +365,6 @@ func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSk
 func (lib *library) getAnchoredPath(absolutePath string) (anchored string, insideLibraryDir bool) {
 	anchored, err := filepath.Rel(lib.rootPath, absolutePath)
 	if err != nil || strings.HasPrefix(anchored, "..") {
-		anchored = ""
 		insideLibraryDir = false
 		return
 	}
