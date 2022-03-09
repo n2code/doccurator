@@ -5,6 +5,7 @@ import (
 	"github.com/n2code/doccurator/internal"
 	"github.com/n2code/doccurator/internal/document"
 	"github.com/n2code/doccurator/internal/library"
+	out "github.com/n2code/doccurator/internal/output"
 )
 
 func (d *doccurator) UpdateByPath(filePath string) error {
@@ -20,7 +21,7 @@ func (d *doccurator) UpdateByPath(filePath string) error {
 			return newCommandError(fmt.Sprintf("update failed: %s", filePath), err)
 		}
 	case library.Tracked:
-		fmt.Fprintf(d.extraOut, "No changes detected: %s\n", filePath)
+		d.Print(out.Normal, "No changes detected: %s\n", filePath)
 	case library.Removed:
 		return newCommandError(fmt.Sprintf("no file found: %s", filePath), nil)
 	case library.Missing:
@@ -40,7 +41,7 @@ func (d *doccurator) RetireByPath(path string) error {
 	doc, exists := d.appLib.GetActiveDocumentByPath(absPath)
 	if !exists {
 		if d.appLib.ObsoleteDocumentExistsForPath(absPath) {
-			fmt.Fprintf(d.extraOut, "Already retired: %s\n", path)
+			d.Print(out.Normal, "Already retired: %s\n", path)
 			return nil //i.e. command was a no-op
 		}
 		return newCommandError(fmt.Sprintf("path to retire not on record: %s", path), nil)
@@ -80,7 +81,7 @@ func (d *doccurator) StandardizeLocation(id document.Id) error {
 	oldRelPath := doc.AnchoredPath()
 	changedName, err, rollback := doc.RenameToStandardNameFormat(false)
 	if changedName != "" && err == nil {
-		fmt.Fprintf(d.extraOut, "Renamed document %s (%s) to %s\n", id, oldRelPath, changedName)
+		d.Print(out.Normal, "Renamed document %s (%s) to %s\n", id, oldRelPath, changedName)
 	}
 	d.rollbackLog = append(d.rollbackLog, rollback) //rollback is no-op on error
 	return err

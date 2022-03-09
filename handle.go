@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/n2code/doccurator/internal/library"
 	"github.com/n2code/doccurator/internal/output"
-	"io"
-	"os"
 )
 
 type VerbosityMode int
@@ -55,17 +53,13 @@ type doccurator struct {
 	appLib                library.Api
 	rollbackLog           []rollbackStep //series of steps to be executed in reverse order, errors shall be reported but not stop rollback execution
 	libFile               string         //absolute, system-native path
-	out                   io.Writer      //essential output (i.e. requested information)
-	extraOut              io.Writer      //more output for convenience (repeats context)
-	verboseOut            io.Writer      //most output, talkative
-	errOut                io.Writer      //error output
 	optimizedFsAccess     bool
 	printer               output.Printer
 	fancyTerminalFeatures bool
 }
 
 func makeDoccurator(config HandleConfig) (instance *doccurator) {
-	instance = &doccurator{out: os.Stdout, extraOut: io.Discard, verboseOut: io.Discard, errOut: os.Stderr} //TODO: get rid of this once Printer is everywhere
+	instance = &doccurator{}
 
 	classes := []output.Class{output.Required, output.Error}
 	switch config.Verbosity {
@@ -83,5 +77,5 @@ func makeDoccurator(config HandleConfig) (instance *doccurator) {
 }
 
 func (d doccurator) Print(class output.Class, format string, values ...interface{}) {
-	d.printer.Out(class, format, values...)
+	d.printer.ClassifiedPrintf(class, format, values...)
 }

@@ -35,7 +35,7 @@ func NewPrinter(include []Class, allowEscapes bool) (p Printer) {
 	return
 }
 
-func (p Printer) Out(class Class, format string, values ...interface{}) {
+func (p Printer) ClassifiedPrintf(class Class, format string, values ...interface{}) {
 	if !p.classes[class] {
 		return
 	}

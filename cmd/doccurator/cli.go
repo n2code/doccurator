@@ -25,7 +25,7 @@ type cliRequest struct {
 
 const defaultDbFileName = `doccurator.db`
 
-func parseFlags(args []string, out io.Writer, errOut io.Writer) (request *cliRequest, exitCode int) {
+func parseFlags(args []string, errOut io.Writer) (request *cliRequest, exitCode int) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
@@ -417,7 +417,7 @@ func (rq *cliRequest) execute() (execErr error) {
 }
 
 func main() {
-	rq, rc := parseFlags(os.Args[1:], os.Stdout, os.Stderr)
+	rq, rc := parseFlags(os.Args[1:], os.Stderr)
 	if rc != 0 || rq == nil {
 		os.Exit(rc)
 	}

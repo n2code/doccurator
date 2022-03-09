@@ -71,7 +71,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 			continue
 		}
 		if status != library.Tracked {
-			prefix = fmt.Sprintf("[%s] ", string(status))
+			prefix = fmt.Sprintf("[%c] ", status)
 		}
 		tree.InsertPath(strings.TrimPrefix(checkedPath.AnchoredPath(), trimPrefix), prefix)
 		if status == library.Error {
@@ -80,16 +80,16 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 	}
 	errorCount := len(pathsWithErrors)
 
-	fmt.Fprint(d.out, tree.Render())
+	d.Print(out.Required, "%s", tree.Render())
 
 	//TODO [FEATURE]: coloring
 	if !ok {
 		var msg strings.Builder
-		fmt.Fprintf(&msg, "%d scanning %s occurred:\n", errorCount, out.Plural(errorCount, "error", "errors"))
+		fmt.Fprintf(&msg, "%d scanning %s occurred:", errorCount, out.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
-			fmt.Fprintf(&msg, "@%s: %s\n", d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), errorPath.GetError())
+			fmt.Fprintf(&msg, "\n@%s: %s", d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), errorPath.GetError())
 		}
-		return fmt.Errorf(msg.String())
+		return fmt.Errorf("%s", msg.String())
 	}
 	return nil
 }
@@ -179,16 +179,16 @@ func (d *doccurator) PrintStatus(paths []string) error {
 			switch status {
 			case library.Moved:
 				originalRecord := result.ReferencedDocument()
-				d.printer.Out(out.Normal, "      previous: %s\n", d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
+				d.Print(out.Normal, "      previous: %s\n", d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
 			case library.Error:
-				d.printer.Out(out.Normal, "      ")
-				d.printer.Out(out.Error, "%s\n", result.GetError())
+				d.Print(out.Normal, "      ")
+				d.Print(out.Error, "%s\n", result.GetError())
 			}
 		}
-		d.printer.Out(out.Normal, "\n")
+		d.Print(out.Normal, "\n")
 	}
 	if hasChanges == false && len(paths) == 0 {
-		d.printer.Out(out.Normal, " Library files in sync with all records.\n\n")
+		d.Print(out.Normal, " Library files in sync with all records.\n\n")
 	}
 	return nil
 }

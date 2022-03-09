@@ -3,7 +3,7 @@ package doccurator
 import (
 	"fmt"
 	"github.com/n2code/doccurator/internal/library"
-	"github.com/n2code/doccurator/internal/output"
+	out "github.com/n2code/doccurator/internal/output"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +12,7 @@ import (
 const choiceAborted = ""
 
 func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (cancelled bool) {
-	fmt.Fprint(d.verboseOut, "Tidying up library...\n")
+	d.Print(out.Verbose, "Tidying up library...\n")
 
 	// this scan has no skip conditions because consciously added content shall be treated as such
 	// => status untracked & missing not relevant in tidy operation and the filter is usually used to prevent accidental adding or noise in queries
@@ -55,12 +55,12 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 		lowerStatus := strings.ToLower(status.String())
 		var doChange, decideIndividually bool
 		{
-			fmt.Fprintf(d.extraOut, "\n")
+			d.Print(out.Normal, "\n")
 			if count == 1 {
-				fmt.Fprintf(d.verboseOut, declarationSingle, upperStatus)
+				d.Print(out.Verbose, declarationSingle, upperStatus)
 				decideIndividually = true
 			} else {
-				fmt.Fprintf(d.verboseOut, declarationMultiple, count, upperStatus)
+				d.Print(out.Verbose, declarationMultiple, count, upperStatus)
 				switch choice(fmt.Sprintf(promptMassProcessing, lowerStatus), []string{"All", "Decide individually", "Skip"}, true) {
 				case "All":
 					decideIndividually = false
@@ -98,22 +98,22 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 				case library.Moved:
 					err := d.appLib.SetDocumentPath(doc, absolute)
 					if err != nil {
-						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "update failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					}
 					fallthrough
 				case library.Touched, library.Modified:
 					_, err := d.appLib.UpdateDocumentFromFile(doc)
 					if err != nil {
-						fmt.Fprintf(d.errOut, "update failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "update failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					} else {
-						fmt.Fprintf(d.extraOut, "%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
+						d.Print(out.Normal, "%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
 					}
 				case library.Obsolete, library.Duplicate:
 					tempDir, err := os.MkdirTemp("", "doccurator-tidy-delete-staging-*")
 					if err != nil {
-						fmt.Fprintf(d.errOut, "deletion preparation failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "deletion preparation failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					}
 					deleteStagingDir := func(stagingDir string) func() error {
@@ -127,9 +127,9 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 
 					backup := filepath.Join(tempDir, filepath.Base(absolute))
 					if err := os.Rename(absolute, backup); err != nil {
-						fmt.Fprintf(d.errOut, "deletion failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "deletion failed (%s): %s\n", displayPath, err)
 						if err := deleteStagingDir(); err != nil {
-							fmt.Fprintf(d.errOut, "%s\n", err)
+							d.Print(out.Error, "%s\n", err)
 						}
 						continue NextChange
 					}
@@ -144,30 +144,30 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 						}
 					}(backup, absolute, tempDir))
 
-					fmt.Fprintf(d.extraOut, "%s [%s] - Marked for delete.\n", displayPath, lowerStatus)
+					d.Print(out.Normal, "%s [%s] - Marked for delete.\n", displayPath, lowerStatus)
 				}
 				changeCount++
 			} else {
-				fmt.Fprintf(d.extraOut, "%s - Skipped.\n", displayPath)
+				d.Print(out.Normal, "%s - Skipped.\n", displayPath)
 			}
 		}
-		fmt.Fprintf(d.extraOut, "%d %s %s %s.\n", changeCount, upperStatus, output.Plural(changeCount, subject, subject+"s"), pastParticiple)
+		d.Print(out.Normal, "%d %s %s %s.\n", changeCount, upperStatus, out.Plural(changeCount, subject, subject+"s"), pastParticiple)
 	}
 
-	fmt.Fprint(d.extraOut, "\n")
+	d.Print(out.Normal, "\n")
 
 	if len(deletionCommitQueue) > 0 {
-		fmt.Fprintf(d.extraOut, "Committing deletions...\n")
+		d.Print(out.Normal, "Committing deletions...\n")
 		for _, commitDelete := range deletionCommitQueue {
 			if err := commitDelete(); err != nil {
 				//errors are reported but do not constitute an overall failure as a rollback would not work and removal from the original directory is already complete by now
 				// => failure is only possible theoretically anyway as the application should be able to remove the staging directory it has just created
-				fmt.Fprintf(d.errOut, "deletion has leftovers: %s\n", err)
+				d.Print(out.Error, "deletion has leftovers: %s\n", err)
 			}
 		}
 	}
 
-	fmt.Fprint(d.verboseOut, "Tidy operation complete.\n")
+	d.Print(out.Verbose, "Tidy operation complete.\n")
 	return false
 }
 
@@ -227,13 +227,13 @@ NextCandidate:
 			var newDoc library.Document
 			var addErr error
 			if newDoc, addErr = d.addSingle(newId, absolute, false); addErr != nil {
-				fmt.Fprintf(d.errOut, "Adding failed (%s): %s\n", displayPath, addErr)
+				d.Print(out.Error, "Adding failed (%s): %s\n", displayPath, addErr)
 				continue NextCandidate
 			}
 
 			differentNewName, namePreviewErr, _ := newDoc.RenameToStandardNameFormat(true)
 			if namePreviewErr != nil {
-				fmt.Fprintf(d.errOut, "Skipping rename for new document [%s]: %s\n", newId, namePreviewErr)
+				d.Print(out.Error, "Skipping rename for new document [%s]: %s\n", newId, namePreviewErr)
 				continue NextCandidate
 			}
 			if differentNewName == "" { //nothing to rename
@@ -267,13 +267,13 @@ NextCandidate:
 			}
 
 			if _, renameErr, _ := newDoc.RenameToStandardNameFormat(false); renameErr != nil {
-				fmt.Fprintf(d.errOut, "Skipping rename of %s: %s\n", newId, namePreviewErr)
+				d.Print(out.Error, "Skipping rename of %s: %s\n", newId, namePreviewErr)
 				continue NextCandidate
 			}
-			fmt.Fprintf(d.extraOut, "  => Renamed to: %s\n", differentNewName)
+			d.Print(out.Normal, "  => Renamed to: %s\n", differentNewName)
 
 		case library.Error:
-			fmt.Fprintf(d.extraOut, "Skipping uncheckable (%s): %s\n", checked.AnchoredPath(), checked.GetError())
+			d.Print(out.Normal, "Skipping uncheckable (%s): %s\n", checked.AnchoredPath(), checked.GetError())
 		}
 	}
 	return false

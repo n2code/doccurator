@@ -5,6 +5,7 @@ import (
 	"github.com/n2code/doccurator/internal"
 	"github.com/n2code/doccurator/internal/document"
 	"github.com/n2code/doccurator/internal/library"
+	out "github.com/n2code/doccurator/internal/output"
 )
 
 func (d *doccurator) Add(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool) error {
@@ -34,7 +35,7 @@ func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndOb
 					err = fmt.Errorf(`bad path %s: (%w)`, filePath, idErr)
 					return
 				}
-				fmt.Fprintf(d.extraOut, "Skipping bad path (%s): %s\n", filePath, idErr)
+				d.Print(out.Normal, "Skipping bad path (%s): %s\n", filePath, idErr)
 				continue
 			}
 			newId = d.GetFreeId()
@@ -45,7 +46,7 @@ func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndOb
 				err = addErr
 				return
 			}
-			fmt.Fprintf(d.extraOut, "Skipping failure (%s): %s\n", filePath, addErr)
+			d.Print(out.Normal, "Skipping failure (%s): %s\n", filePath, addErr)
 			continue
 		}
 		added = append(added, newId)
@@ -56,7 +57,7 @@ func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndOb
 func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
 	results, noScanErrors := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, nil, true) //read can be skipped because it does not affect correct detection of "untracked" status
 	if !noScanErrors {
-		fmt.Fprint(d.extraOut, "Issues during scan: Not all potential candidates accessible\n")
+		d.Print(out.Normal, "Issues during scan: Not all potential candidates accessible\n")
 	}
 
 	var untrackedAnchoredPaths []string
@@ -69,7 +70,7 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 				err = fmt.Errorf("encountered uncheckable (%s): %w", checked.AnchoredPath(), checked.GetError())
 				return
 			}
-			fmt.Fprintf(d.errOut, "Skipping uncheckable (%s): %s\n", checked.AnchoredPath(), checked.GetError())
+			d.Print(out.Error, "Skipping uncheckable (%s): %s\n", checked.AnchoredPath(), checked.GetError())
 		}
 	}
 
@@ -103,6 +104,6 @@ func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicat
 		d.appLib.ForgetDocument(doc)
 		return library.Document{}, newCommandError("document creation failed", err)
 	}
-	fmt.Fprintf(d.extraOut, "Added %s: %s\n", id, doc.AnchoredPath())
+	d.Print(out.Normal, "Added %s: %s\n", id, doc.AnchoredPath())
 	return doc, nil
 }

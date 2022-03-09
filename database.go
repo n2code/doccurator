@@ -3,6 +3,7 @@ package doccurator
 import (
 	"errors"
 	"fmt"
+	out "github.com/n2code/doccurator/internal/output"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -27,23 +28,23 @@ func (d *doccurator) RollbackAllFilesystemChanges() (complete bool) {
 		return
 	}
 
-	fmt.Fprint(d.extraOut, "Executing filesystem rollback...")
+	d.Print(out.Normal, "Executing filesystem rollback...")
 	for i := len(d.rollbackLog) - 1; i >= 0; i-- {
 		step := d.rollbackLog[i]
 		if err := step(); err != nil {
 			if complete { //i.e. first issue encountered
-				fmt.Fprint(d.extraOut, "\n")
+				d.Print(out.Normal, "\n")
 			}
-			fmt.Fprint(d.extraOut, "  ")
-			fmt.Fprintf(d.errOut, "rollback issue: %s\n", err)
+			d.Print(out.Normal, "  ")
+			d.Print(out.Error, "rollback issue: %s\n", err)
 			complete = false
 			//errors are reported but execution continues to achieve best partial rollback possible
 		}
 	}
 	if complete {
-		fmt.Fprint(d.extraOut, " DONE!\n")
+		d.Print(out.Normal, " DONE!\n")
 	} else {
-		fmt.Fprint(d.extraOut, "  Rollback completed partially, issues occurred.\n")
+		d.Print(out.Normal, "  Rollback completed partially, issues occurred.\n")
 	}
 	d.rollbackLog = nil //note: failed rollback steps are not preserved
 	return
@@ -63,8 +64,8 @@ func (d *doccurator) createLibrary(absoluteRoot string, absoluteDbFilePath strin
 		return err
 	}
 
-	fmt.Fprintf(d.extraOut, "Initialized library with root %s\n", absoluteRoot)
-	fmt.Fprintf(d.verboseOut, "Database saved in %s\n", absoluteDbFilePath)
+	d.Print(out.Normal, "Initialized library with root %s\n", absoluteRoot)
+	d.Print(out.Verbose, "Database saved in %s\n", absoluteDbFilePath)
 	return nil
 }
 
@@ -85,7 +86,7 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 			}
 			d.appLib = library.NewLibrary()
 			d.appLib.LoadFromLocalFile(d.libFile)
-			fmt.Fprintf(d.verboseOut, "Loaded library rooted at %s from %s\n", d.appLib.GetRoot(), d.libFile)
+			d.Print(out.Verbose, "Loaded library rooted at %s from %s\n", d.appLib.GetRoot(), d.libFile)
 			return nil
 		} else if errors.Is(statErr, os.ErrNotExist) {
 			if currentDir == "/" {
@@ -106,7 +107,7 @@ func (d *doccurator) createLocatorFile(directory string) error {
 	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
 		return fmt.Errorf("writing library locator (%s) failed: %w", path, err)
 	}
-	fmt.Fprintf(d.verboseOut, "Created library locator %s\n", path)
+	d.Print(out.Verbose, "Created library locator %s\n", path)
 	return nil
 }
 
@@ -126,6 +127,6 @@ func (d *doccurator) loadLibFilePathFromLocatorFile(path string) error {
 		return fmt.Errorf(`no absolute path in library locator file (%s): "%s"`, path, url.Path)
 	}
 	d.libFile = url.Path
-	fmt.Fprintf(d.verboseOut, "Used library locator %s\n", path)
+	d.Print(out.Verbose, "Used library locator %s\n", path)
 	return nil
 }
