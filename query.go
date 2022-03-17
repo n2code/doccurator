@@ -65,7 +65,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 	var pathsWithErrors []*library.CheckedPath
 	paths, ok := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, displayFilters, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 	for index, checkedPath := range paths {
-		prefix := ""
+		prefix, suffix := "", ""
 		status := checkedPath.Status()
 		if excludeUnchanged && !status.RepresentsChange() {
 			continue
@@ -73,7 +73,9 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 		if status != library.Tracked {
 			prefix = fmt.Sprintf("[%c] ", status)
 		}
-		tree.InsertPath(strings.TrimPrefix(checkedPath.AnchoredPath(), trimPrefix), prefix)
+		prefix = d.printer.Sprintf("%s%s", library.ColorForStatus(status), prefix)
+		suffix = d.printer.Sprintf("%s", out.Reset)
+		tree.InsertPath(strings.TrimPrefix(checkedPath.AnchoredPath(), trimPrefix), prefix, suffix)
 		if status == library.Error {
 			pathsWithErrors = append(pathsWithErrors, &paths[index])
 		}
@@ -82,12 +84,11 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 
 	d.Print(out.Required, "%s", tree.Render())
 
-	//TODO [FEATURE]: coloring
 	if !ok {
 		var msg strings.Builder
 		fmt.Fprintf(&msg, "%d scanning %s occurred:", errorCount, out.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
-			fmt.Fprintf(&msg, "\n@%s: %s", d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), errorPath.GetError())
+			msg.WriteString(d.printer.Sprintf("\n%s@%s: %s%s%s", library.ColorForStatus(library.Error), d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), out.Invert, errorPath.GetError(), out.Reset))
 		}
 		return fmt.Errorf("%s", msg.String())
 	}
@@ -146,19 +147,22 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		buckets[library.Missing] = filteredMissing
 	}
 
-	//TODO [FEATURE]: coloring
-
+	//present grouped entries of each status in a deliberate order to optimize the workflow
 	for _, status := range []library.PathStatus{
-		library.Tracked,
-		library.Removed,
-		library.Obsolete,
-		library.Duplicate,
-		library.Untracked,
-		library.Touched,
-		library.Moved,
-		library.Modified,
-		library.Missing,
-		library.Error,
+		library.Tracked, // first present what is merely for acknowledgement -> not actionable
+		library.Removed, // same for this status -> not actionable
+
+		library.Obsolete,  // then present waste to encourage clean up
+		library.Duplicate, // (yet another type of waste)
+
+		library.Untracked, // then present an easy decision that is unlikely to be postponed (new content is likely to be committed straight away)
+		library.Touched,   // yet another easy decision, very likely to be accepted
+		library.Moved,     //and the final most likely easy decision, also anticipated to be accepted
+
+		library.Modified, //then present troubling findings which are probably accepted after careful inspection
+
+		library.Missing, //finally, present serious issues that require manual intervention such as recovery...
+		library.Error,   //...or permission adjustment
 	} {
 		bucket := buckets[status]
 		if len(bucket) == 0 {
@@ -167,7 +171,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 
 		//bucket header
 		if status == library.Error {
-			d.Print(out.Normal, " %s occurred:\n", out.Plural(len(bucket), "Error", "Errors")) //not on stderr because it was explicitly queried)
+			d.Print(out.Normal, " %s occurred:\n", out.Plural(bucket, "Error", "Errors"))
 		} else {
 			d.Print(out.Normal, " %s (%d %s)\n", status, len(bucket), out.Plural(bucket, "file", "files"))
 		}
@@ -175,14 +179,14 @@ func (d *doccurator) PrintStatus(paths []string) error {
 		//bucket content
 		for _, result := range bucket {
 			d.Print(out.Normal, "  ")
-			d.Print(out.Required, "[%c] %s\n", rune(status), d.displayablePath(d.appLib.Absolutize(result.AnchoredPath()), status != library.Error, true))
+			d.Print(out.Required, "%s[%c] %s%s\n", library.ColorForStatus(status), rune(status), d.displayablePath(d.appLib.Absolutize(result.AnchoredPath()), status != library.Error, true), out.Reset)
 			switch status {
 			case library.Moved:
 				originalRecord := result.ReferencedDocument()
 				d.Print(out.Normal, "      previous: %s\n", d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
 			case library.Error:
 				d.Print(out.Normal, "      ")
-				d.Print(out.Error, "%s\n", result.GetError())
+				d.Print(out.Error, "%s%s%s%s%s\n", library.ColorForStatus(library.Error), out.Invert, result.GetError(), out.Invert, out.Reset)
 			}
 		}
 		d.Print(out.Normal, "\n")

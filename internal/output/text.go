@@ -2,16 +2,18 @@ package output
 
 import (
 	"fmt"
+	"reflect"
 )
 
 func Plural(countable interface{}, singular string, plural string) string {
 	switch c := countable.(type) {
-	case []string:
-		if len(c) != 1 {
-			return plural
-		}
+
 	case int:
 		if c != 1 {
+			return plural
+		}
+	default:
+		if reflect.ValueOf(c).Len() != 1 {
 			return plural
 		}
 	}

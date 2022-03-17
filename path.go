@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/n2code/doccurator/internal"
 	"github.com/n2code/doccurator/internal/document"
-	"github.com/n2code/doccurator/internal/output"
+	out "github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
 	"os"
 	"path/filepath"
@@ -34,8 +34,8 @@ const libRootScheme = "lib:" + string(filepath.Separator) + string(filepath.Sepa
 
 func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot bool, omitDotSlash bool) string {
 	pleasant := pleasantPath(filepath.Clean(absolutePath), d.appLib.GetRoot(), mustGetwd(), shortenLibraryRoot, omitDotSlash)
-	if d.fancyTerminalFeatures && strings.HasPrefix(pleasant, libRootScheme) {
-		pleasant = strings.Replace(pleasant, libRootScheme, output.TerminalFormatAsDim(libRootScheme), 1)
+	if strings.HasPrefix(pleasant, libRootScheme) {
+		pleasant = strings.Replace(pleasant, libRootScheme, d.printer.Sprintf("%s%s%s", out.FaintIntensity, libRootScheme, out.NormalIntensity), 1)
 	}
 	return pleasant
 }

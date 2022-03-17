@@ -39,9 +39,26 @@ func (p Printer) ClassifiedPrintf(class Class, format string, values ...interfac
 	if !p.classes[class] {
 		return
 	}
+
 	target := &p.terminal
 	if class == Error {
 		target = &p.diagnosis
 	}
-	fmt.Fprintf(*target, format, values...)
+
+	fmt.Fprintf(*target, format, p.adjustModifiers(values...)...)
+}
+
+func (p Printer) Sprintf(format string, values ...interface{}) string {
+	return fmt.Sprintf(format, p.adjustModifiers(values...)...)
+}
+
+func (p Printer) adjustModifiers(values ...interface{}) (replacements []interface{}) {
+	for _, value := range values {
+		if _, isModifier := value.(SgrModifier); isModifier && !p.useEscapes {
+			replacements = append(replacements, "") //append empty string to satisfy fmt verbs
+			continue
+		}
+		replacements = append(replacements, value)
+	}
+	return
 }

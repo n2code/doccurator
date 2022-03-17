@@ -1,11 +1,17 @@
 package output
 
-import "fmt"
+type SgrModifier string //ANSI control sequences: Select Graphic Rendition (SGR)
 
-func TerminalFormatAsDim(text string) string {
-	return fmt.Sprintf("\x1B[2m%s\x1B[0m", text)
-}
-
-func TerminalFormatAsError(text string) string {
-	return fmt.Sprintf("\x1B[31m%s\x1B[0m", text)
-}
+const (
+	NormalIntensity   SgrModifier = "\x1B[22m"
+	BoldIntensity     SgrModifier = "\x1B[1m"
+	FaintIntensity    SgrModifier = "\x1B[2m"
+	Invert            SgrModifier = "\x1B[7m"
+	Red               SgrModifier = "\x1B[31m"
+	Green             SgrModifier = "\x1B[32m"
+	Yellow            SgrModifier = "\x1B[33m"
+	Magenta           SgrModifier = "\x1B[35m"
+	Cyan              SgrModifier = "\x1B[36m"
+	DefaultForeground SgrModifier = "\x1B[39m"
+	Reset             SgrModifier = "\x1B[0m"
+)

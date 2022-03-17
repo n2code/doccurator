@@ -24,7 +24,11 @@ func PromptUser(allowEscapeSequences bool) doccurator.RequestChoice {
 					upperLetter := unicode.ToLower(letter)
 					letterToChoice[lowerLetter] = option
 					letterToChoice[upperLetter] = option
-					displayOptions = append(displayOptions, fmt.Sprintf("%s[%c]%s", option[:i], letter, option[i+1:]))
+					printLetter := fmt.Sprintf("\x1B[1m\x1B[4m%c\x1B[0m", letter)
+					if !allowEscapeSequences {
+						printLetter = fmt.Sprintf("[%c]", letter)
+					}
+					displayOptions = append(displayOptions, fmt.Sprintf("%s%s%s", option[:i], printLetter, option[i+1:]))
 					continue ParseOptions
 				}
 			}

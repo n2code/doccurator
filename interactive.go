@@ -24,6 +24,9 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 	}
 
 	var deletionCommitQueue []func() error
+	coloredError := func(err error) string {
+		return d.printer.Sprintf("%s%s%s%s", library.ColorForStatus(library.Error), out.Invert, err, out.Reset)
+	}
 
 	for _, status := range []library.PathStatus{library.Touched, library.Moved, library.Modified, library.Obsolete, library.Duplicate} {
 		count := len(buckets[status])
@@ -53,15 +56,18 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 
 		upperStatus := strings.ToUpper(status.String())
 		lowerStatus := strings.ToLower(status.String())
+		coloredStatus := func(text string) string {
+			return d.printer.Sprintf("%s%s%s", library.ColorForStatus(status), text, out.DefaultForeground)
+		}
 		var doChange, decideIndividually bool
 		{
 			d.Print(out.Normal, "\n")
 			if count == 1 {
-				d.Print(out.Verbose, declarationSingle, upperStatus)
+				d.Print(out.Verbose, declarationSingle, coloredStatus(upperStatus))
 				decideIndividually = true
 			} else {
-				d.Print(out.Verbose, declarationMultiple, count, upperStatus)
-				switch choice(fmt.Sprintf(promptMassProcessing, lowerStatus), []string{"All", "Decide individually", "Skip"}, true) {
+				d.Print(out.Verbose, declarationMultiple, count, coloredStatus(upperStatus))
+				switch choice(fmt.Sprintf(promptMassProcessing, coloredStatus(lowerStatus)), []string{"All", "Decide individually", "Skip"}, true) {
 				case "All":
 					decideIndividually = false
 					doChange = true
@@ -83,7 +89,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 			displayPath := d.displayablePath(absolute, true, false)
 
 			if decideIndividually {
-				switch choice(fmt.Sprintf("%s [%s] - %s", displayPath, lowerStatus, question), []string{"Yes", "No"}, true) {
+				switch choice(d.printer.Sprintf("%s%s%s%s [%s]%s - %s", library.ColorForStatus(status), out.BoldIntensity, displayPath, out.NormalIntensity, lowerStatus, out.DefaultForeground, question), []string{"Yes", "No"}, true) {
 				case "Yes":
 					doChange = true
 				case "No":
@@ -98,14 +104,14 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 				case library.Moved:
 					err := d.appLib.SetDocumentPath(doc, absolute)
 					if err != nil {
-						d.Print(out.Error, "update failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "update failed (%s): %s\n", displayPath, coloredError(err))
 						continue NextChange
 					}
 					fallthrough
 				case library.Touched, library.Modified:
 					_, err := d.appLib.UpdateDocumentFromFile(doc)
 					if err != nil {
-						d.Print(out.Error, "update failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "update failed (%s): %s\n", displayPath, coloredError(err))
 						continue NextChange
 					} else {
 						d.Print(out.Normal, "%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
@@ -113,7 +119,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 				case library.Obsolete, library.Duplicate:
 					tempDir, err := os.MkdirTemp("", "doccurator-tidy-delete-staging-*")
 					if err != nil {
-						d.Print(out.Error, "deletion preparation failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "deletion preparation failed (%s): %s\n", displayPath, coloredError(err))
 						continue NextChange
 					}
 					deleteStagingDir := func(stagingDir string) func() error {
@@ -127,9 +133,9 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 
 					backup := filepath.Join(tempDir, filepath.Base(absolute))
 					if err := os.Rename(absolute, backup); err != nil {
-						d.Print(out.Error, "deletion failed (%s): %s\n", displayPath, err)
+						d.Print(out.Error, "deletion failed (%s): %s\n", displayPath, coloredError(err))
 						if err := deleteStagingDir(); err != nil {
-							d.Print(out.Error, "%s\n", err)
+							d.Print(out.Error, "%s\n", coloredError(err))
 						}
 						continue NextChange
 					}
@@ -151,7 +157,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 				d.Print(out.Normal, "%s - Skipped.\n", displayPath)
 			}
 		}
-		d.Print(out.Normal, "%d %s %s %s.\n", changeCount, upperStatus, out.Plural(changeCount, subject, subject+"s"), pastParticiple)
+		d.Print(out.Normal, "%s%d %s %s %s.%s\n", out.FaintIntensity, changeCount, lowerStatus, out.Plural(changeCount, subject, subject+"s"), pastParticiple, out.Reset)
 	}
 
 	d.Print(out.Normal, "\n")
@@ -162,7 +168,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 			if err := commitDelete(); err != nil {
 				//errors are reported but do not constitute an overall failure as a rollback would not work and removal from the original directory is already complete by now
 				// => failure is only possible theoretically anyway as the application should be able to remove the staging directory it has just created
-				d.Print(out.Error, "deletion has leftovers: %s\n", err)
+				d.Print(out.Error, "deletion has leftovers: %s\n", coloredError(err))
 			}
 		}
 	}
