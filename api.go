@@ -90,7 +90,7 @@ type Doccurator interface {
 	// All decisions are up to the user and nothing is changed without confirmation.
 	// Library changes need to be committed with a subsequent call to PersistChanges.
 	// Filesystem changes have an immediate effect and need to be reverted by RollbackAllFilesystemChanges.
-	InteractiveTidy(prompt RequestChoice, removeWaste bool) (cancelled bool)
+	InteractiveTidy(prompt RequestChoice, removeWaste bool) (decisionsMade int, foundWaste bool, cancelled bool)
 }
 
 // SearchResult represents a subset of information taken from an existing library record.

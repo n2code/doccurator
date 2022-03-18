@@ -405,9 +405,17 @@ func (rq *cliRequest) execute() (execErr error) {
 			} else {
 				fmt.Fprint(os.Stdout, "(To abort and undo everything: SIGINT/Ctrl+C during prompts)\n")
 			}
-			cancelled := api.InteractiveTidy(choice, *(rq.actionFlags["remove-waste-files"].(*bool)))
+			removeWaste := *(rq.actionFlags["remove-waste-files"].(*bool))
+			decisionsMade, foundWaste, cancelled := api.InteractiveTidy(choice, removeWaste)
 			if cancelled {
 				return fmt.Errorf("operation aborted, undo requested")
+			}
+			if decisionsMade == 0 && !rq.quiet {
+				fmt.Fprint(os.Stdout, "Nothing to do!\n")
+				if foundWaste && !removeWaste {
+					fmt.Fprint(os.Stdout, "(Duplicate or obsolete files exist. Repeat with flag -remove-waste-files to remove.)\n")
+				}
+				fmt.Fprint(os.Stdout, "\n")
 			}
 			return api.PersistChanges()
 		default:

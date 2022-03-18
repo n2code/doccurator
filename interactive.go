@@ -11,7 +11,7 @@ import (
 
 const choiceAborted = ""
 
-func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (cancelled bool) {
+func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (decisionsMade int, foundWaste bool, cancelled bool) {
 	d.Print(out.Verbose, "Tidying up library...\n")
 
 	// this scan has no skip conditions because consciously added content shall be treated as such
@@ -43,6 +43,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 			subject = "document"
 			pastParticiple = "updated"
 		case library.Obsolete, library.Duplicate:
+			foundWaste = true
 			if !removeWaste {
 				continue
 			}
@@ -77,7 +78,8 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 					decideIndividually = false
 					doChange = false
 				case choiceAborted:
-					return true
+					cancelled = true
+					return
 				}
 			}
 		}
@@ -95,9 +97,11 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 				case "No":
 					doChange = false
 				case choiceAborted:
-					return true
+					cancelled = true
+					return
 				}
 			}
+			decisionsMade++
 
 			if doc := path.ReferencedDocument(); doChange {
 				switch status {
@@ -174,7 +178,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (ca
 	}
 
 	d.Print(out.Verbose, "Tidy operation complete.\n")
-	return false
+	return
 }
 
 func (d *doccurator) InteractiveAdd(choice RequestChoice) (cancelled bool) {
