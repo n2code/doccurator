@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/n2code/doccurator"
+	cliflags "github.com/n2code/doccurator/cmd/doccurator/flags"
 	"github.com/n2code/doccurator/internal/document"
 	out "github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
@@ -30,7 +31,7 @@ func parseFlags(args []string, errOut io.Writer) (request *cliRequest, exitCode 
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
 Usage:
-   doccurator [-v|-q] [-t] [-p] [-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-` + cliflags.Verbose + `|-` + cliflags.Quiet + `] [-` + cliflags.Thorough + `] [-` + cliflags.Plain + `] [-` + cliflags.Help + `] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
 
@@ -39,7 +40,7 @@ Usage:
 		flags.Output().Write([]byte(`
  FLAG(s) and TARGET(s) are action-specific.
  You can read the help on any action:
-    doccurator <ACTION> -h
+    doccurator <ACTION> -` + cliflags.Help + `
 
 `))
 
@@ -47,16 +48,16 @@ Usage:
 
 	request = &cliRequest{}
 	var generalHelpRequested bool
-	flags.BoolVar(&request.verbose, "v", false, "Output more details on what is done (verbose mode)")
-	flags.BoolVar(&request.quiet, "q", false, "Output as little as possible, i.e. only requested information (quiet mode)")
-	flags.BoolVar(&generalHelpRequested, "h", false, "Display general usage help")
-	flags.BoolVar(&request.thorough, "t", false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files whose modification time is unchanged are not read.")
-	flags.BoolVar(&request.plain, "p", false, "Do not use terminal escape sequence features such as colors (plain mode)")
+	flags.BoolVar(&request.verbose, cliflags.Verbose, false, "Output more details on what is done (verbose mode)")
+	flags.BoolVar(&request.quiet, cliflags.Quiet, false, "Output as little as possible, i.e. only requested information (quiet mode)")
+	flags.BoolVar(&generalHelpRequested, cliflags.Help, false, "Display general usage help")
+	flags.BoolVar(&request.thorough, cliflags.Thorough, false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files whose modification time is unchanged are not read.")
+	flags.BoolVar(&request.plain, cliflags.Plain, false, "Do not use terminal escape sequence features such as colors (plain mode)")
 
 	var err error
 	defer func() {
 		if err != nil {
-			fmt.Fprintf(errOut, "%s\nUsage help: doccurator -h\n", err)
+			fmt.Fprintf(errOut, "%s\nUsage help: doccurator -%s\n", err, cliflags.Help)
 			exitCode = 2
 			request = nil
 		}
@@ -103,7 +104,7 @@ Usage of %s action:
 		actionParams.PrintDefaults()
 		fmt.Fprintf(actionParams.Output(), `
  Global MODE documentation can be shown by:
-    doccurator -h
+    doccurator -`+cliflags.Help+`
 
 `)
 	}
@@ -123,23 +124,23 @@ ActionParamCheck:
 		argumentSpecification = " [FILEPATH...]"
 		switch request.action {
 		case "add":
-			flagSpecification = " [-all-untracked] [-rename] [-force] [-abort-on-error] [-auto-id | -id=...]"
+			flagSpecification = " [-" + cliflags.AddAllUntracked + "] [-" + cliflags.AddWithRename + "] [-" + cliflags.AddWithForce + "] [-" + cliflags.AddButAbortOnError + "] [-" + cliflags.AddWithAutoId + " | -" + cliflags.AddWithGivenId + "=...]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Interactive mode is launched if no paths are given. The user is prompted to\n" +
 				actionDescriptionIndent + "decide for each untracked file whether it shall be added and/or renamed.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
-			request.actionFlags["all-untracked"] = actionParams.Bool("all-untracked", false, "add all untracked files anywhere inside the library\n"+
+			request.actionFlags[cliflags.AddAllUntracked] = actionParams.Bool(cliflags.AddAllUntracked, false, "add all untracked files anywhere inside the library\n"+
 				"(requires *standardized* filenames to extract IDs)")
-			request.actionFlags["force"] = actionParams.Bool("force", false, "allow adding even duplicates, moved, and obsolete files as new\n"+
+			request.actionFlags[cliflags.AddWithForce] = actionParams.Bool(cliflags.AddWithForce, false, "allow adding even duplicates, moved, and obsolete files as new\n"+
 				"(because this is likely undesired and thus blocked by default)")
-			request.actionFlags["auto-id"] = actionParams.Bool("auto-id", false, "automatically choose free ID based on current time if filename\n"+
+			request.actionFlags[cliflags.AddWithAutoId] = actionParams.Bool(cliflags.AddWithAutoId, false, "automatically choose free ID based on current time if filename\n"+
 				"is not *standardized* and hence ID cannot be extracted from it")
-			request.actionFlags["rename"] = actionParams.Bool("rename", false, "rename added files to standardized filename")
-			request.actionFlags["abort-on-error"] = actionParams.Bool("abort-on-error", false, "abort if any error occurs, do not skip issues (mass operations)")
-			request.actionFlags["id"] = actionParams.String("id", "", "specify new document ID instead of extracting it from filename\n"+
-				"(only a single FILEPATH can be given, -all-untracked must not be used)\n"+
-				"FORMAT 1: doccurator add -id 63835AEV9E my_document.pdf\n"+
-				"FORMAT 2: doccurator add -id=55565IEV9E my_document.pdf")
+			request.actionFlags[cliflags.AddWithRename] = actionParams.Bool(cliflags.AddWithRename, false, "rename added files to standardized filename")
+			request.actionFlags[cliflags.AddButAbortOnError] = actionParams.Bool(cliflags.AddButAbortOnError, false, "abort if any error occurs, do not skip issues (mass operations)")
+			request.actionFlags[cliflags.AddWithGivenId] = actionParams.String(cliflags.AddWithGivenId, "", "specify new document ID instead of extracting it from filename\n"+
+				"(only a single FILEPATH can be given, -"+cliflags.AddAllUntracked+" must not be used)\n"+
+				"FORMAT 1: doccurator add -"+cliflags.AddWithGivenId+" 63835AEV9E my_document.pdf\n"+
+				"FORMAT 2: doccurator add -"+cliflags.AddWithGivenId+"=55565IEV9E my_document.pdf")
 		case "update":
 			actionDescription += "Update the existing library records to match the current state of\n" +
 				actionDescriptionIndent + "the file(s) at the given FILEPATH(s)."
@@ -149,11 +150,11 @@ ActionParamCheck:
 				actionDescriptionIndent + "If an identical file appears at a later point in time the library is\n" +
 				actionDescriptionIndent + "thereby able to recognize it as an obsolete duplicate (\"zombie\")."
 		case "forget":
-			flagSpecification = " -all-retired |"
+			flagSpecification = " -" + cliflags.ForgetAllRetired + " |"
 			argumentSpecification = " ID..."
 			actionDescription += "Delete the library records corresponding to the given ID(s).\n" +
 				actionDescriptionIndent + "Only retired documents can be forgotten."
-			request.actionFlags["all-retired"] = actionParams.Bool("all-retired", false, "forget all retired documents")
+			request.actionFlags[cliflags.ForgetAllRetired] = actionParams.Bool(cliflags.ForgetAllRetired, false, "forget all retired documents")
 		}
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
@@ -166,13 +167,13 @@ ActionParamCheck:
 
 		switch request.action {
 		case "add":
-			if *(request.actionFlags["all-untracked"].(*bool)) {
+			if *(request.actionFlags[cliflags.AddAllUntracked].(*bool)) {
 				if actionParams.NArg() != 0 {
-					err = errors.New(`no FILEPATHs must be given when using flag "-all-untracked"`)
+					err = errors.New(`no FILEPATHs must be given when using flag "-` + cliflags.AddAllUntracked + `"`)
 					break ActionParamCheck
 				}
-				if *(request.actionFlags["id"].(*string)) != "" {
-					err = errors.New(`flag "-id" must not be used together with "-all-untracked"`)
+				if *(request.actionFlags[cliflags.AddWithGivenId].(*string)) != "" {
+					err = errors.New(`flag "-` + cliflags.AddWithGivenId + `" must not be used together with "-` + cliflags.AddAllUntracked + `"`)
 					break ActionParamCheck
 				}
 			} else if actionParams.NArg() == 0 { //interactive mode
@@ -181,28 +182,28 @@ ActionParamCheck:
 					break ActionParamCheck
 				}
 			}
-			if *(request.actionFlags["id"].(*string)) != "" {
-				if *(request.actionFlags["auto-id"].(*bool)) {
-					err = errors.New(`flag "-auto-id" must not be used together with "-id"`)
+			if *(request.actionFlags[cliflags.AddWithGivenId].(*string)) != "" {
+				if *(request.actionFlags[cliflags.AddWithAutoId].(*bool)) {
+					err = errors.New(`flag "-` + cliflags.AddWithAutoId + `" must not be used together with "-` + cliflags.AddWithGivenId + `"`)
 					break ActionParamCheck
 				}
 				if actionParams.NArg() != 1 {
-					err = errors.New(`exactly one FILEPATH must be given when using flag "-id"`)
+					err = errors.New(`exactly one FILEPATH must be given when using flag "-` + cliflags.AddWithGivenId + `"`)
 					break ActionParamCheck
 				}
 			}
-			if *(request.actionFlags["abort-on-error"].(*bool)) {
+			if *(request.actionFlags[cliflags.AddButAbortOnError].(*bool)) {
 				if actionParams.NArg() == 1 {
-					err = errors.New(`"-abort-on-error" is for mass operations only`)
+					err = errors.New(`"-` + cliflags.AddButAbortOnError + `" is for mass operations only`)
 					break ActionParamCheck
 				}
 			}
 		case "update", "retire":
 			verifyTargetsExist()
 		case "forget":
-			if *(request.actionFlags["all-retired"].(*bool)) {
+			if *(request.actionFlags[cliflags.ForgetAllRetired].(*bool)) {
 				if actionParams.NArg() != 0 {
-					err = errors.New(`no IDs must be given when using flag "-all-retired"`)
+					err = errors.New(`no IDs must be given when using flag "-` + cliflags.ForgetAllRetired + `"`)
 					break ActionParamCheck
 				}
 			} else {
@@ -210,9 +211,9 @@ ActionParamCheck:
 			}
 		}
 	case "dump":
-		flagSpecification = " [-exclude-retired]"
+		flagSpecification = " [-" + cliflags.DumpExcludingRetired + "]"
 		actionDescription += "Print all library records."
-		request.actionFlags["exclude-retired"] = actionParams.Bool("exclude-retired", false, "do not print records marked as obsolete (\"retired\")")
+		request.actionFlags[cliflags.DumpExcludingRetired] = actionParams.Bool(cliflags.DumpExcludingRetired, false, "do not print records marked as obsolete (\"retired\")")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -220,11 +221,11 @@ ActionParamCheck:
 			break ActionParamCheck
 		}
 	case "tree":
-		flagSpecification = " [-diff] [-here]"
+		flagSpecification = " [-" + cliflags.TreeWithOnlyDifferences + "] [-" + cliflags.TreeOfCurrentLocation + "]"
 		actionDescription += "Display the library as a tree which represents the union of all\n" +
 			actionDescriptionIndent + "library records and the files currently present in the library folder."
-		request.actionFlags["diff"] = actionParams.Bool("diff", false, "show only difference to library records, i.e. exclude\nunchanged tracked and tracked-as-removed files")
-		request.actionFlags["here"] = actionParams.Bool("here", false, "only print the subtree whose root is the current working directory")
+		request.actionFlags[cliflags.TreeWithOnlyDifferences] = actionParams.Bool(cliflags.TreeWithOnlyDifferences, false, "show only difference to library records, i.e. exclude\nunchanged tracked and tracked-as-removed files")
+		request.actionFlags[cliflags.TreeOfCurrentLocation] = actionParams.Bool(cliflags.TreeOfCurrentLocation, false, "only print the subtree whose root is the current working directory")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -252,11 +253,11 @@ ActionParamCheck:
 			break ActionParamCheck
 		}
 	case "tidy":
-		flagSpecification = " [-no-confirm] [-remove-waste-files]"
+		flagSpecification = " [-" + cliflags.TidyWithoutConfirmation + "] [-" + cliflags.TidyRemovingWaste + "]"
 		actionDescription += "Interactively do the needful to get the library in sync with the filesystem.\n" +
 			actionDescriptionIndent + "By default only known records are considered and the filesystem is not touched."
-		request.actionFlags["no-confirm"] = actionParams.Bool("no-confirm", false, "suppress prompts and choose defaults (\"yes to all\")")
-		request.actionFlags["remove-waste-files"] = actionParams.Bool("remove-waste-files", false, "remove superfluous files with duplicate or obsolete content")
+		request.actionFlags[cliflags.TidyWithoutConfirmation] = actionParams.Bool(cliflags.TidyWithoutConfirmation, false, "suppress prompts and choose defaults (\"yes to all\")")
+		request.actionFlags[cliflags.TidyRemovingWaste] = actionParams.Bool(cliflags.TidyRemovingWaste, false, "remove superfluous files with duplicate or obsolete content")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() > 0 {
@@ -301,21 +302,21 @@ func (rq *cliRequest) execute() (execErr error) {
 
 		switch rq.action {
 		case "dump":
-			api.PrintAllRecords(*(rq.actionFlags["exclude-retired"].(*bool)))
+			api.PrintAllRecords(*(rq.actionFlags[cliflags.DumpExcludingRetired].(*bool)))
 			return nil
 		case "tree":
-			return api.PrintTree(*(rq.actionFlags["diff"].(*bool)), *(rq.actionFlags["here"].(*bool)))
+			return api.PrintTree(*(rq.actionFlags[cliflags.TreeWithOnlyDifferences].(*bool)), *(rq.actionFlags[cliflags.TreeOfCurrentLocation].(*bool)))
 		case "add":
-			tryRename := *(rq.actionFlags["rename"].(*bool))
-			autoId := *(rq.actionFlags["auto-id"].(*bool))
-			abortOnError := *(rq.actionFlags["abort-on-error"].(*bool))
-			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags["force"].(*bool))
+			tryRename := *(rq.actionFlags[cliflags.AddWithRename].(*bool))
+			autoId := *(rq.actionFlags[cliflags.AddWithAutoId].(*bool))
+			abortOnError := *(rq.actionFlags[cliflags.AddButAbortOnError].(*bool))
+			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags[cliflags.AddWithForce].(*bool))
 			var addedIds []document.Id
 			var addErr error
-			if *(rq.actionFlags["all-untracked"].(*bool)) {
+			if *(rq.actionFlags[cliflags.AddAllUntracked].(*bool)) {
 				addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
 			} else {
-				if explicitId := *(rq.actionFlags["id"].(*string)); explicitId != "" {
+				if explicitId := *(rq.actionFlags[cliflags.AddWithGivenId].(*string)); explicitId != "" {
 					numId, err, complete := ndocid.Decode(explicitId)
 					if err != nil {
 						return fmt.Errorf(`error in ID "%s" (%w)`, explicitId, err)
@@ -367,7 +368,7 @@ func (rq *cliRequest) execute() (execErr error) {
 			}
 			return api.PersistChanges()
 		case "forget":
-			if *(rq.actionFlags["all-retired"].(*bool)) {
+			if *(rq.actionFlags[cliflags.ForgetAllRetired].(*bool)) {
 				api.ForgetAllObsolete()
 			} else {
 				for _, target := range rq.actionArgs {
@@ -400,12 +401,12 @@ func (rq *cliRequest) execute() (execErr error) {
 			return nil
 		case "tidy":
 			choice := PromptUser(!rq.plain)
-			if *(rq.actionFlags["no-confirm"].(*bool)) {
+			if *(rq.actionFlags[cliflags.TidyWithoutConfirmation].(*bool)) {
 				choice = AutoChooseDefaultOption(rq.quiet)
 			} else {
 				fmt.Fprint(os.Stdout, "(To abort and undo everything: SIGINT/Ctrl+C during prompts)\n")
 			}
-			removeWaste := *(rq.actionFlags["remove-waste-files"].(*bool))
+			removeWaste := *(rq.actionFlags[cliflags.TidyRemovingWaste].(*bool))
 			decisionsMade, foundWaste, cancelled := api.InteractiveTidy(choice, removeWaste)
 			if cancelled {
 				return fmt.Errorf("operation aborted, undo requested")
@@ -413,7 +414,7 @@ func (rq *cliRequest) execute() (execErr error) {
 			if decisionsMade == 0 && !rq.quiet {
 				fmt.Fprint(os.Stdout, "Nothing to do!\n")
 				if foundWaste && !removeWaste {
-					fmt.Fprint(os.Stdout, "(Duplicate or obsolete files exist. Repeat with flag -remove-waste-files to remove.)\n")
+					fmt.Fprint(os.Stdout, "(Duplicate or obsolete files exist. Repeat with flag -"+cliflags.TidyRemovingWaste+" to remove.)\n")
 				}
 				fmt.Fprint(os.Stdout, "\n")
 			}
