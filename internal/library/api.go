@@ -30,13 +30,6 @@ const (
 	Obsolete PathStatus = 'X'
 )
 
-type CheckedPath struct {
-	anchoredPath string //relative to library root, system-native
-	status       PathStatus
-	referencing  Document
-	err          error
-}
-
 type PathSkipEvaluator func(absolutePath string, isDir bool) (skip bool)
 
 // Api expects absolute system-native paths (with respect to the directory separator)

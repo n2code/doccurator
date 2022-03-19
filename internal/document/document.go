@@ -25,6 +25,13 @@ func (doc *document) Changed() unixTimestamp {
 	return doc.changed
 }
 
+func (doc *document) RecordedFileProperties() (size int64, modTime unixTimestamp, sha256 [checksum.Size]byte) {
+	size = doc.contentMetadata.size
+	modTime = doc.localStorage.lastModified
+	sha256 = doc.contentMetadata.sha256Hash
+	return
+}
+
 func (doc *document) IsObsolete() bool {
 	return doc.obsolete
 }

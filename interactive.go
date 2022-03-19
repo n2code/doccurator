@@ -1,12 +1,15 @@
 package doccurator
 
 import (
+	checksum "crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/n2code/doccurator/internal/library"
 	out "github.com/n2code/doccurator/internal/output"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const choiceAborted = ""
@@ -91,14 +94,53 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 			displayPath := d.displayablePath(absolute, true, false)
 
 			if decideIndividually {
-				switch choice(d.printer.Sprintf("%s%s%s%s [%s]%s - %s", library.ColorForStatus(status), out.BoldIntensity, displayPath, out.NormalIntensity, lowerStatus, out.DefaultForeground, question), []string{"Yes", "No"}, true) {
-				case "Yes":
-					doChange = true
-				case "No":
-					doChange = false
-				case choiceAborted:
-					cancelled = true
-					return
+				options := []string{"Yes", "No", "Info"}
+				for {
+					switch choice(d.printer.Sprintf("%s%s%s%s [%s]%s - %s", library.ColorForStatus(status), out.BoldIntensity, displayPath, out.NormalIntensity, lowerStatus, out.DefaultForeground, question), options, true) {
+					case "Yes":
+						doChange = true
+					case "No":
+						doChange = false
+					case "Info":
+						printProperty := func(property string, changedValue string, changedDescription string, recordValue string) {
+							d.Print(out.Required, "    -> %s: ", property)
+							if changedValue != "" {
+								d.Print(out.Required, "%s%s%s (%s)\n", out.BoldIntensity, changedValue, out.Reset, changedDescription)
+								if recordValue != "" {
+									d.Print(out.Required, "       %s ", strings.Repeat(" ", len(property)))
+								}
+							}
+							if recordValue != "" {
+								d.Print(out.Required, "%s %s (on record)%s\n", out.FaintIntensity, recordValue, out.Reset)
+							}
+						}
+						d.Print(out.Required, "[i] %s\n", displayPath)
+						referenced := path.ReferencedDocument()
+						var fileSize int64
+						var fileModTime time.Time
+						var fileChecksum [checksum.Size]byte
+						recordedSize, recordedModTime, recordedChecksum := referenced.RecordProperties()
+						switch status {
+						case library.Touched:
+							path.ProbeFile(nil, &fileModTime, nil)
+							printProperty("Last modified", fileModTime.Local().Format(time.RFC1123), "file on disk", recordedModTime.Local().Format(time.RFC1123))
+						case library.Moved:
+							displayableOriginalLocation := d.displayablePath(filepath.Join(d.appLib.GetRoot(), referenced.AnchoredPath()), true, false)
+							printProperty("Location", displayPath, "current", displayableOriginalLocation)
+						case library.Modified:
+							path.ProbeFile(&fileSize, &fileModTime, &fileChecksum)
+							printProperty("Size", out.Filesize(fileSize), "file on disk", out.Filesize(recordedSize))
+							printProperty("Last modified", fileModTime.Local().Format(time.RFC1123), "file on disk", recordedModTime.Local().Format(time.RFC1123))
+							printProperty("SHA256", hex.EncodeToString(fileChecksum[:]), "file on disk", hex.EncodeToString(recordedChecksum[:]))
+						case library.Obsolete:
+						}
+						options = []string{"Yes", "No"}
+						continue
+					case choiceAborted:
+						cancelled = true
+						return
+					}
+					break
 				}
 			}
 			decisionsMade++

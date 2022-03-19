@@ -21,6 +21,7 @@ type Api interface {
 	Id() Id
 	Recorded() unixTimestamp
 	Changed() unixTimestamp
+	RecordedFileProperties() (size int64, modTime unixTimestamp, sha256 [checksum.Size]byte)
 	IsObsolete() bool
 	DeclareObsolete()
 	AnchoredPath() string
