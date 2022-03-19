@@ -48,11 +48,11 @@ Usage:
   -p	Do not use terminal escape sequence features such as colors (plain mode)
   -q	Output as little as possible, i.e. only requested information (quiet mode)
   -t	Do not apply optimizations (thorough mode), for example:
-    	  Unless flag is set files whose modification time is unchanged are not read.
+    	  Unless flag is set files with unchanged modification time are not read.
   -v	Output more details on what is done (verbose mode)
 
  FLAG(s) and TARGET(s) are action-specific.
- You can read the help on any action:
+ You can read the help on any action verb:
     doccurator <ACTION> -h
 
 ```

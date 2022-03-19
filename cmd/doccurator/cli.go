@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/n2code/doccurator"
 	cliflags "github.com/n2code/doccurator/cmd/doccurator/flags"
+	cliverbs "github.com/n2code/doccurator/cmd/doccurator/verbs"
 	"github.com/n2code/doccurator/internal/document"
 	out "github.com/n2code/doccurator/internal/output"
 	"github.com/n2code/ndocid"
@@ -33,13 +34,13 @@ func parseFlags(args []string, errOut io.Writer) (request *cliRequest, exitCode 
 Usage:
    doccurator [-` + cliflags.Verbose + `|-` + cliflags.Quiet + `] [-` + cliflags.Thorough + `] [-` + cliflags.Plain + `] [-` + cliflags.Help + `] <ACTION> [FLAG] [TARGET]
 
- ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
+ ACTIONs:  ` + cliverbs.Init + `  ` + cliverbs.Status + `  ` + cliverbs.Add + `  ` + cliverbs.Update + `  ` + cliverbs.Tidy + `  ` + cliverbs.Search + `  ` + cliverbs.Retire + `  ` + cliverbs.Forget + `  ` + cliverbs.Tree + `  ` + cliverbs.Dump + `
 
 `))
 		flags.PrintDefaults()
 		flags.Output().Write([]byte(`
  FLAG(s) and TARGET(s) are action-specific.
- You can read the help on any action:
+ You can read the help on any action verb:
     doccurator <ACTION> -` + cliflags.Help + `
 
 `))
@@ -51,7 +52,7 @@ Usage:
 	flags.BoolVar(&request.verbose, cliflags.Verbose, false, "Output more details on what is done (verbose mode)")
 	flags.BoolVar(&request.quiet, cliflags.Quiet, false, "Output as little as possible, i.e. only requested information (quiet mode)")
 	flags.BoolVar(&generalHelpRequested, cliflags.Help, false, "Display general usage help")
-	flags.BoolVar(&request.thorough, cliflags.Thorough, false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files whose modification time is unchanged are not read.")
+	flags.BoolVar(&request.thorough, cliflags.Thorough, false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files with unchanged modification time are not read.")
 	flags.BoolVar(&request.plain, cliflags.Plain, false, "Do not use terminal escape sequence features such as colors (plain mode)")
 
 	var err error
@@ -111,7 +112,7 @@ Usage of %s action:
 
 ActionParamCheck:
 	switch request.action {
-	case "status":
+	case cliverbs.Status:
 		argumentSpecification = " [FILEPATH...]"
 		actionDescription += "Compare files in the library folder to the records.\n" +
 			actionDescriptionIndent + "If one or more FILEPATHs are given only compare those files otherwise\n" +
@@ -120,10 +121,10 @@ ActionParamCheck:
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		//beyond flags all arguments are optional
-	case "add", "update", "retire", "forget":
+	case cliverbs.Add, cliverbs.Update, cliverbs.Retire, cliverbs.Forget:
 		argumentSpecification = " [FILEPATH...]"
 		switch request.action {
-		case "add":
+		case cliverbs.Add:
 			flagSpecification = " [-" + cliflags.AddAllUntracked + "] [-" + cliflags.AddWithRename + "] [-" + cliflags.AddWithForce + "] [-" + cliflags.AddButAbortOnError + "] [-" + cliflags.AddWithAutoId + " | -" + cliflags.AddWithGivenId + "=...]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Interactive mode is launched if no paths are given. The user is prompted to\n" +
@@ -141,15 +142,15 @@ ActionParamCheck:
 				"(only a single FILEPATH can be given, -"+cliflags.AddAllUntracked+" must not be used)\n"+
 				"FORMAT 1: doccurator add -"+cliflags.AddWithGivenId+" 63835AEV9E my_document.pdf\n"+
 				"FORMAT 2: doccurator add -"+cliflags.AddWithGivenId+"=55565IEV9E my_document.pdf")
-		case "update":
+		case cliverbs.Update:
 			actionDescription += "Update the existing library records to match the current state of\n" +
 				actionDescriptionIndent + "the file(s) at the given FILEPATH(s)."
-		case "retire":
+		case cliverbs.Retire:
 			actionDescription += "Mark the library records corresponding to the given FILEPATH(s) as\n" +
 				actionDescriptionIndent + "obsolete. The real file is expected to be removed manually.\n" +
 				actionDescriptionIndent + "If an identical file appears at a later point in time the library is\n" +
 				actionDescriptionIndent + "thereby able to recognize it as an obsolete duplicate (\"zombie\")."
-		case "forget":
+		case cliverbs.Forget:
 			flagSpecification = " -" + cliflags.ForgetAllRetired + " |"
 			argumentSpecification = " ID..."
 			actionDescription += "Delete the library records corresponding to the given ID(s).\n" +
@@ -166,7 +167,7 @@ ActionParamCheck:
 		}
 
 		switch request.action {
-		case "add":
+		case cliverbs.Add:
 			if *(request.actionFlags[cliflags.AddAllUntracked].(*bool)) {
 				if actionParams.NArg() != 0 {
 					err = errors.New(`no FILEPATHs must be given when using flag "-` + cliflags.AddAllUntracked + `"`)
@@ -198,9 +199,9 @@ ActionParamCheck:
 					break ActionParamCheck
 				}
 			}
-		case "update", "retire":
+		case cliverbs.Update, cliverbs.Retire:
 			verifyTargetsExist()
-		case "forget":
+		case cliverbs.Forget:
 			if *(request.actionFlags[cliflags.ForgetAllRetired].(*bool)) {
 				if actionParams.NArg() != 0 {
 					err = errors.New(`no IDs must be given when using flag "-` + cliflags.ForgetAllRetired + `"`)
@@ -210,7 +211,7 @@ ActionParamCheck:
 				verifyTargetsExist()
 			}
 		}
-	case "dump":
+	case cliverbs.Dump:
 		flagSpecification = " [-" + cliflags.DumpExcludingRetired + "]"
 		actionDescription += "Print all library records."
 		request.actionFlags[cliflags.DumpExcludingRetired] = actionParams.Bool(cliflags.DumpExcludingRetired, false, "do not print records marked as obsolete (\"retired\")")
@@ -220,7 +221,7 @@ ActionParamCheck:
 			err = errors.New("too many arguments")
 			break ActionParamCheck
 		}
-	case "tree":
+	case cliverbs.Tree:
 		flagSpecification = " [-" + cliflags.TreeWithOnlyDifferences + "] [-" + cliflags.TreeOfCurrentLocation + "]"
 		actionDescription += "Display the library as a tree which represents the union of all\n" +
 			actionDescriptionIndent + "library records and the files currently present in the library folder."
@@ -232,7 +233,7 @@ ActionParamCheck:
 			err = errors.New("command accepts no arguments, only flags")
 			break ActionParamCheck
 		}
-	case "init":
+	case cliverbs.Init:
 		argumentSpecification = " DIRECTORY"
 		actionDescription += "Initialize a new library in the given root DIRECTORY. Everything below\n" +
 			actionDescriptionIndent + "the root is considered to be located 'inside' the library. All files\n" +
@@ -243,7 +244,7 @@ ActionParamCheck:
 			err = errors.New("bad number of arguments, exactly one expected")
 			break ActionParamCheck
 		}
-	case "search":
+	case cliverbs.Search:
 		argumentSpecification = " ID"
 		actionDescription += "Search for documents with the given ID or substring of an ID"
 		actionParams.Parse(request.actionArgs)
@@ -252,7 +253,7 @@ ActionParamCheck:
 			err = errors.New("bad number of arguments, exactly one expected")
 			break ActionParamCheck
 		}
-	case "tidy":
+	case cliverbs.Tidy:
 		flagSpecification = " [-" + cliflags.TidyWithoutConfirmation + "] [-" + cliflags.TidyRemovingWaste + "]"
 		actionDescription += "Interactively do the needful to get the library in sync with the filesystem.\n" +
 			actionDescriptionIndent + "By default only known records are considered and the filesystem is not touched."
@@ -285,7 +286,7 @@ func (rq *cliRequest) execute() (execErr error) {
 		config.SuppressTerminalCodes = true
 	}
 
-	if rq.action == "init" {
+	if rq.action == cliverbs.Init {
 		_, err := doccurator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config)
 		return err
 	} else {
@@ -301,12 +302,12 @@ func (rq *cliRequest) execute() (execErr error) {
 		}()
 
 		switch rq.action {
-		case "dump":
+		case cliverbs.Dump:
 			api.PrintAllRecords(*(rq.actionFlags[cliflags.DumpExcludingRetired].(*bool)))
 			return nil
-		case "tree":
+		case cliverbs.Tree:
 			return api.PrintTree(*(rq.actionFlags[cliflags.TreeWithOnlyDifferences].(*bool)), *(rq.actionFlags[cliflags.TreeOfCurrentLocation].(*bool)))
-		case "add":
+		case cliverbs.Add:
 			tryRename := *(rq.actionFlags[cliflags.AddWithRename].(*bool))
 			autoId := *(rq.actionFlags[cliflags.AddWithAutoId].(*bool))
 			abortOnError := *(rq.actionFlags[cliflags.AddButAbortOnError].(*bool))
@@ -353,21 +354,21 @@ func (rq *cliRequest) execute() (execErr error) {
 				}
 			}
 			return api.PersistChanges()
-		case "update":
+		case cliverbs.Update:
 			for _, target := range rq.actionArgs {
 				if err := api.UpdateByPath(target); err != nil {
 					return err
 				}
 			}
 			return api.PersistChanges()
-		case "retire":
+		case cliverbs.Retire:
 			for _, target := range rq.actionArgs {
 				if err := api.RetireByPath(target); err != nil {
 					return err
 				}
 			}
 			return api.PersistChanges()
-		case "forget":
+		case cliverbs.Forget:
 			if *(rq.actionFlags[cliflags.ForgetAllRetired].(*bool)) {
 				api.ForgetAllObsolete()
 			} else {
@@ -385,9 +386,9 @@ func (rq *cliRequest) execute() (execErr error) {
 				}
 			}
 			return api.PersistChanges()
-		case "status":
+		case cliverbs.Status:
 			return api.PrintStatus(rq.actionArgs)
-		case "search":
+		case cliverbs.Search:
 			matches := api.SearchByIdPart(rq.actionArgs[0])
 			matchCount := len(matches)
 			if matchCount == 0 && !rq.quiet {
@@ -399,7 +400,7 @@ func (rq *cliRequest) execute() (execErr error) {
 			}
 			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, out.Plural(matchCount, "match", "matches"))
 			return nil
-		case "tidy":
+		case cliverbs.Tidy:
 			choice := PromptUser(!rq.plain)
 			if *(rq.actionFlags[cliflags.TidyWithoutConfirmation].(*bool)) {
 				choice = AutoChooseDefaultOption(rq.quiet)
@@ -433,7 +434,7 @@ func main() {
 	if err := rq.execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		switch rq.action {
-		case "add", "update", "tidy":
+		case cliverbs.Add, cliverbs.Update, cliverbs.Tidy:
 			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
 		}
 		os.Exit(1)
