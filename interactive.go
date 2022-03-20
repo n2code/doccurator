@@ -107,11 +107,11 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 							if changedValue != "" {
 								d.Print(out.Required, "%s%s%s (%s)\n", out.BoldIntensity, changedValue, out.Reset, changedDescription)
 								if recordValue != "" {
-									d.Print(out.Required, "       %s ", strings.Repeat(" ", len(property)))
+									d.Print(out.Required, "       %s  ", strings.Repeat(" ", len(property))) //indent by as many spaces as "    -> {property}: "
 								}
 							}
 							if recordValue != "" {
-								d.Print(out.Required, "%s %s (on record)%s\n", out.FaintIntensity, recordValue, out.Reset)
+								d.Print(out.Required, "%s%s (on record)%s\n", out.FaintIntensity, recordValue, out.Reset)
 							}
 						}
 						d.Print(out.Required, "[i] %s\n", displayPath)
@@ -132,7 +132,13 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 							printProperty("Size", out.Filesize(fileSize), "file on disk", out.Filesize(recordedSize))
 							printProperty("Last modified", fileModTime.Local().Format(time.RFC1123), "file on disk", recordedModTime.Local().Format(time.RFC1123))
 							printProperty("SHA256", hex.EncodeToString(fileChecksum[:]), "file on disk", hex.EncodeToString(recordedChecksum[:]))
-						case library.Obsolete:
+						case library.Duplicate, library.Obsolete:
+							property := "Duplicate of"
+							if status == library.Obsolete {
+								property = "Obsoleted as"
+							}
+							printProperty(property, "", "", d.printer.Sprintf("%s%s%s%s%s [%s]", libRootScheme, out.BoldIntensity, referenced.AnchoredPath(), out.Reset, out.FaintIntensity, referenced.Id()))
+							printProperty("SHA256", "", "", hex.EncodeToString(recordedChecksum[:]))
 						}
 						options = []string{"Yes", "No"}
 						continue

@@ -67,18 +67,27 @@ func (lib *library) GetActiveDocumentByPath(absolutePath string) (ref Document, 
 	return
 }
 
-func (lib *library) ObsoleteDocumentExistsForPath(absolutePath string) bool {
+func (lib *library) GetObsoleteDocumentsForPath(absolutePath string) (retirees []Document) {
+	retirees = make([]Document, 0, 1) //never return nil for result uniformity
 	anchoredPath, inLibrary := lib.getAnchoredPath(absolutePath)
 	if !inLibrary {
-		return false
+		return
 	}
+	for _, retired := range lib.getAllObsoleteDocumentsAt(anchoredPath) {
+		retirees = append(retirees, Document{id: retired.Id(), library: lib})
+	}
+	return
+}
+
+//getAllObsoleteDocumentsAt returns all obsoleted documents that used to be present at the given path, nil if none exists
+func (lib *library) getAllObsoleteDocumentsAt(anchored string) (retirees []document.Api) {
 	//linear scan, could be improved
 	for _, doc := range lib.documents {
-		if doc.IsObsolete() && doc.AnchoredPath() == anchoredPath {
-			return true
+		if doc.IsObsolete() && doc.AnchoredPath() == anchored {
+			retirees = append(retirees, doc)
 		}
 	}
-	return false
+	return
 }
 
 func (lib *library) UpdateDocumentFromFile(ref Document) (changed bool, err error) {
@@ -261,7 +270,7 @@ func (lib *library) getAnchoredPath(absolutePath string) (anchored string, insid
 	return
 }
 
-func (lib *library) pathExists(anchored string) (exists bool) {
+func (lib *library) activePathExists(anchored string) (exists bool) {
 	_, exists = lib.activeAnchoredPathIndex[anchored]
 	return
 }
@@ -341,7 +350,7 @@ func (libDoc *Document) RenameToStandardNameFormat(dryRun bool) (newNameIfDiffer
 
 	//check for conflicts
 
-	if libDoc.library.pathExists(standardPath) {
+	if libDoc.library.activePathExists(standardPath) {
 		err = fmt.Errorf("standardized path already on record: %s", absoluteNewPath)
 		return
 	}

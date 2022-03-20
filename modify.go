@@ -40,7 +40,7 @@ func (d *doccurator) RetireByPath(path string) error {
 	absPath := mustAbsFilepath(path)
 	doc, exists := d.appLib.GetActiveDocumentByPath(absPath)
 	if !exists {
-		if d.appLib.ObsoleteDocumentExistsForPath(absPath) {
+		if obsoletes := d.appLib.GetObsoleteDocumentsForPath(absPath); len(obsoletes) > 0 {
 			d.Print(out.Normal, "Already retired: %s\n", path)
 			return nil //i.e. command was a no-op
 		}

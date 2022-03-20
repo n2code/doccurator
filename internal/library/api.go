@@ -40,7 +40,7 @@ type Api interface {
 	GetActiveDocumentByPath(absolutePath string) (doc Document, exists bool)
 	UpdateDocumentFromFile(Document) (changed bool, err error)
 	MarkDocumentAsObsolete(Document)
-	ObsoleteDocumentExistsForPath(absolutePath string) bool
+	GetObsoleteDocumentsForPath(absolutePath string) []Document
 	ForgetDocument(Document)
 	CheckFilePath(absolutePath string, skipReadOnSizeMatch bool) CheckedPath
 	Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSkipEvaluator, skipReadOnSizeMatch bool) (paths []CheckedPath, hasNoErrors bool)

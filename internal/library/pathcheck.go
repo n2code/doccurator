@@ -36,18 +36,16 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 	}
 
 	if doc, isOnActiveRecord := lib.activeAnchoredPathIndex[result.anchoredPath]; isOnActiveRecord {
+		result.referencing = Document{id: doc.Id(), library: lib}
 		switch status := doc.CompareToFileOnStorage(lib.rootPath, skipReadOnSizeMatch); status {
 		case document.UnmodifiedFile:
 			result.status = Tracked
 		case document.TouchedFile:
 			result.status = Touched
-			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.ModifiedFile:
 			result.status = Modified
-			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.NoFileFound:
 			result.status = Missing
-			result.referencing = Document{id: doc.Id(), library: lib}
 		case document.FileAccessError:
 			result.err = fmt.Errorf("could not access last known location (%s) of document %s", doc.AnchoredPath(), doc.Id())
 		}
@@ -58,12 +56,12 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 
 	stat, statErr := os.Stat(absolutePath)
 	if statErr != nil {
-		switch {
-		case !errors.Is(statErr, fs.ErrNotExist):
+		if !errors.Is(statErr, fs.ErrNotExist) {
 			result.err = statErr
-		case lib.ObsoleteDocumentExistsForPath(absolutePath):
-			result.status = Removed //because path does not exist anymore, as expected
-		default:
+		} else if obsoletes := lib.GetObsoleteDocumentsForPath(absolutePath); len(obsoletes) > 0 {
+			result.status = Removed                                            //because path does not exist anymore, as expected
+			result.referencing = Document{id: obsoletes[0].Id(), library: lib} //TODO: is there a better way than "pick any"?
+		} else {
 			result.err = fmt.Errorf("path does not exist: %s", absolutePath)
 		}
 		return
@@ -85,17 +83,19 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 	foundMissingActive := false
 	foundMatchingObsolete := false
 
-	var anyMissingMatchingActive document.Api
+	var anyMatchingActive, anyMissingMatchingActive, anyMatchingObsolete document.Api
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
 			if doc.IsObsolete() {
 				foundMatchingObsolete = true
+				anyMatchingObsolete = doc
 				continue
 			}
 			statusOfContentMatch := doc.CompareToFileOnStorage(lib.rootPath, skipReadOnSizeMatch)
 			switch statusOfContentMatch {
 			case document.UnmodifiedFile, document.TouchedFile:
 				foundMatchingActive = true
+				anyMatchingActive = doc
 			case document.ModifiedFile:
 				foundModifiedActive = true
 			case document.NoFileFound:
@@ -116,15 +116,22 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 	case foundMatchingActive:
 		if foundMatchingObsolete {
 			result.status = Obsolete
+			if anyMatchingObsolete == nil {
+
+			}
+			result.referencing = Document{id: anyMatchingObsolete.Id(), library: lib}
 		} else {
 			result.status = Duplicate
+			result.referencing = Document{id: anyMatchingActive.Id(), library: lib}
 		}
 	case foundModifiedActive:
 		if foundMatchingObsolete {
 			result.status = Obsolete
+			result.referencing = Document{id: anyMatchingObsolete.Id(), library: lib}
 		}
 	case foundMatchingObsolete:
 		result.status = Obsolete
+		result.referencing = Document{id: anyMatchingObsolete.Id(), library: lib}
 	}
 
 	return
