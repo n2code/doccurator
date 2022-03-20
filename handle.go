@@ -15,6 +15,7 @@ type HandleConfig struct {
 	Verbosity             VerbosityMode     //amount of detail in output
 	Optimization          OptimizationLevel //performance-vs-thoroughness
 	SuppressTerminalCodes bool              //do use fancy terminal formatting options such as ANSI escape sequences to add color
+	IncludeAllNamesInScan bool              //if set all names are considered in directory scans (i.e. hidden files/folders starting with "." will be included)
 }
 
 const (
@@ -56,6 +57,7 @@ type doccurator struct {
 	optimizedFsAccess     bool
 	printer               output.Printer
 	fancyTerminalFeatures bool
+	scanAll               bool
 }
 
 func makeDoccurator(config HandleConfig) (instance *doccurator) {
@@ -71,8 +73,8 @@ func makeDoccurator(config HandleConfig) (instance *doccurator) {
 	}
 	instance.fancyTerminalFeatures = !config.SuppressTerminalCodes
 	instance.printer = output.NewPrinter(classes, !config.SuppressTerminalCodes)
-
 	instance.optimizedFsAccess = config.Optimization == DefaultOptimizations
+	instance.scanAll = config.IncludeAllNamesInScan
 	return
 }
 

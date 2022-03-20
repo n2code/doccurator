@@ -5,6 +5,7 @@ const Quiet = `q`
 const Thorough = `t`
 const Plain = `p`
 const Help = `h`
+const All = `a`
 const AddAllUntracked = `all-untracked`
 const AddWithRename = `rename`
 const AddWithForce = `force`

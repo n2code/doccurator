@@ -199,7 +199,7 @@ func (lib *library) isIgnored(absolutePath string, isDir bool) bool {
 	return lib.ignoredPaths[ignoredLibraryPath{anchored: anchoredPath, directory: isDir}]
 }
 
-func isAnyFilterMatching(filters *[]PathSkipEvaluator, absolute string, isDir bool) bool {
+func IsAnyFilterMatching(filters *[]PathSkipEvaluator, absolute string, isDir bool) bool {
 	for _, filter := range *filters {
 		if filter(absolute, isDir) {
 			return true
@@ -214,7 +214,7 @@ func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSk
 	hasNoErrors = true
 
 	isFileResultFiltered := func(absolute string) bool {
-		return isAnyFilterMatching(&resultFilters, absolute, false)
+		return IsAnyFilterMatching(&resultFilters, absolute, false)
 	}
 	addError := func(anchored string, err error) {
 		results = append(results, CheckedPath{
@@ -246,7 +246,7 @@ func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSk
 		}
 
 		//evaluate scan filters
-		if lib.isIgnored(absolutePath, isDir) || isAnyFilterMatching(&scanFilters, absolutePath, isDir) {
+		if lib.isIgnored(absolutePath, isDir) || IsAnyFilterMatching(&scanFilters, absolutePath, isDir) {
 			if isDir {
 				return filepath.SkipDir //to prevent descent
 			}
@@ -405,4 +405,8 @@ func (libDoc *Document) RenameToStandardNameFormat(dryRun bool) (newNameIfDiffer
 
 func (s PathStatus) RepresentsChange() bool {
 	return s != Tracked && s != Removed
+}
+
+func (s PathStatus) RepresentsWaste() bool {
+	return s == Duplicate || s == Obsolete
 }

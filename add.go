@@ -55,7 +55,7 @@ func (d *doccurator) AddMultiple(filePaths []string, allowForDuplicateMovedAndOb
 }
 
 func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error) {
-	results, noScanErrors := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, nil, true) //read can be skipped because it does not affect correct detection of "untracked" status
+	results, noScanErrors := d.appLib.Scan(d.getScanSkipEvaluators(), nil, true) //read can be skipped because it does not affect correct detection of "untracked" status
 	if !noScanErrors {
 		d.Print(out.Normal, "Issues during scan: Not all potential candidates accessible\n")
 	}

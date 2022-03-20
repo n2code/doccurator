@@ -19,6 +19,7 @@ type cliRequest struct {
 	verbose     bool
 	quiet       bool
 	thorough    bool
+	noSkip      bool
 	plain       bool
 	action      string
 	actionFlags map[string]interface{}
@@ -32,7 +33,7 @@ func parseFlags(args []string, errOut io.Writer) (request *cliRequest, exitCode 
 	flags.Usage = func() {
 		flags.Output().Write([]byte(`
 Usage:
-   doccurator [-` + cliflags.Verbose + `|-` + cliflags.Quiet + `] [-` + cliflags.Thorough + `] [-` + cliflags.Plain + `] [-` + cliflags.Help + `] <ACTION> [FLAG] [TARGET]
+   doccurator [-` + cliflags.Verbose + `|-` + cliflags.Quiet + `] [-` + cliflags.Thorough + `] [-` + cliflags.All + `] [-` + cliflags.Plain + `] [-` + cliflags.Help + `] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  ` + cliverbs.Init + `  ` + cliverbs.Status + `  ` + cliverbs.Add + `  ` + cliverbs.Update + `  ` + cliverbs.Tidy + `  ` + cliverbs.Search + `  ` + cliverbs.Retire + `  ` + cliverbs.Forget + `  ` + cliverbs.Tree + `  ` + cliverbs.Dump + `
 
@@ -53,6 +54,7 @@ Usage:
 	flags.BoolVar(&request.quiet, cliflags.Quiet, false, "Output as little as possible, i.e. only requested information (quiet mode)")
 	flags.BoolVar(&generalHelpRequested, cliflags.Help, false, "Display general usage help")
 	flags.BoolVar(&request.thorough, cliflags.Thorough, false, "Do not apply optimizations (thorough mode), for example:\n  Unless flag is set files with unchanged modification time are not read.")
+	flags.BoolVar(&request.noSkip, cliflags.All, false, "Do not skip anything during recursive scans (all mode):\n  Unless flag is set the library database file is skipped.\n  Files/folders starting with \".\" are not considered either.\n  The function of ignore files is not affected.")
 	flags.BoolVar(&request.plain, cliflags.Plain, false, "Do not use terminal escape sequence features such as colors (plain mode)")
 
 	var err error
@@ -281,6 +283,9 @@ func (rq *cliRequest) execute() (execErr error) {
 	}
 	if rq.thorough {
 		config.Optimization = doccurator.ThoroughMode
+	}
+	if rq.noSkip {
+		config.IncludeAllNamesInScan = true
 	}
 	if rq.plain {
 		config.SuppressTerminalCodes = true

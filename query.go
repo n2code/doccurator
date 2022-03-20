@@ -63,7 +63,7 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 	tree := out.NewVisualFileTree(label)
 
 	var pathsWithErrors []*library.CheckedPath
-	paths, ok := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, displayFilters, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+	paths, ok := d.appLib.Scan(d.getScanSkipEvaluators(), displayFilters, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 	for index, checkedPath := range paths {
 		prefix, suffix := "", ""
 		status := checkedPath.Status()
@@ -123,7 +123,7 @@ func (d *doccurator) PrintStatus(paths []string) error {
 			processResult(result, path)
 		}
 	} else {
-		results, _ := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, nil, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+		results, _ := d.appLib.Scan(d.getScanSkipEvaluators(), nil, d.optimizedFsAccess) //full scan may optimize performance if allowed to
 		for _, result := range results {
 			processResult(result, mustRelFilepathToWorkingDir(filepath.Join(d.appLib.GetRoot(), result.AnchoredPath())))
 		}
@@ -223,6 +223,12 @@ func (d *doccurator) GetFreeId() document.Id {
 	return document.MissingId
 }
 
-func (d *doccurator) isLibFile(absolute string, dir bool) bool {
-	return absolute == d.libFile && !dir
+func (d *doccurator) getScanSkipEvaluators() []library.PathSkipEvaluator {
+	if d.scanAll {
+		return []library.PathSkipEvaluator{}
+	}
+	return []library.PathSkipEvaluator{
+		func(absolute string, dir bool) bool { return absolute == d.libFile && !dir },                 //is library database file?
+		func(absolute string, _ bool) bool { return strings.HasPrefix(filepath.Base(absolute), ".") }, //is hidden file/folder?
+	}
 }

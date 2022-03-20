@@ -22,7 +22,11 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 	paths, _ := d.appLib.Scan(nil, nil, d.optimizedFsAccess)
 
 	buckets := make(map[library.PathStatus][]*library.CheckedPath)
+	wasteSkipEvaluators := d.getScanSkipEvaluators()
 	for i, path := range paths {
+		if path.Status().RepresentsWaste() && library.IsAnyFilterMatching(&wasteSkipEvaluators, filepath.Join(d.appLib.GetRoot(), path.AnchoredPath()), false) {
+			continue
+		}
 		buckets[path.Status()] = append(buckets[path.Status()], &paths[i])
 	}
 
@@ -230,7 +234,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 }
 
 func (d *doccurator) InteractiveAdd(choice RequestChoice) (cancelled bool) {
-	results, _ := d.appLib.Scan([]library.PathSkipEvaluator{d.isLibFile}, nil, true) //read can be skipped because it does not affect correct detection of "untracked" status
+	results, _ := d.appLib.Scan(d.getScanSkipEvaluators(), nil, true) //read can be skipped because it does not affect correct detection of "untracked" status
 
 	doRename, skipRenameChoice := false, false
 NextCandidate:

@@ -40,10 +40,14 @@ as relative arguments and detect automatically which library (root folder) they'
 $ doccurator -h
 
 Usage:
-   doccurator [-v|-q] [-t] [-p] [-h] <ACTION> [FLAG] [TARGET]
+   doccurator [-v|-q] [-t] [-a] [-p] [-h] <ACTION> [FLAG] [TARGET]
 
  ACTIONs:  init  status  add  update  tidy  search  retire  forget  tree  dump
 
+  -a	Do not skip anything during recursive scans (all mode):
+    	  Unless flag is set the library database file is skipped.
+    	  Files/folders starting with "." are not considered either.
+    	  The function of ignore files is not affected.
   -h	Display general usage help
   -p	Do not use terminal escape sequence features such as colors (plain mode)
   -q	Output as little as possible, i.e. only requested information (quiet mode)
