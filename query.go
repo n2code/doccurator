@@ -28,9 +28,9 @@ func (d *doccurator) PrintAllRecords(excludeRetired bool) {
 		count++
 	})
 	if count == 0 {
-		d.Print(out.Normal, "<no records>")
+		d.Print(out.Normal, "<no records>\n\n")
 	} else {
-		d.Print(out.Normal, "\n%d in total\n", count)
+		d.Print(out.Normal, "\n%d in total\n\n", count)
 	}
 }
 

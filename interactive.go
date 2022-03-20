@@ -169,7 +169,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 						d.Print(out.Normal, "%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
 					}
 				case library.Obsolete, library.Duplicate:
-					tempDir, err := os.MkdirTemp("", "doccurator-tidy-delete-staging-*")
+					tempDir, err := os.MkdirTemp(filepath.Dir(absolute), ".doccurator-tidy-delete-staging-*")
 					if err != nil {
 						d.Print(out.Error, "deletion preparation failed (%s): %s\n", displayPath, coloredError(err))
 						continue NextChange
