@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -126,8 +127,8 @@ func calculateFileChecksum(path string) (sum [sha256.Size]byte, err error) {
 	return
 }
 
-func (lib *library) loadIgnoreFile(absolutePath string) (err error) {
-	file, openErr := os.Open(absolutePath)
+func (lib *library) loadIgnoreFile(absoluteIgnoreFile string) (err error) {
+	file, openErr := os.Open(absoluteIgnoreFile)
 	if openErr != nil {
 		return openErr
 	}
@@ -146,21 +147,37 @@ func (lib *library) loadIgnoreFile(absolutePath string) (err error) {
 		line = lineScanner.Text()
 		lineNumber++
 		if len(line) > 0 && !strings.HasPrefix(line, "#") {
-			if strings.HasPrefix(line, "/") {
+
+			//checks for cleanliness of path spec
+
+			if path.IsAbs(line) {
 				return fmt.Errorf("absolute path given")
 			}
-			nativePath := filepath.FromSlash(line)
-			absoluteIgnored := filepath.Join(filepath.Dir(absolutePath), nativePath)
-			anchoredIgnored, relErr := filepath.Rel(lib.rootPath, absoluteIgnored)
-			if relErr != nil {
-				return fmt.Errorf("relativizing failed (%w)", relErr)
+			if line == "." {
+				return fmt.Errorf(`use "./" as path spec to ignore current directory`)
 			}
-			if anchoredIgnored == "." {
-				return fmt.Errorf("refers to directory itself")
+			{
+				rawPathParts := strings.Split(line, "/")
+				for _, rawPart := range rawPathParts {
+					if rawPart == ".." {
+						return fmt.Errorf(`path spec contains ".." element`)
+					}
+					if rawPart == "." && line != "./" {
+						return fmt.Errorf(`path spec contains superfluous "." element`)
+					}
+				}
 			}
-			if components := strings.Split(anchoredIgnored, string(filepath.Separator)); len(components) == 0 || components[0] == ".." {
-				return fmt.Errorf("path refers to directory above")
+
+			//normalization
+
+			nativeIgnored := filepath.FromSlash(line)
+			absoluteIgnored := filepath.Join(filepath.Dir(absoluteIgnoreFile), nativeIgnored)
+			anchoredIgnored, _ := filepath.Rel(lib.rootPath, absoluteIgnored) //error impossible because both are absolute and ".." does not occur
+			if absoluteIgnored == lib.rootPath {                              //sanity check
+				return fmt.Errorf("refers to library root dir")
 			}
+
+			//path spec acceptable:
 			lib.ignoredPaths[ignoredLibraryPath{
 				anchored:  anchoredIgnored,
 				directory: strings.HasSuffix(line, "/"),
@@ -216,15 +233,9 @@ func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSk
 		}
 
 		isDir := d.IsDir()
-		if lib.isIgnored(absolutePath, isDir) || isAnyFilterMatching(&scanFilters, absolutePath, isDir) {
-			if isDir {
-				return filepath.SkipDir //to prevent descent
-			}
-			return nil //to continue scan with next candidate
-		}
 
-		switch isDir {
-		case true: //attempt loading an ignore file
+		//attempt loading an ignore file (happens before ignore evaluation so a directory can ignore itself!)
+		if isDir {
 			ignoreFileCandidate := filepath.Join(absolutePath, IgnoreFileName)
 			if _, err := os.Stat(ignoreFileCandidate); err == nil { //ignore file does not have to exist
 				if ignoreErr := lib.loadIgnoreFile(ignoreFileCandidate); ignoreErr != nil {
@@ -232,7 +243,18 @@ func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSk
 					addError(badIgnore, fmt.Errorf("ignore file error: %w", ignoreErr))
 				}
 			}
-		case false: //check file
+		}
+
+		//evaluate scan filters
+		if lib.isIgnored(absolutePath, isDir) || isAnyFilterMatching(&scanFilters, absolutePath, isDir) {
+			if isDir {
+				return filepath.SkipDir //to prevent descent
+			}
+			return nil //to continue scan with next candidate
+		}
+
+		//check file
+		if !isDir {
 			result := lib.CheckFilePath(absolutePath, skipReadOnSizeMatch)
 			coveredLibraryPaths[result.anchoredPath] = true
 			if !isFileResultFiltered(absolutePath) {
