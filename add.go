@@ -60,11 +60,11 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 		d.Print(out.Normal, "Issues during scan: Not all potential candidates accessible\n")
 	}
 
-	var untrackedAnchoredPaths []string
+	var untrackedPaths []string
 	for _, checked := range results {
 		switch checked.Status() {
 		case library.Untracked:
-			untrackedAnchoredPaths = append(untrackedAnchoredPaths, checked.AnchoredPath())
+			untrackedPaths = append(untrackedPaths, d.absolutizeAnchored(checked.AnchoredPath()))
 		case library.Error:
 			if abortOnError {
 				err = fmt.Errorf("encountered uncheckable (%s): %w", checked.AnchoredPath(), checked.GetError())
@@ -74,7 +74,7 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, gen
 		}
 	}
 
-	added, err = d.AddMultiple(untrackedAnchoredPaths, allowForDuplicateMovedAndObsolete, generateMissingIds, abortOnError)
+	added, err = d.AddMultiple(untrackedPaths, allowForDuplicateMovedAndObsolete, generateMissingIds, abortOnError)
 	return
 }
 

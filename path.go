@@ -40,6 +40,10 @@ func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot boo
 	return pleasant
 }
 
+func (d *doccurator) absolutizeAnchored(anchored string) string {
+	return filepath.Join(d.appLib.GetRoot(), anchored)
+}
+
 const dot string = "."
 const dirSeparator = string(filepath.Separator)
 const dotDirSeparator = dot + dirSeparator
