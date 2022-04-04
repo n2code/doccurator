@@ -3,7 +3,22 @@ package output
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
+
+func Indent(spaces int, multilineText string) string {
+	indent := strings.Repeat(" ", spaces)
+	lines := strings.Split(multilineText, "\n")
+	var indented strings.Builder
+	for i, line := range lines {
+		indented.WriteString(indent)
+		indented.WriteString(line)
+		if len(lines) > 1 && i < len(lines)-1 {
+			indented.WriteRune('\n') //unless last line or only line
+		}
+	}
+	return indented.String()
+}
 
 func Plural(countable interface{}, singular string, plural string) string {
 	switch c := countable.(type) {

@@ -104,6 +104,7 @@ func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicat
 		d.appLib.ForgetDocument(doc)
 		return library.Document{}, newCommandError("document creation failed", err)
 	}
-	d.Print(out.Normal, "Added %s: %s\n", id, doc.AnchoredPath())
+	d.Print(out.Normal, "Added %s: %s\n", id, d.displayablePath(absoluteFilePath, true, false))
+	d.Print(out.Verbose, "%s\n", out.Indent(2, doc.String()))
 	return doc, nil
 }
