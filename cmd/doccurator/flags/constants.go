@@ -12,6 +12,7 @@ const AddWithForce = `force`
 const AddButAbortOnError = `abort-on-error`
 const AddWithAutoId = `auto-id`
 const AddWithGivenId = `id`
+const AddEmpty = `empty`
 const ForgetAllRetired = `all-retired`
 const DumpExcludingRetired = `exclude-retired`
 const TreeWithOnlyDifferences = `diff`

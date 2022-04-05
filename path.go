@@ -41,7 +41,7 @@ func (d *doccurator) displayablePath(absolutePath string, shortenLibraryRoot boo
 }
 
 func (d *doccurator) absolutizeAnchored(anchored string) string {
-	return filepath.Join(d.appLib.GetRoot(), anchored)
+	return d.appLib.Absolutize(anchored)
 }
 
 const dot string = "."

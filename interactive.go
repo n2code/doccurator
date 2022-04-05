@@ -288,7 +288,7 @@ NextCandidate:
 
 			var newDoc library.Document
 			var addErr error
-			if newDoc, addErr = d.addSingle(newId, absolute, false); addErr != nil {
+			if newDoc, addErr = d.addSingle(newId, absolute, false, false); addErr != nil {
 				d.Print(out.Error, "Adding failed (%s): %s\n", displayPath, addErr)
 				continue NextCandidate
 			}

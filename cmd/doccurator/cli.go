@@ -127,13 +127,13 @@ ActionParamCheck:
 		argumentSpecification = " [FILEPATH...]"
 		switch request.action {
 		case cliverbs.Add:
-			flagSpecification = " [-" + cliflags.AddAllUntracked + "] [-" + cliflags.AddWithRename + "] [-" + cliflags.AddWithForce + "] [-" + cliflags.AddButAbortOnError + "] [-" + cliflags.AddWithAutoId + " | -" + cliflags.AddWithGivenId + "=...]"
+			flagSpecification = " [-" + cliflags.AddAllUntracked + "] [-" + cliflags.AddWithRename + "] [-" + cliflags.AddWithForce + "] [-" + cliflags.AddEmpty + "] [-" + cliflags.AddButAbortOnError + "] [-" + cliflags.AddWithAutoId + " | -" + cliflags.AddWithGivenId + "=...]"
 			actionDescription += "Add the file(s) at the given FILEPATH(s) to the library records.\n" +
 				actionDescriptionIndent + "Interactive mode is launched if no paths are given. The user is prompted to\n" +
 				actionDescriptionIndent + "decide for each untracked file whether it shall be added and/or renamed.\n" +
 				actionDescriptionIndent + "Alternatively all untracked files can be added automatically via flag."
 			request.actionFlags[cliflags.AddAllUntracked] = actionParams.Bool(cliflags.AddAllUntracked, false, "add all untracked files anywhere inside the library\n"+
-				"(requires *standardized* filenames to extract IDs)")
+				`(requires *standardized* filenames or/and flag "-`+cliflags.AddWithAutoId+`")`)
 			request.actionFlags[cliflags.AddWithForce] = actionParams.Bool(cliflags.AddWithForce, false, "allow adding even duplicates, moved, and obsolete files as new\n"+
 				"(because this is likely undesired and thus blocked by default)")
 			request.actionFlags[cliflags.AddWithAutoId] = actionParams.Bool(cliflags.AddWithAutoId, false, "automatically choose free ID based on current time if filename\n"+
@@ -144,6 +144,7 @@ ActionParamCheck:
 				"(only a single FILEPATH can be given, -"+cliflags.AddAllUntracked+" must not be used)\n"+
 				"FORMAT 1: doccurator add -"+cliflags.AddWithGivenId+" 63835AEV9E my_document.pdf\n"+
 				"FORMAT 2: doccurator add -"+cliflags.AddWithGivenId+"=55565IEV9E my_document.pdf")
+			request.actionFlags[cliflags.AddEmpty] = actionParams.Bool(cliflags.AddEmpty, false, "allow empty files (only for non-interactive mode with given paths)")
 		case cliverbs.Update:
 			actionDescription += "Update the existing library records to match the current state of\n" +
 				actionDescriptionIndent + "the file(s) at the given FILEPATH(s)."
@@ -317,10 +318,11 @@ func (rq *cliRequest) execute() (execErr error) {
 			autoId := *(rq.actionFlags[cliflags.AddWithAutoId].(*bool))
 			abortOnError := *(rq.actionFlags[cliflags.AddButAbortOnError].(*bool))
 			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags[cliflags.AddWithForce].(*bool))
+			emptyFiles := *(rq.actionFlags[cliflags.AddEmpty].(*bool))
 			var addedIds []document.Id
 			var addErr error
 			if *(rq.actionFlags[cliflags.AddAllUntracked].(*bool)) {
-				addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
+				addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, emptyFiles, autoId, abortOnError)
 			} else {
 				if explicitId := *(rq.actionFlags[cliflags.AddWithGivenId].(*string)); explicitId != "" {
 					numId, err, complete := ndocid.Decode(explicitId)
@@ -331,7 +333,7 @@ func (rq *cliRequest) execute() (execErr error) {
 						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
 					}
 					newId := document.Id(numId)
-					addErr = api.Add(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete)
+					addErr = api.AddWithId(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete, emptyFiles)
 					if addErr == nil {
 						addedIds = append(addedIds, newId)
 					}
@@ -343,7 +345,7 @@ func (rq *cliRequest) execute() (execErr error) {
 							fmt.Fprint(os.Stdout, "(Interactive mode interrupted, repeat command to continue)\n")
 						}
 					} else {
-						addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, autoId, abortOnError)
+						addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, emptyFiles, autoId, abortOnError)
 					}
 				}
 			}
@@ -439,7 +441,7 @@ func main() {
 	if err := rq.execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		switch rq.action {
-		case cliverbs.Add, cliverbs.Update, cliverbs.Tidy:
+		case cliverbs.Add, cliverbs.Update, cliverbs.Tidy, cliverbs.Retire, cliverbs.Forget:
 			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
 		}
 		os.Exit(1)

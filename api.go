@@ -5,21 +5,21 @@ import "github.com/n2code/doccurator/internal/document"
 // Doccurator lets you interface with a doccurator database whose handle was retrieved using New or Open.
 type Doccurator interface {
 
-	// Add creates a single document using a given ID (most likely provided by GetFreeId).
+	// AddWithId creates a single document using a given ID (most likely provided by GetFreeId).
 	// Changes need to be committed with PersistChanges.
-	Add(id document.Id, path string, allowForDuplicateMovedAndObsolete bool) error
+	AddWithId(id document.Id, path string, allowForDuplicateMovedAndObsolete bool, allowEmpty bool) error
 
 	// AddMultiple creates multiple documents from a set of paths, attempting to use IDs from the filenames.
 	// A flag can be set to allow automatic ID generation where no extraction is possible.
 	// Attempting to add moved files or files with either duplicate or new content produce errors unless instructed otherwise.
 	// Error handling can be toggled to either fail immediately (the library remains clean in that case, i.e. has the same state as before) or ignore issues.
 	// Changes need to be committed with PersistChanges.
-	AddMultiple(paths []string, allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
+	AddMultiple(paths []string, allowForDuplicateMovedAndObsolete bool, allowEmpty bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
 
 	// AddAllUntracked collects all untracked files and calls AddMultiple.
 	// Flags and error handling behavior are identical to AddMultiple.
 	// Changes need to be committed with PersistChanges.
-	AddAllUntracked(allowForDuplicateMovedAndObsolete bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
+	AddAllUntracked(allowForDuplicateMovedAndObsolete bool, recordEmptyFiles bool, generateMissingIds bool, abortOnError bool) (added []document.Id, err error)
 
 	// UpdateByPath updates the library record corresponding to the given path to match the state of the file.
 	// For touched and modified files this updates the file modification timestamp and/or filesize+hash.
