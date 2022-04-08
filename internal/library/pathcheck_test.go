@@ -13,16 +13,18 @@ import (
 func TestPathChecking(t *testing.T) {
 	type f struct {
 		path               string
-		contentOnRecord    string //if empty no record will be created
+		contentOnRecord    string //if empty no record will be created, if == "<EMPTY>" empty file is recorded
 		contentIsObsolete  bool   //if set obsolete document will refer to content on record + path
-		fileContent        string //if empty file will not exist
+		fileContent        string //if empty file will not exist, if == "<EMPTY>" file will be empty
 		fileTimeOffset     int    //optional
 		expectedStatus     PathStatus
 		expectedRefToDocOf uint //1-based index of test configuration
 	}
 
 	noFile := ""
+	emptyFile := "<EMPTY>"
 	noRecord := ""
+	emptyRecord := "<EMPTY>"
 	testStatusCombination := func(name string, files ...f) {
 		verification := func(Test *testing.T) {
 			{
@@ -96,17 +98,17 @@ func TestPathChecking(t *testing.T) {
 				}
 				if subject.expectedRefToDocOf != 0 {
 					if checkResult.referencing.id == document.MissingId || checkResult.referencing.library == nil {
-						Test.Errorf("did not get proper reference")
+						Test.Errorf("did not get proper reference for %s", subject.path)
 					}
 					if document.Id(subject.expectedRefToDocOf) != checkResult.referencing.id {
 						Test.Errorf("expected reference to ID %s not received, got %s", document.Id(subject.expectedRefToDocOf), checkResult.referencing.id)
 					}
 				} else {
 					if checkResult.referencing.id != document.MissingId {
-						Test.Errorf("got reference to ID where none was expected")
+						Test.Errorf("got reference to ID where none was expected for %s", subject.path)
 					}
 					if checkResult.referencing.library != nil {
-						Test.Errorf("expected reference to be empty but got library API handle")
+						Test.Errorf("expected library API handle to be empty but got one for %s", subject.path)
 					}
 				}
 			}
@@ -213,4 +215,54 @@ func TestPathChecking(t *testing.T) {
 		f{path: "A", contentOnRecord: noRecord, fileContent: "1", expectedStatus: Obsolete, expectedRefToDocOf: 3}, //because the content is present and matching
 		f{path: "B", contentOnRecord: "1", fileContent: "1", expectedStatus: Tracked, expectedRefToDocOf: 2},
 		f{path: "C", contentOnRecord: "1", contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed, expectedRefToDocOf: 3})
+
+	testStatusCombination("UntrackedEmptyFile",
+		f{path: "A", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Untracked})
+
+	testStatusCombination("TrackedEmptyFile",
+		f{path: "A", contentOnRecord: emptyRecord, fileContent: emptyFile, expectedStatus: Tracked, expectedRefToDocOf: 1})
+
+	testStatusCombination("TouchedEmptyFile",
+		f{path: "A", contentOnRecord: emptyRecord, fileContent: emptyFile, fileTimeOffset: 42, expectedStatus: Touched, expectedRefToDocOf: 1})
+
+	testStatusCombination("ObsoleteEmptyFile",
+		f{path: "A", contentOnRecord: emptyRecord, contentIsObsolete: true, fileContent: emptyFile, expectedStatus: Obsolete, expectedRefToDocOf: 1})
+
+	testStatusCombination("MissingEmptyFile",
+		f{path: "A", contentOnRecord: emptyRecord, fileContent: noFile, expectedStatus: Missing, expectedRefToDocOf: 1})
+
+	testStatusCombination("MovedEmptyFile",
+		f{path: "A_OLD", contentOnRecord: emptyRecord, fileContent: noFile, expectedStatus: Missing, expectedRefToDocOf: 1},
+		f{path: "A_NEW", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Moved, expectedRefToDocOf: 1})
+
+	testStatusCombination("RemovedEmptyFile",
+		f{path: "A", contentOnRecord: emptyRecord, contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed, expectedRefToDocOf: 1})
+
+	testStatusCombination("TruncatedFile",
+		f{path: "A", contentOnRecord: "42", fileContent: emptyFile, expectedStatus: Modified, expectedRefToDocOf: 1})
+
+	testStatusCombination("EmptyFilesAreNoDuplicates",
+		f{path: "A", contentOnRecord: emptyRecord, fileContent: emptyFile, expectedStatus: Tracked, expectedRefToDocOf: 1},
+		f{path: "A_CLONE1", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Untracked},
+		f{path: "A_CLONE2", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Untracked})
+
+	testStatusCombination("EmptyFilesCantBeConsideredObsolete1",
+		f{path: "A", contentOnRecord: emptyRecord, contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed, expectedRefToDocOf: 1},
+		f{path: "EMPTY", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Untracked})
+
+	testStatusCombination("EmptyFilesCantBeConsideredObsolete2",
+		f{path: "A", contentOnRecord: emptyRecord, contentIsObsolete: true, fileContent: emptyFile, expectedStatus: Obsolete, expectedRefToDocOf: 1},
+		f{path: "EMPTY", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Untracked})
+
+	testStatusCombination("DetectMovedEmptyFiles",
+		f{path: "A", contentOnRecord: emptyRecord, fileContent: emptyFile, expectedStatus: Tracked, expectedRefToDocOf: 1},
+		f{path: "B", contentOnRecord: emptyRecord, fileContent: noFile, expectedStatus: Missing, expectedRefToDocOf: 2},
+		f{path: "B_ELSEWHERE", contentOnRecord: noRecord, fileContent: emptyFile, expectedStatus: Moved, expectedRefToDocOf: 2})
+
+	testStatusCombination("TruncatedFileAmongEmpties",
+		f{path: "A", contentOnRecord: emptyRecord, fileContent: emptyFile, expectedStatus: Tracked, expectedRefToDocOf: 1},
+		f{path: "B", contentOnRecord: emptyRecord, contentIsObsolete: true, fileContent: noFile, expectedStatus: Removed, expectedRefToDocOf: 2},
+		f{path: "C", contentOnRecord: emptyRecord, contentIsObsolete: true, fileContent: emptyFile, expectedStatus: Obsolete, expectedRefToDocOf: 3},
+		f{path: "X", contentOnRecord: "42", fileContent: emptyFile, expectedStatus: Modified, expectedRefToDocOf: 4})
+
 }

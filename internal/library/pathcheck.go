@@ -78,26 +78,31 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 
 	//file exists that is not on active record, match to known contents by checksum
 
-	foundMatchingActive := false
-	foundModifiedActive := false
+	foundMatchingNonEmptyActive := false
 	foundMissingActive := false
-	foundMatchingObsolete := false
+	foundMatchingNonEmptyObsolete := false
 
-	var anyMatchingActive, anyMissingMatchingActive, anyMatchingObsolete document.Api
+	var anyMatchingNonEmptyActive, anyMissingMatchingActive, anyMatchingNonEmptyObsolete document.Api
 	for _, doc := range lib.documents {
 		if doc.MatchesChecksum(fileChecksum) {
+			size, _, _ := doc.RecordedFileProperties()
 			if doc.IsObsolete() {
-				foundMatchingObsolete = true
-				anyMatchingObsolete = doc
+				//empty files are not considered identical to obsoleted empty files unless the path is the same
+				if size > 0 || doc.AnchoredPath() == result.anchoredPath {
+					foundMatchingNonEmptyObsolete = true
+					anyMatchingNonEmptyObsolete = doc
+				}
 				continue
 			}
 			statusOfContentMatch := doc.CompareToFileOnStorage(lib.rootPath, skipReadOnSizeMatch)
 			switch statusOfContentMatch {
 			case document.UnmodifiedFile, document.TouchedFile:
-				foundMatchingActive = true
-				anyMatchingActive = doc
+				if size > 0 {
+					foundMatchingNonEmptyActive = true
+					anyMatchingNonEmptyActive = doc
+				}
 			case document.ModifiedFile:
-				foundModifiedActive = true
+				//content has changed so a matching record is moot
 			case document.NoFileFound:
 				foundMissingActive = true
 				anyMissingMatchingActive = doc
@@ -109,29 +114,16 @@ func (lib *library) CheckFilePath(absolutePath string, skipReadOnSizeMatch bool)
 	}
 
 	result.status = Untracked
-	switch {
+	switch { //the order of cases is significant because it reflects status priority!
 	case foundMissingActive:
 		result.status = Moved
 		result.referencing = Document{id: anyMissingMatchingActive.Id(), library: lib}
-	case foundMatchingActive:
-		if foundMatchingObsolete {
-			result.status = Obsolete
-			if anyMatchingObsolete == nil {
-
-			}
-			result.referencing = Document{id: anyMatchingObsolete.Id(), library: lib}
-		} else {
-			result.status = Duplicate
-			result.referencing = Document{id: anyMatchingActive.Id(), library: lib}
-		}
-	case foundModifiedActive:
-		if foundMatchingObsolete {
-			result.status = Obsolete
-			result.referencing = Document{id: anyMatchingObsolete.Id(), library: lib}
-		}
-	case foundMatchingObsolete:
+	case foundMatchingNonEmptyObsolete:
 		result.status = Obsolete
-		result.referencing = Document{id: anyMatchingObsolete.Id(), library: lib}
+		result.referencing = Document{id: anyMatchingNonEmptyObsolete.Id(), library: lib}
+	case foundMatchingNonEmptyActive:
+		result.status = Duplicate
+		result.referencing = Document{id: anyMatchingNonEmptyActive.Id(), library: lib}
 	}
 
 	return

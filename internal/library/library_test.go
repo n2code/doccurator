@@ -142,7 +142,11 @@ func setupLibraryInTemp(t *testing.T) (tempRootDir string, library Api) {
 }
 
 func writeFile(path string, content string) {
-	os.WriteFile(path, []byte(content), fs.ModePerm)
+	if content == "<EMPTY>" {
+		os.WriteFile(path, []byte{}, fs.ModePerm)
+	} else {
+		os.WriteFile(path, []byte(content), fs.ModePerm)
+	}
 }
 
 func TestDocumentModification(t *testing.T) {
