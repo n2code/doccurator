@@ -86,7 +86,7 @@ func (d *doccurator) AddAllUntracked(allowForDuplicateMovedAndObsolete bool, rec
 
 // addSingle creates a new document with the given ID and path.
 // On error the library remains clean, i.e. has the same state as before.
-func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool, allowEmpty bool) (library.Document, error) { //TODO switch signature to command error
+func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicateMovedAndObsolete bool, allowEmpty bool) (library.Document, error) {
 	d.Print(out.Verbose, "Adding (%s) ...\n", filePath)
 	absoluteFilePath := mustAbsFilepath(filePath)
 	if !allowForDuplicateMovedAndObsolete {

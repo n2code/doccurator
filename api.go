@@ -68,7 +68,7 @@ type Doccurator interface {
 
 	// PrintStatus compares the given files to the library records and lists all results grouped by status.
 	// If no paths are given the full library root directory is scanned recursively and unchanged tracked files are omitted.
-	PrintStatus(paths []string) error
+	PrintStatus(paths []string)
 
 	// GetFreeId yields an ID that is not already in use derived from the current time.
 	GetFreeId() document.Id

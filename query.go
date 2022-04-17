@@ -85,17 +85,15 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 	d.Print(out.Required, "%s", tree.Render())
 
 	if !ok {
-		var msg strings.Builder
-		fmt.Fprintf(&msg, "%d scanning %s occurred:", errorCount, out.Plural(errorCount, "error", "errors"))
+		d.Print(out.Error, "%d scanning %s occurred:\n", errorCount, out.Plural(errorCount, "error", "errors"))
 		for _, errorPath := range pathsWithErrors {
-			msg.WriteString(d.printer.Sprintf("\n%s@%s: %s%s%s", library.ColorForStatus(library.Error), d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), out.Invert, errorPath.GetError(), out.Reset))
+			d.Print(out.Error, "%s@%s: %s%s\n", library.ColorForStatus(library.Error), d.displayablePath(filepath.Join(libRoot, errorPath.AnchoredPath()), false, false), errorPath.GetError(), out.Reset)
 		}
-		return fmt.Errorf("%s", msg.String())
 	}
 	return nil
 }
 
-func (d *doccurator) PrintStatus(paths []string) error {
+func (d *doccurator) PrintStatus(paths []string) {
 	buckets := make(map[library.PathStatus][]library.CheckedPath)
 
 	if len(paths) > 0 {
@@ -194,7 +192,6 @@ func (d *doccurator) PrintStatus(paths []string) error {
 	if hasChanges == false && len(paths) == 0 {
 		d.Print(out.Normal, " Library files in sync with all records.\n\n")
 	}
-	return nil
 }
 
 func (d *doccurator) SearchByIdPart(part string) (results []SearchResult) {

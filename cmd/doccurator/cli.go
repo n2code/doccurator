@@ -302,6 +302,7 @@ func (rq *cliRequest) execute() (execErr error) {
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if execErr != nil {
 			api.RollbackAllFilesystemChanges()
@@ -395,7 +396,8 @@ func (rq *cliRequest) execute() (execErr error) {
 		}
 		return api.PersistChanges()
 	case cliverbs.Status:
-		return api.PrintStatus(rq.actionArgs)
+		api.PrintStatus(rq.actionArgs)
+		return nil
 	case cliverbs.Search:
 		matches := api.SearchByIdPart(rq.actionArgs[0])
 		matchCount := len(matches)
@@ -439,7 +441,14 @@ func main() {
 		os.Exit(rc)
 	}
 	if err := rq.execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if !rq.plain {
+			fmt.Fprint(os.Stderr, out.Red)
+		}
+		fmt.Fprint(os.Stderr, err)
+		if !rq.plain {
+			fmt.Fprint(os.Stderr, out.Reset)
+		}
+		fmt.Fprintln(os.Stderr)
 		switch rq.action {
 		case cliverbs.Add, cliverbs.Update, cliverbs.Tidy, cliverbs.Retire, cliverbs.Forget:
 			fmt.Fprintln(os.Stderr, "(library not modified because of errors)")
