@@ -1,6 +1,7 @@
 package output
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -56,6 +57,10 @@ func (p Printer) adjustModifiers(values ...interface{}) (replacements []interfac
 	for _, value := range values {
 		if _, isModifier := value.(SgrModifier); isModifier && !p.useEscapes {
 			replacements = append(replacements, "") //append empty string to satisfy fmt verbs
+			continue
+		}
+		if err, isError := value.(error); isError {
+			replacements = append(replacements, errors.New(p.Sprintf("%s%s%s%s", Red, Invert, err.Error(), Reset))) //colored error
 			continue
 		}
 		replacements = append(replacements, value)

@@ -32,9 +32,6 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 	}
 
 	var deletionCommitQueue []func() error
-	coloredError := func(err error) string {
-		return d.printer.Sprintf("%s%s%s%s", library.ColorForStatus(library.Error), out.Invert, err, out.Reset)
-	}
 
 	for _, status := range []library.PathStatus{library.Touched, library.Moved, library.Modified, library.Obsolete, library.Duplicate} {
 		count := len(buckets[status])
@@ -161,14 +158,14 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 				case library.Moved:
 					err := d.appLib.SetDocumentPath(doc, absolute)
 					if err != nil {
-						d.Print(out.Error, "update failed (%s): %s\n", displayPath, coloredError(err))
+						d.Print(out.Error, "update failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					}
 					fallthrough
 				case library.Touched, library.Modified:
 					_, err := d.appLib.UpdateDocumentFromFile(doc)
 					if err != nil {
-						d.Print(out.Error, "update failed (%s): %s\n", displayPath, coloredError(err))
+						d.Print(out.Error, "update failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					} else {
 						d.Print(out.Normal, "%s [%s] - Updated %s.\n", displayPath, lowerStatus, doc.Id())
@@ -176,7 +173,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 				case library.Obsolete, library.Duplicate:
 					tempDir, err := os.MkdirTemp(filepath.Dir(absolute), ".doccurator-tidy-delete-staging-*")
 					if err != nil {
-						d.Print(out.Error, "deletion preparation failed (%s): %s\n", displayPath, coloredError(err))
+						d.Print(out.Error, "deletion preparation failed (%s): %s\n", displayPath, err)
 						continue NextChange
 					}
 					deleteStagingDir := func(stagingDir string) func() error {
@@ -190,9 +187,9 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 
 					backup := filepath.Join(tempDir, filepath.Base(absolute))
 					if err := os.Rename(absolute, backup); err != nil {
-						d.Print(out.Error, "deletion failed (%s): %s\n", displayPath, coloredError(err))
+						d.Print(out.Error, "deletion failed (%s): %s\n", displayPath, err)
 						if err := deleteStagingDir(); err != nil {
-							d.Print(out.Error, "%s\n", coloredError(err))
+							d.Print(out.Error, "%s\n", err)
 						}
 						continue NextChange
 					}
@@ -225,7 +222,7 @@ func (d *doccurator) InteractiveTidy(choice RequestChoice, removeWaste bool) (de
 			if err := commitDelete(); err != nil {
 				//errors are reported but do not constitute an overall failure as a rollback would not work and removal from the original directory is already complete by now
 				// => failure is only possible theoretically anyway as the application should be able to remove the staging directory it has just created
-				d.Print(out.Error, "deletion has leftovers: %s\n", coloredError(err))
+				d.Print(out.Error, "deletion has leftovers: %s\n", err)
 			}
 		}
 	}
