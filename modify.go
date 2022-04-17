@@ -18,20 +18,20 @@ func (d *doccurator) UpdateByPath(filePath string) error {
 	case library.Modified, library.Touched:
 		_, err := d.appLib.UpdateDocumentFromFile(check.ReferencedDocument())
 		if err != nil {
-			return newCommandError(fmt.Sprintf("update failed: %s", filePath), err)
+			return fmt.Errorf("update failed: %s: %w", filePath, err)
 		}
 	case library.Tracked:
 		d.Print(out.Normal, "No changes detected: %s\n", filePath)
 	case library.Removed:
-		return newCommandError(fmt.Sprintf("no file found: %s", filePath), nil)
+		return fmt.Errorf("no file found: %s", filePath)
 	case library.Missing:
-		return newCommandError(fmt.Sprintf("use retire to accept missing file: %s", filePath), nil)
+		return fmt.Errorf("use retire to accept missing file: %s", filePath)
 	case library.Untracked, library.Duplicate:
-		return newCommandError(fmt.Sprintf("path not on record: %s", filePath), nil)
+		return fmt.Errorf("path not on record: %s", filePath)
 	case library.Obsolete:
-		return newCommandError(fmt.Sprintf("path already retired: %s", filePath), nil)
+		return fmt.Errorf("path already retired: %s", filePath)
 	case library.Error:
-		return newCommandError(fmt.Sprintf("path access failed: %s", filePath), check.GetError())
+		return fmt.Errorf("path access failed: %s: %w", filePath, check.GetError())
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func (d *doccurator) RetireByPath(path string) error {
 			d.Print(out.Normal, "Already retired: %s\n", path)
 			return nil //i.e. command was a no-op
 		}
-		return newCommandError(fmt.Sprintf("path to retire not on record: %s", path), nil)
+		return fmt.Errorf("path to retire not on record: %s", path)
 	}
 	d.appLib.MarkDocumentAsObsolete(doc)
 	return nil
@@ -61,11 +61,11 @@ func (d *doccurator) ForgetAllObsolete() {
 func (d *doccurator) ForgetById(id document.Id, forceRetire bool) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
-		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
+		return fmt.Errorf("document with ID %s unknown", id)
 	}
 	if !doc.IsObsolete() {
 		if !forceRetire {
-			return newCommandError(fmt.Sprintf("document to forget (ID %s) not retired", id), nil)
+			return fmt.Errorf("document to forget (ID %s) not retired", id)
 		}
 		d.appLib.MarkDocumentAsObsolete(doc)
 	}
@@ -76,7 +76,7 @@ func (d *doccurator) ForgetById(id document.Id, forceRetire bool) error {
 func (d *doccurator) StandardizeLocation(id document.Id) error {
 	doc, exists := d.appLib.GetDocumentById(id)
 	if !exists {
-		return newCommandError(fmt.Sprintf("document with ID %s unknown", id), nil)
+		return fmt.Errorf("document with ID %s unknown", id)
 	}
 	oldRelPath := doc.AnchoredPath()
 	changedName, err, rollback := doc.RenameToStandardNameFormat(false)

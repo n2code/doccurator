@@ -291,7 +291,7 @@ NextCandidate:
 			{
 				var addErr error
 				if newDoc, addErr = d.addSingle(newId, absolute, false, false); addErr != nil {
-					if errors.Is(addErr, RecordEmptyContentError) {
+					if errors.Is(addErr, recordEmptyContentError) {
 						for decided := false; !decided; {
 							switch choice(fmt.Sprintf("File is empty (%s), record anyway? ", displayPath), []string{"Empty record", "Skip"}, true) {
 							case "Empty record":

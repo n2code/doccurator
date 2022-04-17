@@ -92,28 +92,28 @@ func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicat
 	if !allowForDuplicateMovedAndObsolete {
 		switch check := d.appLib.CheckFilePath(absoluteFilePath, false); check.Status() { //check on add must be accurate hence no performance optimization
 		case library.Moved:
-			return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: use update to accept move (%s)", filePath), nil)
+			return library.Document{}, fmt.Errorf("document creation prevented: use update to accept move (%s)", filePath)
 		case library.Duplicate, library.Obsolete:
-			return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: override required to add duplicate/obsolete file (%s)", filePath), nil)
+			return library.Document{}, fmt.Errorf("document creation prevented: override required to add duplicate/obsolete file (%s)", filePath)
 		}
 	}
 	doc, err := d.appLib.CreateDocument(id)
 	if err != nil {
-		return library.Document{}, newCommandError("document creation blocked", err)
+		return library.Document{}, fmt.Errorf("document creation blocked: %w", err)
 	}
 	err = d.appLib.SetDocumentPath(doc, absoluteFilePath)
 	if err != nil {
 		d.appLib.ForgetDocument(doc)
-		return library.Document{}, newCommandError("document creation impossible", err)
+		return library.Document{}, fmt.Errorf("document creation impossible: %w", err)
 	}
 	_, err = d.appLib.UpdateDocumentFromFile(doc)
 	if err != nil {
 		d.appLib.ForgetDocument(doc)
-		return library.Document{}, newCommandError("document creation failed", err)
+		return library.Document{}, fmt.Errorf("document creation failed: %w", err)
 	}
 	if size, _, _ := doc.RecordProperties(); size == 0 && !allowEmpty {
 		d.appLib.ForgetDocument(doc)
-		return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: file to record is empty (%s)", filePath), RecordEmptyContentError)
+		return library.Document{}, fmt.Errorf("document creation prevented: file to record is empty (%s): %w", filePath, recordEmptyContentError)
 	}
 	d.Print(out.Normal, "Added %s: %s\n", id, d.displayablePath(absoluteFilePath, true, false))
 	d.Print(out.Verbose, "%s\n", out.Indent(2, doc.String()))
