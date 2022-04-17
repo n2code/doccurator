@@ -295,141 +295,141 @@ func (rq *cliRequest) execute() (execErr error) {
 	if rq.action == cliverbs.Init {
 		_, err := doccurator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config)
 		return err
-	} else {
-		workingDir, _ := os.Getwd()
-		api, err := doccurator.Open(workingDir, config)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if execErr != nil {
-				api.RollbackAllFilesystemChanges()
-			}
-		}()
+	}
 
-		switch rq.action {
-		case cliverbs.Dump:
-			api.PrintAllRecords(*(rq.actionFlags[cliflags.DumpExcludingRetired].(*bool)))
-			return nil
-		case cliverbs.Tree:
-			return api.PrintTree(*(rq.actionFlags[cliflags.TreeWithOnlyDifferences].(*bool)), *(rq.actionFlags[cliflags.TreeOfCurrentLocation].(*bool)))
-		case cliverbs.Add:
-			tryRename := *(rq.actionFlags[cliflags.AddWithRename].(*bool))
-			autoId := *(rq.actionFlags[cliflags.AddWithAutoId].(*bool))
-			abortOnError := *(rq.actionFlags[cliflags.AddButAbortOnError].(*bool))
-			forceIfDuplicateMovedOrObsolete := *(rq.actionFlags[cliflags.AddWithForce].(*bool))
-			emptyFiles := *(rq.actionFlags[cliflags.AddEmpty].(*bool))
-			var addedIds []document.Id
-			var addErr error
-			if *(rq.actionFlags[cliflags.AddAllUntracked].(*bool)) {
-				addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, emptyFiles, autoId, abortOnError)
+	workingDir, _ := os.Getwd()
+	api, err := doccurator.Open(workingDir, config)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if execErr != nil {
+			api.RollbackAllFilesystemChanges()
+		}
+	}()
+
+	switch rq.action {
+	case cliverbs.Dump:
+		api.PrintAllRecords(*(rq.actionFlags[cliflags.DumpExcludingRetired].(*bool)))
+		return nil
+	case cliverbs.Tree:
+		return api.PrintTree(*(rq.actionFlags[cliflags.TreeWithOnlyDifferences].(*bool)), *(rq.actionFlags[cliflags.TreeOfCurrentLocation].(*bool)))
+	case cliverbs.Add:
+		tryRename := *(rq.actionFlags[cliflags.AddWithRename].(*bool))
+		autoId := *(rq.actionFlags[cliflags.AddWithAutoId].(*bool))
+		abortOnError := *(rq.actionFlags[cliflags.AddButAbortOnError].(*bool))
+		forceIfDuplicateMovedOrObsolete := *(rq.actionFlags[cliflags.AddWithForce].(*bool))
+		emptyFiles := *(rq.actionFlags[cliflags.AddEmpty].(*bool))
+		var addedIds []document.Id
+		var addErr error
+		if *(rq.actionFlags[cliflags.AddAllUntracked].(*bool)) {
+			addedIds, addErr = api.AddAllUntracked(forceIfDuplicateMovedOrObsolete, emptyFiles, autoId, abortOnError)
+		} else {
+			if explicitId := *(rq.actionFlags[cliflags.AddWithGivenId].(*string)); explicitId != "" {
+				numId, err, complete := ndocid.Decode(explicitId)
+				if err != nil {
+					return fmt.Errorf(`error in ID "%s" (%w)`, explicitId, err)
+				}
+				if !complete {
+					return fmt.Errorf(`incomplete ID "%s"`, explicitId)
+				}
+				newId := document.Id(numId)
+				addErr = api.AddWithId(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete, emptyFiles)
+				if addErr == nil {
+					addedIds = append(addedIds, newId)
+				}
 			} else {
-				if explicitId := *(rq.actionFlags[cliflags.AddWithGivenId].(*string)); explicitId != "" {
-					numId, err, complete := ndocid.Decode(explicitId)
-					if err != nil {
-						return fmt.Errorf(`error in ID "%s" (%w)`, explicitId, err)
-					}
-					if !complete {
-						return fmt.Errorf(`incomplete ID "%s"`, explicitId)
-					}
-					newId := document.Id(numId)
-					addErr = api.AddWithId(newId, rq.actionArgs[0], forceIfDuplicateMovedOrObsolete, emptyFiles)
-					if addErr == nil {
-						addedIds = append(addedIds, newId)
+				if len(rq.actionArgs) == 0 {
+					fmt.Fprint(os.Stdout, "(To stop adding more files: SIGINT/Ctrl+C during prompts)\n")
+					cancelled := api.InteractiveAdd(PromptUser(!rq.plain))
+					if cancelled {
+						fmt.Fprint(os.Stdout, "(Interactive mode interrupted, repeat command to continue)\n")
 					}
 				} else {
-					if len(rq.actionArgs) == 0 {
-						fmt.Fprint(os.Stdout, "(To stop adding more files: SIGINT/Ctrl+C during prompts)\n")
-						cancelled := api.InteractiveAdd(PromptUser(!rq.plain))
-						if cancelled {
-							fmt.Fprint(os.Stdout, "(Interactive mode interrupted, repeat command to continue)\n")
-						}
-					} else {
-						addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, emptyFiles, autoId, abortOnError)
-					}
+					addedIds, addErr = api.AddMultiple(rq.actionArgs, forceIfDuplicateMovedOrObsolete, emptyFiles, autoId, abortOnError)
 				}
 			}
-			if addErr != nil {
-				return addErr
-			}
-			if tryRename {
-				for _, addedId := range addedIds {
-					err := api.StandardizeLocation(addedId)
-					if err != nil {
-						return fmt.Errorf(`renaming file of document %s failed: %w`, addedId, err)
-					}
-				}
-			}
-			return api.PersistChanges()
-		case cliverbs.Update:
-			for _, target := range rq.actionArgs {
-				if err := api.UpdateByPath(target); err != nil {
-					return err
-				}
-			}
-			return api.PersistChanges()
-		case cliverbs.Retire:
-			for _, target := range rq.actionArgs {
-				if err := api.RetireByPath(target); err != nil {
-					return err
-				}
-			}
-			return api.PersistChanges()
-		case cliverbs.Forget:
-			if *(rq.actionFlags[cliflags.ForgetAllRetired].(*bool)) {
-				api.ForgetAllObsolete()
-			} else {
-				for _, target := range rq.actionArgs {
-					numId, err, complete := ndocid.Decode(target)
-					if err != nil {
-						return fmt.Errorf(`error in ID "%s" (%w)`, target, err)
-					}
-					if !complete {
-						return fmt.Errorf(`incomplete ID "%s"`, target)
-					}
-					if err := api.ForgetById(document.Id(numId), false); err != nil {
-						return err
-					}
-				}
-			}
-			return api.PersistChanges()
-		case cliverbs.Status:
-			return api.PrintStatus(rq.actionArgs)
-		case cliverbs.Search:
-			matches := api.SearchByIdPart(rq.actionArgs[0])
-			matchCount := len(matches)
-			if matchCount == 0 && !rq.quiet {
-				return fmt.Errorf("no matches found for ID [part]: %s", rq.actionArgs[0])
-			}
-			for _, match := range matches {
-				fmt.Fprintf(os.Stdout, "\n%s (%s)\n", match.Path, match.StatusText)
-				api.PrintRecord(match.Id)
-			}
-			fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, out.Plural(matchCount, "match", "matches"))
-			return nil
-		case cliverbs.Tidy:
-			choice := PromptUser(!rq.plain)
-			if *(rq.actionFlags[cliflags.TidyWithoutConfirmation].(*bool)) {
-				choice = AutoChooseDefaultOption(rq.quiet)
-			} else {
-				fmt.Fprint(os.Stdout, "(To abort and undo everything: SIGINT/Ctrl+C during prompts)\n")
-			}
-			removeWaste := *(rq.actionFlags[cliflags.TidyRemovingWaste].(*bool))
-			decisionsMade, foundWaste, cancelled := api.InteractiveTidy(choice, removeWaste)
-			if cancelled {
-				return fmt.Errorf("operation aborted, undo requested")
-			}
-			if decisionsMade == 0 && !rq.quiet {
-				fmt.Fprint(os.Stdout, "Nothing to do!\n")
-				if foundWaste && !removeWaste {
-					fmt.Fprint(os.Stdout, "(Duplicate or obsolete files exist. Repeat with flag -"+cliflags.TidyRemovingWaste+" to remove.)\n")
-				}
-				fmt.Fprint(os.Stdout, "\n")
-			}
-			return api.PersistChanges()
-		default:
-			panic("bad action")
 		}
+		if addErr != nil {
+			return addErr
+		}
+		if tryRename {
+			for _, addedId := range addedIds {
+				err := api.StandardizeLocation(addedId)
+				if err != nil {
+					return fmt.Errorf(`renaming file of document %s failed: %w`, addedId, err)
+				}
+			}
+		}
+		return api.PersistChanges()
+	case cliverbs.Update:
+		for _, target := range rq.actionArgs {
+			if err := api.UpdateByPath(target); err != nil {
+				return err
+			}
+		}
+		return api.PersistChanges()
+	case cliverbs.Retire:
+		for _, target := range rq.actionArgs {
+			if err := api.RetireByPath(target); err != nil {
+				return err
+			}
+		}
+		return api.PersistChanges()
+	case cliverbs.Forget:
+		if *(rq.actionFlags[cliflags.ForgetAllRetired].(*bool)) {
+			api.ForgetAllObsolete()
+		} else {
+			for _, target := range rq.actionArgs {
+				numId, err, complete := ndocid.Decode(target)
+				if err != nil {
+					return fmt.Errorf(`error in ID "%s" (%w)`, target, err)
+				}
+				if !complete {
+					return fmt.Errorf(`incomplete ID "%s"`, target)
+				}
+				if err := api.ForgetById(document.Id(numId), false); err != nil {
+					return err
+				}
+			}
+		}
+		return api.PersistChanges()
+	case cliverbs.Status:
+		return api.PrintStatus(rq.actionArgs)
+	case cliverbs.Search:
+		matches := api.SearchByIdPart(rq.actionArgs[0])
+		matchCount := len(matches)
+		if matchCount == 0 && !rq.quiet {
+			return fmt.Errorf("no matches found for ID [part]: %s", rq.actionArgs[0])
+		}
+		for _, match := range matches {
+			fmt.Fprintf(os.Stdout, "\n%s (%s)\n", match.Path, match.StatusText)
+			api.PrintRecord(match.Id)
+		}
+		fmt.Fprintf(os.Stdout, "\n\n%d %s found\n", matchCount, out.Plural(matchCount, "match", "matches"))
+		return nil
+	case cliverbs.Tidy:
+		choice := PromptUser(!rq.plain)
+		if *(rq.actionFlags[cliflags.TidyWithoutConfirmation].(*bool)) {
+			choice = AutoChooseDefaultOption(rq.quiet)
+		} else {
+			fmt.Fprint(os.Stdout, "(To abort and undo everything: SIGINT/Ctrl+C during prompts)\n")
+		}
+		removeWaste := *(rq.actionFlags[cliflags.TidyRemovingWaste].(*bool))
+		decisionsMade, foundWaste, cancelled := api.InteractiveTidy(choice, removeWaste)
+		if cancelled {
+			return fmt.Errorf("operation aborted, undo requested")
+		}
+		if decisionsMade == 0 && !rq.quiet {
+			fmt.Fprint(os.Stdout, "Nothing to do!\n")
+			if foundWaste && !removeWaste {
+				fmt.Fprint(os.Stdout, "(Duplicate or obsolete files exist. Repeat with flag -"+cliflags.TidyRemovingWaste+" to remove.)\n")
+			}
+			fmt.Fprint(os.Stdout, "\n")
+		}
+		return api.PersistChanges()
+	default:
+		panic("bad action")
 	}
 }
 
