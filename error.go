@@ -1,6 +1,7 @@
 package doccurator
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -26,3 +27,5 @@ func (e *CommandError) Unwrap() error {
 func newCommandError(message string, cause error) *CommandError {
 	return &CommandError{message: message, cause: cause}
 }
+
+var RecordEmptyContentError = errors.New("content to record is empty")

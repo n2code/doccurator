@@ -113,7 +113,7 @@ func (d *doccurator) addSingle(id document.Id, filePath string, allowForDuplicat
 	}
 	if size, _, _ := doc.RecordProperties(); size == 0 && !allowEmpty {
 		d.appLib.ForgetDocument(doc)
-		return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: file to record is empty (%s)", filePath), nil)
+		return library.Document{}, newCommandError(fmt.Sprintf("document creation prevented: file to record is empty (%s)", filePath), RecordEmptyContentError)
 	}
 	d.Print(out.Normal, "Added %s: %s\n", id, d.displayablePath(absoluteFilePath, true, false))
 	d.Print(out.Verbose, "%s\n", out.Indent(2, doc.String()))

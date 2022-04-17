@@ -3,6 +3,7 @@ package doccurator
 import (
 	checksum "crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/n2code/doccurator/internal/library"
 	out "github.com/n2code/doccurator/internal/output"
@@ -287,10 +288,27 @@ NextCandidate:
 			}
 
 			var newDoc library.Document
-			var addErr error
-			if newDoc, addErr = d.addSingle(newId, absolute, false, false); addErr != nil {
-				d.Print(out.Error, "Adding failed (%s): %s\n", displayPath, addErr)
-				continue NextCandidate
+			{
+				var addErr error
+				if newDoc, addErr = d.addSingle(newId, absolute, false, false); addErr != nil {
+					if errors.Is(addErr, RecordEmptyContentError) {
+						for decided := false; !decided; {
+							switch choice(fmt.Sprintf("File is empty (%s), record anyway? ", displayPath), []string{"Empty record", "Skip"}, true) {
+							case "Empty record":
+								decided = true
+								newDoc, addErr = d.addSingle(newId, absolute, false, true)
+							case "Skip":
+								continue NextCandidate
+							case choiceAborted:
+								return true
+							}
+						}
+					}
+					if addErr != nil {
+						d.Print(out.Error, "Adding failed (%s): %s\n", displayPath, addErr)
+						continue NextCandidate
+					}
+				}
 			}
 
 			differentNewName, namePreviewErr, _ := newDoc.RenameToStandardNameFormat(true)
