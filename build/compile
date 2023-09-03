@@ -1,6 +1,0 @@
-#!/bin/sh
-# call with working directory set to repository root
-go build -o build/doccurator ./cmd/doccurator
-sed --in-place '/doccurator -h/q' README.md
-./build/doccurator -h >> README.md 2>&1
-echo '```' >> README.md
