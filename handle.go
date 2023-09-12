@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/n2code/doccurator/internal/library"
 	"github.com/n2code/doccurator/internal/output"
+	"os"
 )
 
 type VerbosityMode int
@@ -30,24 +31,69 @@ const (
 )
 
 // New creates a new doccurator library rooted at the given root directory.
-// The library database file does not need to be located inside the root directory. However, its path must not be changed after creation.
+// The library database file does not need to be located inside the root directory.
+// However, its path must not be changed after creation.
 func New(root string, database string, config HandleConfig) (Doccurator, error) {
 	handle := makeDoccurator(config)
-	err := handle.createLibrary(mustAbsFilepath(root), mustAbsFilepath(database))
+	absoluteRoot := mustAbsFilepath(root)
+
+	err := handle.createLibrary(absoluteRoot, mustAbsFilepath(database))
 	if err != nil {
 		return nil, fmt.Errorf("library create error: %w", err)
 	}
+	handle.Print(output.Normal, "Initialized library with root %s\n", absoluteRoot)
+
+	if err := handle.createLocatorFile(absoluteRoot, false); err != nil {
+		return handle, err //the handle is usable regardless whether locator creation failed
+	}
+
 	return handle, nil
 }
 
-// Open loads the doccurator library database which tracks the given directory. (It does not need to be the library root directory.)
+// Open loads the doccurator library database which tracks the given directory.
+// (It does not need to be the library root directory.)
 func Open(directory string, config HandleConfig) (Doccurator, error) {
 	handle := makeDoccurator(config)
-	err := handle.loadLibrary(mustAbsFilepath(directory))
+
+	err := handle.discoverLibraryFile(mustAbsFilepath(directory))
 	if err != nil {
-		return nil, fmt.Errorf("library load error: %w", err)
+		return nil, fmt.Errorf("library discovery error: %w", err)
 	}
+
+	handle.loadLibrary()
+
+	root := handle.appLib.GetRoot()
+	stat, statErr := os.Stat(root)
+	if statErr != nil {
+		return nil, fmt.Errorf("library open error: %w", statErr)
+	} else if !stat.Mode().IsDir() {
+		return nil, fmt.Errorf("library open error: root %s is not a directory", root)
+	}
+
 	return handle, nil
+}
+
+// Move updates the doccurator library root without touching the persisted document paths.
+// (If the entire library root directory has moved no changes will be detected afterward.
+// If the root is set to a parent directory all documents will be considered moved.)
+func Move(newRoot string, database string, config HandleConfig) error {
+	handle := makeDoccurator(config)
+	handle.libFile = mustAbsFilepath(database)
+	handle.loadLibrary()
+
+	absNewRoot := mustAbsFilepath(newRoot)
+	handle.appLib.SetRoot(absNewRoot)
+
+	if err := handle.PersistChanges(); err != nil {
+		return err
+	}
+	handle.Print(output.Normal, "Re-Initialized library with root %s\n", absNewRoot)
+
+	if err := handle.createLocatorFile(absNewRoot, true); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type doccurator struct {
@@ -78,6 +124,6 @@ func makeDoccurator(config HandleConfig) (instance *doccurator) {
 	return
 }
 
-func (d doccurator) Print(class output.Class, format string, values ...interface{}) {
+func (d *doccurator) Print(class output.Class, format string, values ...interface{}) {
 	d.printer.ClassifiedPrintf(class, format, values...)
 }

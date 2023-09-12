@@ -237,15 +237,26 @@ ActionParamCheck:
 			break ActionParamCheck
 		}
 	case cliverbs.Init:
+		flagSpecification = " [-" + cliflags.InitDatabase + "=...] [-" + cliflags.InitUpdateRoot + "]"
 		argumentSpecification = " DIRECTORY"
 		actionDescription += "Initialize a new library in the given root DIRECTORY. Everything below\n" +
 			actionDescriptionIndent + "the root is considered to be located 'inside' the library. All files\n" +
-			actionDescriptionIndent + "inside can be recorded for the purpose of change detection."
+			actionDescriptionIndent + "inside can be recorded for the purpose of change detection.\n" +
+			actionDescriptionIndent + "The library state is recorded in a single database file. If either\n" +
+			actionDescriptionIndent + "the database file or the library folder is moved the library cannot\n" +
+			actionDescriptionIndent + "be operated on until initialization is repeated with special flags\n" +
+			actionDescriptionIndent + "for migration."
+
+		request.actionFlags[cliflags.InitDatabase] = actionParams.String(cliflags.InitDatabase, "", "library database file to be created, relative to current working\ndirectory unless an absolute path is given\n(default if empty or flag omitted: \""+defaultDbFileName+"\" in DIRECTORY)")
+		request.actionFlags[cliflags.InitUpdateRoot] = actionParams.Bool(cliflags.InitUpdateRoot, false, "update existing library file (flag \"-"+cliflags.InitDatabase+"\" is mandatory)\nwith new root DIRECTORY instead of creating a fresh library")
 		actionParams.Parse(request.actionArgs)
 		request.actionArgs = actionParams.Args()
 		if actionParams.NArg() != 1 {
 			err = errors.New("bad number of arguments, exactly one expected")
 			break ActionParamCheck
+		}
+		if *(request.actionFlags[cliflags.InitUpdateRoot].(*bool)) && *(request.actionFlags[cliflags.InitDatabase].(*string)) == "" {
+			err = errors.New(`flag "-` + cliflags.InitUpdateRoot + `" requires "-` + cliflags.InitDatabase + `" to be specified`)
 		}
 	case cliverbs.Search:
 		argumentSpecification = " ID"
@@ -293,8 +304,16 @@ func (rq *cliRequest) execute() (execErr error) {
 	}
 
 	if rq.action == cliverbs.Init {
-		_, err := doccurator.New(rq.actionArgs[0], filepath.Join(rq.actionArgs[0], defaultDbFileName), config)
-		return err
+		database := *(rq.actionFlags[cliflags.InitDatabase].(*string))
+		if *(rq.actionFlags[cliflags.InitUpdateRoot].(*bool)) {
+			return doccurator.Move(rq.actionArgs[0], database, config)
+		} else {
+			if database == "" {
+				database = filepath.Join(rq.actionArgs[0], defaultDbFileName)
+			}
+			_, err := doccurator.New(rq.actionArgs[0], database, config)
+			return err
+		}
 	}
 
 	workingDir, _ := os.Getwd()

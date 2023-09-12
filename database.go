@@ -16,8 +16,8 @@ func (d *doccurator) PersistChanges() error {
 		return fmt.Errorf("library save error: %w", err)
 	}
 	d.rollbackLog = nil
+	d.Print(out.Verbose, "Saved library rooted at %s to %s\n", d.appLib.GetRoot(), d.libFile)
 	return nil
-
 }
 
 type rollbackStep func() error
@@ -59,17 +59,11 @@ func (d *doccurator) createLibrary(absoluteRoot string, absoluteDbFilePath strin
 	if err := d.appLib.SaveToLocalFile(absoluteDbFilePath, false); err != nil {
 		return err
 	}
-
-	if err := d.createLocatorFile(absoluteRoot); err != nil {
-		return err
-	}
-
-	d.Print(out.Normal, "Initialized library with root %s\n", absoluteRoot)
 	d.Print(out.Verbose, "Database saved in %s\n", absoluteDbFilePath)
 	return nil
 }
 
-func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
+func (d *doccurator) discoverLibraryFile(startingDirectoryAbsolute string) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("library not found: %w", err)
@@ -81,13 +75,7 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 		stat, statErr := os.Stat(locatorPath)
 		if statErr == nil && stat.Mode().IsRegular() {
 			err = d.loadLibFilePathFromLocatorFile(locatorPath)
-			if err != nil {
-				return
-			}
-			d.appLib = library.NewLibrary()
-			d.appLib.LoadFromLocalFile(d.libFile)
-			d.Print(out.Verbose, "Loaded library rooted at %s from %s\n", d.appLib.GetRoot(), d.libFile)
-			return nil
+			return
 		} else if errors.Is(statErr, os.ErrNotExist) {
 			if currentDir == "/" {
 				return errors.New("stopping at filesystem root")
@@ -99,10 +87,23 @@ func (d *doccurator) loadLibrary(startingDirectoryAbsolute string) (err error) {
 	}
 }
 
+func (d *doccurator) loadLibrary() {
+	d.appLib = library.NewLibrary()
+	d.appLib.LoadFromLocalFile(d.libFile)
+	d.Print(out.Verbose, "Loaded library rooted at %s from %s\n", d.appLib.GetRoot(), d.libFile)
+}
+
 const libraryLocatorPermissions = 0o440 //owner and group can read
 
-func (d *doccurator) createLocatorFile(directory string) error {
+func (d *doccurator) createLocatorFile(directory string, deleteExisting bool) error {
 	path := filepath.Join(directory, library.LocatorFileName)
+
+	if deleteExisting {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("updating library locator (%s) failed: %w", path, err)
+		}
+	}
+
 	locationUri := url.URL{Scheme: "file", Path: d.libFile}
 	if err := os.WriteFile(path, []byte(locationUri.String()), libraryLocatorPermissions); err != nil {
 		return fmt.Errorf("writing library locator (%s) failed: %w", path, err)
