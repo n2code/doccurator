@@ -61,24 +61,49 @@ func (d *doccurator) PrintTree(excludeUnchanged bool, onlyWorkingDir bool) error
 	}
 
 	tree := out.NewVisualFileTree(label)
+	nodeSuffix := d.printer.Sprintf("%s", out.Reset)
 
 	var pathsWithErrors []*library.CheckedPath
+	var pathsMissing []*library.CheckedPath
+	movedIdsInScope := make(map[document.Id]bool)
 	paths, ok := d.appLib.Scan(d.getScanSkipEvaluators(), displayFilters, d.optimizedFsAccess) //full scan may optimize performance if allowed to
+
+	addPathToTree := func(node *library.CheckedPath) {
+		status := node.Status()
+		symbol := fmt.Sprintf("[%c] ", status)
+		switch status {
+		case library.Tracked:
+			symbol = "" // to reduce clutter for the majority of entries
+		case library.Moved:
+			referenced := node.ReferencedDocument()
+			movedIdsInScope[referenced.Id()] = true
+		case library.Error:
+			pathsWithErrors = append(pathsWithErrors, node)
+		}
+		nodePrefix := d.printer.Sprintf("%s%s", library.ColorForStatus(status), symbol)
+		tree.InsertPath(strings.TrimPrefix(node.AnchoredPath(), trimPrefix), nodePrefix, nodeSuffix)
+	}
+
 	for index, checkedPath := range paths {
-		prefix, suffix := "", ""
 		status := checkedPath.Status()
 		if excludeUnchanged && !status.RepresentsChange() {
 			continue
 		}
-		if status != library.Tracked {
-			prefix = fmt.Sprintf("[%c] ", status)
+		if status == library.Missing {
+			// delay processing of missing paths to detect moves [in scan scope]
+			pathsMissing = append(pathsMissing, &paths[index])
+			continue
 		}
-		prefix = d.printer.Sprintf("%s%s", library.ColorForStatus(status), prefix)
-		suffix = d.printer.Sprintf("%s", out.Reset)
-		tree.InsertPath(strings.TrimPrefix(checkedPath.AnchoredPath(), trimPrefix), prefix, suffix)
-		if status == library.Error {
-			pathsWithErrors = append(pathsWithErrors, &paths[index])
+		addPathToTree(&paths[index])
+	}
+	for _, missing := range pathsMissing {
+		lost := missing.ReferencedDocument()
+		if _, wasMoved := movedIdsInScope[lost.Id()]; wasMoved {
+			nodePrefix := d.printer.Sprintf("%s[<] ", out.FaintIntensity)
+			tree.InsertPath(strings.TrimPrefix(missing.AnchoredPath(), trimPrefix), nodePrefix, nodeSuffix)
+			continue
 		}
+		addPathToTree(missing)
 	}
 	errorCount := len(pathsWithErrors)
 

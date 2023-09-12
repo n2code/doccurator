@@ -80,7 +80,7 @@ func (lib *library) GetObsoleteDocumentsForPath(absolutePath string) (retirees [
 	return
 }
 
-//getAllObsoleteDocumentsAt returns all obsoleted documents that used to be present at the given path, nil if none exists
+// getAllObsoleteDocumentsAt returns all obsoleted documents that used to be present at the given path, nil if none exists
 func (lib *library) getAllObsoleteDocumentsAt(anchored string) (retirees []document.Api) {
 	//linear scan, could be improved
 	for _, doc := range lib.documents {
@@ -132,7 +132,9 @@ func (lib *library) loadIgnoreFile(absoluteIgnoreFile string) (err error) {
 	if openErr != nil {
 		return openErr
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	lineScanner := bufio.NewScanner(file) //splits by newline by default
 	var line string
@@ -267,7 +269,7 @@ func (lib *library) Scan(scanFilters []PathSkipEvaluator, resultFilters []PathSk
 
 		return nil
 	}
-	filepath.WalkDir(lib.rootPath, visitor) //errors are communicated as entry in output parameter
+	_ = filepath.WalkDir(lib.rootPath, visitor) //errors are communicated as entry in output parameter
 
 	for _, doc := range lib.documents {
 		if _, alreadyCheckedPath := coveredLibraryPaths[doc.AnchoredPath()]; !alreadyCheckedPath {
@@ -305,7 +307,7 @@ func (lib *library) SetRoot(absolutePath string) {
 	lib.rootPath = absolutePath
 }
 
-//yields absolute path
+// yields absolute path
 func (lib *library) GetRoot() string {
 	return lib.rootPath
 }
@@ -347,9 +349,9 @@ func (libDoc *Document) AnchoredPath() string {
 	return doc.AnchoredPath()
 }
 
-func (libDoc *Document) RecordProperties() (size int64, modTime time.Time, sha256 [checksum.Size]byte) {
+func (libDoc *Document) RecordProperties() (size int64, modTime time.Time, sha256sum [checksum.Size]byte) {
 	doc := libDoc.library.documents[libDoc.id] //existence probe, caller error if any is nil
-	size, modTimeUnix, sha256 := doc.RecordedFileProperties()
+	size, modTimeUnix, sha256sum := doc.RecordedFileProperties()
 	modTime = time.Unix(int64(modTimeUnix), 0)
 	return
 }
