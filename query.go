@@ -207,6 +207,9 @@ func (d *doccurator) PrintStatus(paths []string) {
 			case library.Moved:
 				originalRecord := result.ReferencedDocument()
 				d.Print(out.Normal, "      previous: %s\n", d.displayablePath(d.appLib.Absolutize(originalRecord.AnchoredPath()), true, false))
+			case library.Duplicate:
+				identicalRecord := result.ReferencedDocument()
+				d.Print(out.Normal, "      identical: %s\n", d.displayablePath(d.appLib.Absolutize(identicalRecord.AnchoredPath()), true, false))
 			case library.Error:
 				d.Print(out.Normal, "      ")
 				d.Print(out.Error, "%s%s%s%s%s\n", library.ColorForStatus(library.Error), out.Invert, result.GetError(), out.Invert, out.Reset)
