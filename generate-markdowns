@@ -1,0 +1,17 @@
+#!/bin/sh
+README="README.md"
+ACTIONS="actions.md"
+sed --in-place '/doccurator -h/q' $README
+{ ./build/doccurator -h >> $README 2>&1 ;
+  echo '```' ;
+  echo "Check [$ACTIONS]($ACTIONS) for the full action verb help."
+} >> $README
+echo '# actions documentation' > $ACTIONS
+for action in $(./build/doccurator -h 2>&1 | sed -n 's/\s*ACTIONs://p') ; do
+  { echo '## `'"$action"'`'
+    echo '```console' ;
+    echo "$ doccurator $action -h" ;
+    ./build/doccurator "$action" -h 2>&1 ;
+    echo '```' ;
+  } >> $ACTIONS
+done

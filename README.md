@@ -60,3 +60,4 @@ Usage:
     doccurator <ACTION> -h
 
 ```
+Check [actions.md](actions.md) for the full action verb help.
